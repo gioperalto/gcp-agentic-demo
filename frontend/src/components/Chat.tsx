@@ -4,12 +4,18 @@ import type { Message } from '../types/chat';
 import { streamChatResponse } from '../utils/api';
 import { ChatMessage } from './ChatMessage';
 import { ChatInput } from './ChatInput';
+import { PreviewModal } from './PreviewModal';
 import './Chat.css';
 
 export function Chat() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [currentAgent, setCurrentAgent] = useState<string>('Sam');
+  const [previewData, setPreviewData] = useState<{ isOpen: boolean; data: any; type: string }>({
+    isOpen: false,
+    data: null,
+    type: ''
+  });
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const currentMessageRef = useRef<string>('');
   const currentAgentRef = useRef<string>('Sam');
@@ -128,51 +134,73 @@ export function Chat() {
     }
   };
 
+  const handlePreviewClick = (data: any, type: string) => {
+    setPreviewData({
+      isOpen: true,
+      data,
+      type
+    });
+  };
+
   return (
-    <div className="chat-container">
-      <div className="chat-header">
-        <div className="header-content">
-          <h1>🌍 Travel Planner</h1>
-          <p className="header-subtitle">
-            Plan your perfect trip with help from {currentAgent}
-          </p>
-        </div>
-      </div>
-
-      <div className="messages-container">
-        {messages.length === 0 && (
-          <div className="welcome-message">
-            <div className="welcome-icon">✈️</div>
-            <h2>Welcome to Travel Planner!</h2>
-            <p>
-              I'm Sam, your travel coordinator. I work with a team of specialists:
+    <div className={`chat-wrapper ${previewData.isOpen ? 'split-view' : ''}`}>
+      <div className="chat-container">
+        <div className="chat-header">
+          <div className="header-content">
+            <h1>🌍 Travel Planner</h1>
+            <p className="header-subtitle">
+              Plan your perfect trip with help from {currentAgent}
             </p>
-            <ul className="specialists-list">
-              <li>✈️ <strong>Jenny</strong> - Flight searches</li>
-              <li>🏨 <strong>Marcus</strong> - Accommodation bookings</li>
-              <li>🗺️ <strong>Sofia</strong> - Itinerary planning</li>
-              <li>💰 <strong>Alex</strong> - Budget management</li>
-            </ul>
-            <p>Ask me anything about your travel plans!</p>
           </div>
-        )}
+        </div>
 
-        {messages.map((message) => (
-          <ChatMessage key={message.id} message={message} />
-        ))}
+        <div className="messages-container">
+          {messages.length === 0 && (
+            <div className="welcome-message">
+              <div className="welcome-icon">✈️</div>
+              <h2>Welcome to Travel Planner!</h2>
+              <p>
+                I'm Sam, your travel coordinator. I work with a team of specialists:
+              </p>
+              <ul className="specialists-list">
+                <li>✈️ <strong>Jenny</strong> - Flight searches</li>
+                <li>🏨 <strong>Marcus</strong> - Accommodation bookings</li>
+                <li>🗺️ <strong>Sofia</strong> - Itinerary planning & attractions</li>
+                <li>🍽️ <strong>Luca</strong> - Restaurant recommendations</li>
+                <li>💰 <strong>Alex</strong> - Budget management</li>
+              </ul>
+              <p>Ask me anything about your travel plans!</p>
+            </div>
+          )}
 
-        {isLoading && (
-          <div className="typing-indicator">
-            <span></span>
-            <span></span>
-            <span></span>
-          </div>
-        )}
+          {messages.map((message) => (
+            <ChatMessage
+              key={message.id}
+              message={message}
+              onPreviewClick={handlePreviewClick}
+            />
+          ))}
 
-        <div ref={messagesEndRef} />
+          {isLoading && (
+            <div className="typing-indicator">
+              <span></span>
+              <span></span>
+              <span></span>
+            </div>
+          )}
+
+          <div ref={messagesEndRef} />
+        </div>
+
+        <ChatInput onSendMessage={handleSendMessage} disabled={isLoading} />
       </div>
 
-      <ChatInput onSendMessage={handleSendMessage} disabled={isLoading} />
+      <PreviewModal
+        isOpen={previewData.isOpen}
+        onClose={() => setPreviewData({ isOpen: false, data: null, type: '' })}
+        data={previewData.data}
+        type={previewData.type}
+      />
     </div>
   );
 }

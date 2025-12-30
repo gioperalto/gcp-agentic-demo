@@ -26,17 +26,17 @@ An all-in-one concierge experience for planning trips from flights to accommodat
                              │ (Coordination) │
                              └────────┬───────┘
                                       │
-                    ┌─────────────────┼──────────────┐
-                    │                 │              │
-            ┌───────▼───────┐  ┌──────▼──────┐  ┌────▼──────┐
-            │    Jenny      │  │   Marcus    │  │   Sofia   │
-            │   (Flights)   │  │(Accommod.)  │  │(Itinerary)│
-            └───────────────┘  └─────────────┘  └───────────┘
-                                                      │
-                                                ┌─────▼─────┐
-                                                │   Alex    │
-                                                │  (Budget) │
-                                                └───────────┘
+                ┌─────────────────────┼──────────────────────┐
+                │                     │                      │
+        ┌───────▼───────┐     ┌───────▼──────┐     ┌────────▼──────┐
+        │    Jenny      │     │   Marcus     │     │     Sofia     │
+        │   (Flights)   │     │ (Accommod.)  │     │ (Attractions) │
+        └───────────────┘     └──────────────┘     └───────────────┘
+                │                     │
+        ┌───────▼──────┐      ┌───────▼──────┐
+        │    Luca      │      │     Alex     │
+        │(Restaurants) │      │   (Budget)   │
+        └──────────────┘      └──────────────┘
 ```
 
 ## Quick Start
@@ -94,15 +94,20 @@ The frontend will start on `http://localhost:5173`
 
 1. Open your browser to http://localhost:5173
 2. You should see the Travel Planner chat interface
-3. Type a message like "I need a flight to Paris next week"
-4. Watch as Sam transfers you to Jenny, the flight specialist!
+3. Try various queries:
+   - "I need a flight to Paris next week" → Sam transfers to Jenny
+   - "Find me a hotel in Rome" → Sam transfers to Marcus
+   - "What restaurants serve Italian food?" → Sam transfers to Luca
+   - "Plan a 3-day itinerary in Tokyo" → Sam transfers to Sofia
+4. Watch as agents seamlessly handle your requests!
 
 ## Agent Team
 
 - **Sam** 🌟 - Main coordinator who understands your needs
 - **Jenny** ✈️ - Flight search specialist
 - **Marcus** 🏨 - Accommodation booking expert
-- **Sofia** 🗺️ - Itinerary planning specialist
+- **Sofia** 🗺️ - Itinerary planning & attractions specialist
+- **Luca** 🍽️ - Restaurant recommendations specialist
 - **Alex** 💰 - Budget management expert
 
 ## Features

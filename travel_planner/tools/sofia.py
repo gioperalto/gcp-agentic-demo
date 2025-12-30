@@ -3,8 +3,7 @@ Sofia's Itinerary Tools
 This module contains tool functions for itinerary building, attractions, and restaurant recommendations.
 """
 
-from typing import Dict, List, Any
-import random
+from typing import Dict, List, Any, Optional
 
 
 def search_attractions(
@@ -21,30 +20,46 @@ def search_attractions(
         date: Specific date to check availability
 
     Returns:
-        List of attractions with details
+        Dictionary with search criteria to help the agent find real attraction data online.
     """
-    attraction_types = ['Museum', 'Park', 'Restaurant', 'Monument', 'Beach', 'Market', 'Gallery']
-    attractions = []
+    # Build search query
+    search_guidance = f"Search for attractions and things to do in {destination}"
 
-    for i in range(6):
-        attractions.append({
-            'id': f'ATT{random.randint(1000, 9999)}',
-            'name': f'{random.choice(["Historic", "Modern", "Famous", "Hidden"])} {random.choice(attraction_types)}',
-            'type': random.choice(attraction_types),
-            'destination': destination,
-            'rating': round(random.uniform(4.0, 5.0), 1),
-            'price': random.choice([0, 10, 15, 20, 25, 30]),
-            'duration': f'{random.randint(1, 4)} hours',
-            'opening_hours': '09:00 - 18:00',
-            'best_time_to_visit': random.choice(['Morning', 'Afternoon', 'Evening']),
-            'description': f'Popular {attraction_types[i % len(attraction_types)].lower()} in {destination}'
-        })
+    if interests:
+        search_guidance += f" focusing on interests like: {', '.join(interests)}"
+
+    if date:
+        search_guidance += f" available on {date}"
+
+    search_guidance += ". Look for popular tourist attractions, museums, parks, monuments, beaches, markets, galleries, and activities. Check TripAdvisor, Google Maps, local tourism websites, and travel guides for current information including ratings, opening hours, ticket prices, and visitor reviews."
 
     return {
-        'status': 'success',
-        'destination': destination,
-        'attractions': attractions,
-        'total_results': len(attractions)
+        'status': 'search_required',
+        'message': search_guidance,
+        'search_criteria': {
+            'destination': destination,
+            'interests': interests,
+            'date': date
+        },
+        'suggested_sources': [
+            'TripAdvisor',
+            'Google Maps/Travel',
+            'Viator',
+            'GetYourGuide',
+            'Local tourism board websites',
+            'Lonely Planet',
+            'Time Out'
+        ],
+        'information_to_gather': [
+            'Attraction name and type',
+            'Location and how to get there',
+            'Opening hours',
+            'Ticket prices',
+            'Average visit duration',
+            'Best time to visit',
+            'User ratings and reviews',
+            'Booking requirements'
+        ]
     }
 
 
@@ -64,26 +79,37 @@ def create_daily_itinerary(
         preferences: User preferences as JSON string (pace, meal times, etc.)
 
     Returns:
-        Structured daily itinerary
+        Guidance for creating an itinerary
     """
-    schedule = []
-    times = ['09:00', '11:00', '13:00', '15:00', '17:00', '19:00']
+    search_guidance = f"Create a detailed itinerary for {destination} on {date}"
 
-    for i, attraction_id in enumerate(attractions[:len(times)]):
-        schedule.append({
-            'time': times[i],
-            'activity': f'Visit {attraction_id}',
-            'duration': f'{random.randint(1, 3)} hours',
-            'notes': 'Check for tickets in advance' if random.choice([True, False]) else ''
-        })
+    if attractions:
+        search_guidance += f" including these attractions: {', '.join(attractions)}"
+
+    if preferences:
+        search_guidance += f" considering preferences: {preferences}"
+
+    search_guidance += ". Research each attraction's opening hours, typical visit duration, and location. Organize them logically based on proximity to minimize travel time. Include buffer time between activities, meal breaks, and rest periods. Consider the best visiting times for each attraction (e.g., museums in the morning, sunset viewpoints in the evening)."
 
     return {
-        'status': 'success',
-        'date': date,
-        'destination': destination,
-        'schedule': schedule,
-        'total_activities': len(schedule),
-        'estimated_cost': sum([random.randint(10, 50) for _ in schedule])
+        'status': 'search_required',
+        'message': search_guidance,
+        'itinerary_planning_criteria': {
+            'destination': destination,
+            'date': date,
+            'attractions': attractions,
+            'preferences': preferences
+        },
+        'planning_considerations': [
+            'Opening and closing hours of each attraction',
+            'Estimated time needed at each location',
+            'Travel time between locations',
+            'Meal times and restaurant locations',
+            'Peak visiting times and crowds',
+            'Energy levels throughout the day',
+            'Weather conditions',
+            'Booking requirements'
+        ]
     }
 
 
@@ -96,59 +122,21 @@ def check_operating_hours(attraction_id: str, date: str) -> Dict[str, Any]:
         date: Date to check (YYYY-MM-DD)
 
     Returns:
-        Operating hours and availability
+        Guidance for checking operating hours
     """
     return {
-        'status': 'success',
+        'status': 'search_required',
+        'message': f'To check the operating hours for {attraction_id} on {date}, search for the attraction\'s official website or check platforms like Google Maps, TripAdvisor, or the venue\'s social media. Look for: regular operating hours, special holiday hours, last entry times, days when it\'s closed, and any seasonal variations. Also check if advance booking is required.',
         'attraction_id': attraction_id,
         'date': date,
-        'is_open': True,
-        'hours': {
-            'opening': '09:00',
-            'closing': '18:00'
-        },
-        'special_notes': 'Last entry 30 minutes before closing'
-    }
-
-
-def get_restaurant_recommendations(
-    destination: str,
-    cuisine_type: str = None,
-    price_range: str = 'medium',
-    meal_type: str = 'dinner'
-) -> Dict[str, Any]:
-    """
-    Get restaurant recommendations for a destination.
-
-    Args:
-        destination: City or location
-        cuisine_type: Type of cuisine
-        price_range: Budget level (low, medium, high)
-        meal_type: Breakfast, lunch, or dinner
-
-    Returns:
-        List of restaurant recommendations
-    """
-    cuisines = ['Italian', 'Japanese', 'Mexican', 'French', 'American', 'Thai']
-    restaurants = []
-
-    price_map = {'low': '$', 'medium': '$$', 'high': '$$$'}
-
-    for i in range(4):
-        restaurants.append({
-            'id': f'REST{random.randint(1000, 9999)}',
-            'name': f"The {random.choice(['Golden', 'Silver', 'Happy', 'Tasty'])} {random.choice(cuisines)}",
-            'cuisine': cuisine_type or random.choice(cuisines),
-            'price_range': price_map.get(price_range, '$$'),
-            'rating': round(random.uniform(4.0, 5.0), 1),
-            'location': destination,
-            'average_cost_per_person': random.randint(15, 60),
-            'reservation_required': random.choice([True, False])
-        })
-
-    return {
-        'status': 'success',
-        'destination': destination,
-        'meal_type': meal_type,
-        'restaurants': restaurants
+        'information_to_check': [
+            'Regular operating hours',
+            'Special hours for the specific date',
+            'Days closed (if any)',
+            'Last entry/admission time',
+            'Seasonal variations',
+            'Holiday closures',
+            'Advance booking requirements',
+            'Peak times to avoid crowds'
+        ]
     }

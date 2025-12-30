@@ -4,7 +4,6 @@ This module contains tool functions for flight search and comparison.
 """
 
 from typing import Dict, List, Any
-import random
 
 
 def search_flights(
@@ -29,51 +28,45 @@ def search_flights(
         direct_only: Only show direct flights
 
     Returns:
-        Dictionary with flight options and details
+        Dictionary with search criteria to help the agent find real flight data online.
     """
-    # Mock flight data - in production, this would call real flight APIs
-    flight_options = []
+    # Build search query components
+    trip_type = "round trip" if return_date else "one way"
+    price_constraint = f"under ${max_price}" if max_price else ""
+    airline_constraint = f"on {airline_preference}" if airline_preference else ""
+    direct_constraint = "direct flights only" if direct_only else ""
 
-    airlines = ['United Airlines', 'Delta', 'American Airlines', 'Southwest', 'JetBlue']
-    base_price = random.randint(250, 800)
+    # Construct helpful search guidance
+    search_guidance = f"Search for {trip_type} flights from {origin} to {destination} departing on {departure_date}"
+    if return_date:
+        search_guidance += f" returning on {return_date}"
 
-    for i in range(3):
-        airline = random.choice(airlines) if not airline_preference else airline_preference
-        is_direct = direct_only or random.choice([True, False])
+    constraints = [c for c in [price_constraint, airline_constraint, direct_constraint] if c]
+    if constraints:
+        search_guidance += f" ({', '.join(constraints)})"
 
-        flight = {
-            'flight_number': f'{airline[:2].upper()}{random.randint(100, 999)}',
-            'airline': airline,
-            'origin': origin,
-            'destination': destination,
-            'departure_date': departure_date,
-            'departure_time': f'{random.randint(6, 20):02d}:{random.choice(["00", "30"])}',
-            'arrival_time': f'{random.randint(8, 22):02d}:{random.choice(["00", "30"])}',
-            'duration': f'{random.randint(2, 8)}h {random.randint(0, 55)}m',
-            'price': base_price + random.randint(-100, 200),
-            'direct': is_direct,
-            'stops': 0 if is_direct else random.randint(1, 2),
-            'seats_available': random.randint(5, 50)
-        }
-
-        if return_date:
-            flight['return_date'] = return_date
-            flight['return_departure_time'] = f'{random.randint(6, 20):02d}:{random.choice(["00", "30"])}'
-            flight['return_arrival_time'] = f'{random.randint(8, 22):02d}:{random.choice(["00", "30"])}'
-
-        if max_price is None or flight['price'] <= max_price:
-            flight_options.append(flight)
+    search_guidance += ". Look for current prices on flight booking websites like Google Flights, Kayak, Skyscanner, or airline websites."
 
     return {
-        'status': 'success',
+        'status': 'search_required',
+        'message': search_guidance,
         'search_criteria': {
             'origin': origin,
             'destination': destination,
             'departure_date': departure_date,
-            'return_date': return_date
+            'return_date': return_date,
+            'max_price': max_price,
+            'airline_preference': airline_preference,
+            'direct_only': direct_only,
+            'trip_type': trip_type
         },
-        'options': flight_options,
-        'total_results': len(flight_options)
+        'suggested_sources': [
+            'Google Flights',
+            'Kayak',
+            'Skyscanner',
+            'Expedia',
+            'Direct airline websites'
+        ]
     }
 
 
@@ -85,14 +78,25 @@ def compare_flight_prices(flight_ids: List[str]) -> Dict[str, Any]:
         flight_ids: List of flight identifiers to compare
 
     Returns:
-        Comparison data including best value, fastest, and cheapest options
+        Guidance for comparing flight options
     """
+    if not flight_ids:
+        return {
+            'status': 'error',
+            'message': 'No flight identifiers provided to compare'
+        }
+
     return {
-        'status': 'success',
-        'comparison': {
-            'cheapest': flight_ids[0] if flight_ids else None,
-            'fastest': flight_ids[1] if len(flight_ids) > 1 else None,
-            'best_value': flight_ids[0] if flight_ids else None
-        },
-        'recommendation': f'Best overall value: {flight_ids[0]}' if flight_ids else 'No flights to compare'
+        'status': 'search_required',
+        'message': f'To compare these flights: {", ".join(flight_ids)}, search for each flight number on airline websites or flight comparison tools. Compare based on: total price, flight duration, number of stops, departure/arrival times, baggage allowance, and cancellation policies. Consider the best value based on your priorities (price vs convenience).',
+        'flight_ids': flight_ids,
+        'comparison_factors': [
+            'Total price',
+            'Flight duration',
+            'Number of stops',
+            'Departure/arrival times',
+            'Baggage allowance',
+            'Cancellation policy',
+            'Airline reputation'
+        ]
     }

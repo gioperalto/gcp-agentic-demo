@@ -3,8 +3,8 @@ Marcus's Accommodation Tools
 This module contains tool functions for accommodation search and reviews.
 """
 
-from typing import Dict, List, Any
-import random
+from typing import Dict, List, Any, Optional
+from .accommodations import normalize_accommodation_type
 
 
 def search_accommodations(
@@ -25,49 +25,55 @@ def search_accommodations(
         check_in_date: Check-in date (YYYY-MM-DD)
         check_out_date: Check-out date (YYYY-MM-DD)
         guests: Number of guests
-        accommodation_type: Type (hotel, airbnb, hostel, resort)
+        accommodation_type: Type (hotel, airbnb, hostel, villa)
         max_price_per_night: Maximum price per night
         amenities: List of required amenities
         min_rating: Minimum rating (1-5)
 
     Returns:
-        Dictionary with accommodation options
+        Dictionary with search criteria to help the agent find real accommodation data online.
     """
-    accommodation_types = ['Hotel', 'Airbnb', 'Resort', 'Hostel', 'Vacation Rental']
-    accommodation_options = []
+    # Normalize the accommodation type to match predefined list
+    normalized_type = normalize_accommodation_type(accommodation_type)
 
-    for i in range(4):
-        price = random.randint(50, 300)
-        rating = round(random.uniform(3.5, 5.0), 1)
+    # Build search query
+    search_guidance = f"Search for {normalized_type.lower()} accommodations in {destination} for {guests} guest(s)"
+    search_guidance += f" from {check_in_date} to {check_out_date}"
 
-        accommodation = {
-            'id': f'ACC{random.randint(1000, 9999)}',
-            'name': f'{random.choice(["Grand", "Cozy", "Luxury", "Budget", "Boutique"])} {random.choice(["Hotel", "Inn", "Suites", "Lodge"])}',
-            'type': random.choice(accommodation_types) if accommodation_type == 'any' else accommodation_type,
-            'destination': destination,
-            'price_per_night': price,
-            'rating': rating,
-            'reviews_count': random.randint(50, 500),
-            'amenities': ['WiFi', 'Parking', 'Pool', 'Gym', 'Breakfast'],
-            'distance_to_center': f'{random.uniform(0.5, 5.0):.1f} km',
-            'check_in': check_in_date,
-            'check_out': check_out_date,
-            'available_rooms': random.randint(1, 10)
-        }
+    constraints = []
+    if max_price_per_night:
+        constraints.append(f"maximum ${max_price_per_night} per night")
+    if min_rating > 3.0:
+        constraints.append(f"minimum {min_rating} star rating")
+    if amenities:
+        constraints.append(f"with amenities: {', '.join(amenities)}")
 
-        if (max_price_per_night is None or price <= max_price_per_night) and rating >= min_rating:
-            accommodation_options.append(accommodation)
+    if constraints:
+        search_guidance += f" ({', '.join(constraints)})"
+
+    search_guidance += ". Search on booking platforms like Booking.com, Airbnb, Hotels.com, Expedia, or hotel websites for current availability and pricing."
 
     return {
-        'status': 'success',
+        'status': 'search_required',
+        'message': search_guidance,
         'search_criteria': {
             'destination': destination,
-            'check_in': check_in_date,
-            'check_out': check_out_date,
-            'guests': guests
+            'check_in_date': check_in_date,
+            'check_out_date': check_out_date,
+            'guests': guests,
+            'accommodation_type': normalized_type,
+            'max_price_per_night': max_price_per_night,
+            'amenities': amenities,
+            'min_rating': min_rating
         },
-        'options': accommodation_options,
-        'total_results': len(accommodation_options)
+        'suggested_sources': [
+            'Booking.com',
+            'Airbnb',
+            'Hotels.com',
+            'Expedia',
+            'Agoda',
+            'Hotel direct websites'
+        ]
     }
 
 
@@ -79,21 +85,20 @@ def get_accommodation_reviews(accommodation_id: str) -> Dict[str, Any]:
         accommodation_id: Unique identifier for the accommodation
 
     Returns:
-        Reviews and ratings breakdown
+        Guidance for finding reviews
     """
     return {
-        'status': 'success',
+        'status': 'search_required',
+        'message': f'To find reviews for accommodation {accommodation_id}, search for it on booking platforms like Booking.com, TripAdvisor, Google Reviews, or Airbnb. Look for: overall ratings, cleanliness ratings, location ratings, value for money, service quality, and recent guest reviews. Pay attention to both positive and negative feedback patterns.',
         'accommodation_id': accommodation_id,
-        'overall_rating': round(random.uniform(4.0, 5.0), 1),
-        'ratings_breakdown': {
-            'cleanliness': round(random.uniform(4.0, 5.0), 1),
-            'location': round(random.uniform(4.0, 5.0), 1),
-            'value': round(random.uniform(3.5, 5.0), 1),
-            'service': round(random.uniform(4.0, 5.0), 1)
-        },
-        'recent_reviews': [
-            {'rating': 5, 'comment': 'Excellent location and very clean!'},
-            {'rating': 4, 'comment': 'Great stay, would recommend.'},
-            {'rating': 5, 'comment': 'Perfect for our family vacation.'}
+        'review_aspects_to_check': [
+            'Overall rating',
+            'Cleanliness',
+            'Location',
+            'Value for money',
+            'Service/Staff',
+            'Amenities',
+            'Recent reviews (last 3-6 months)',
+            'Common complaints or praises'
         ]
     }

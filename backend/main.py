@@ -1,26 +1,36 @@
 """
 FastAPI backend for Travel Planner with streaming support
 """
-import os
-import json
-import asyncio
-from typing import AsyncGenerator
+import os, json, asyncio, sys
+from ddtrace.llmobs import LLMObs
+from ddtrace.llmobs.decorators import workflow, agent
+from ddtrace.appsec.track_user_sdk import track_custom_event
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
+from typing import AsyncGenerator
 from pydantic import BaseModel
 from dotenv import load_dotenv
-import sys
+from google.adk.runners import InMemoryRunner
+from google.genai import types
 
 # Add parent directory to path to import travel_planner
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from travel_planner.agent import root_agent
-from google.adk.runners import InMemoryRunner
-from google.genai import types
 
 # Load environment variables
 load_dotenv()
+
+# Datadog LLM Observability setup
+LLMObs.enable(
+  ml_app="travel-planner",
+  api_key=os.getenv("DATADOG_API_KEY"),
+  site=os.getenv("DD_SITE", "datadoghq.com"),
+  agentless_enabled=True,
+  env=os.getenv("ENV", "development"),
+  service="travel-planner-api",
+)
 
 # Create runner instance
 runner = InMemoryRunner(agent=root_agent, app_name="travel-planner")
@@ -46,13 +56,14 @@ class ChatMessage(BaseModel):
     type: str  # "agent_transfer", "content", "done", "error"
     data: dict
 
-
+@agent
 def get_agent_friendly_message(agent_name: str) -> str:
     """Generate user-friendly transfer messages based on agent name"""
     messages = {
         "Jenny": "Transferring you to Jenny, our flight specialist. She'll help you find the best flights! ✈️",
         "Marcus": "Connecting you with Marcus, our accommodation expert. He'll help you find the perfect place to stay! 🏨",
         "Sofia": "Bringing in Sofia, our itinerary specialist. She'll help plan your perfect trip! 🗺️",
+        "Luca": "Connecting you with Luca, our restaurant specialist. He'll help you find amazing dining experiences! 🍽️",
         "Alex": "Connecting you with Alex, our budget manager. They'll help you manage your travel costs! 💰",
         "Sam": "Returning to Sam, your travel planner! 🌟"
     }
@@ -63,24 +74,11 @@ async def stream_agent_response(message: str, session_id: str) -> AsyncGenerator
     """
     Stream agent responses with agent transfer notifications
     """
-    try:
-        current_agent = "Sam"  # Start with root agent
-
-        # Ensure session exists before running the agent
-        existing_session = await runner.session_service.get_session(
-            app_name="travel-planner",
-            user_id=session_id,
-            session_id=session_id
-        )
-
-        if existing_session is None:
-            # Create new session with the frontend-provided session_id
-            await runner.session_service.create_session(
-                app_name="travel-planner",
-                user_id=session_id,
-                session_id=session_id
-            )
-
+    @workflow(session_id=session_id)
+    async def run_agent(message: str, session_id: str, current_agent: str, sub_agents: set) -> AsyncGenerator[str, None]:
+        """
+        Run the agent and stream events with agent transfer notifications
+        """
         # Run the agent with async streaming
         async for event in runner.run_async(
             user_id=session_id,  # Use session_id as user_id for anonymous users
@@ -115,19 +113,6 @@ async def stream_agent_response(message: str, session_id: str) -> AsyncGenerator
                                 event_agent = func_call.args.get('agent_name')
                                 break
 
-            # Send transfer message if agent changed
-            if event_agent and event_agent != current_agent:
-                current_agent = event_agent
-                transfer_msg = ChatMessage(
-                    type="agent_transfer",
-                    data={
-                        "agent": event_agent,
-                        "message": get_agent_friendly_message(event_agent)
-                    }
-                )
-                yield f"data: {transfer_msg.model_dump_json()}\n\n"
-                await asyncio.sleep(0.1)
-
             # Stream content based on event type
             content_text = None
 
@@ -149,6 +134,25 @@ async def stream_agent_response(message: str, session_id: str) -> AsyncGenerator
                 if text_parts:
                     content_text = ''.join(text_parts)
 
+            # Detect when sub-agent returns to Sam
+            # If we have content but no explicit agent identifier, and we're currently with a sub-agent,
+            # then we've returned to Sam
+            # if content_text and not event_agent and current_agent in sub_agents:
+            #     event_agent = "Sam"
+
+            # Send transfer message if agent changed
+            if event_agent and event_agent != current_agent:
+                current_agent = event_agent
+                transfer_msg = ChatMessage(
+                    type="agent_transfer",
+                    data={
+                        "agent": event_agent,
+                        "message": get_agent_friendly_message(event_agent)
+                    }
+                )
+                yield f"data: {transfer_msg.model_dump_json()}\n\n"
+                await asyncio.sleep(0.1)
+
             if content_text:
                 content_msg = ChatMessage(
                     type="content",
@@ -163,6 +167,29 @@ async def stream_agent_response(message: str, session_id: str) -> AsyncGenerator
             data={"message": "Response complete"}
         )
         yield f"data: {done_msg.model_dump_json()}\n\n"
+
+    try:
+        current_agent = "Sam"  # Start with root agent
+        sub_agents = {"Jenny", "Marcus", "Sofia", "Luca", "Alex"}  # Known sub-agents
+
+        # Ensure session exists before running the agent
+        existing_session = await runner.session_service.get_session(
+            app_name="travel-planner",
+            user_id=session_id,
+            session_id=session_id
+        )
+
+        if existing_session is None:
+            # Create new session with the frontend-provided session_id
+            await runner.session_service.create_session(
+                app_name="travel-planner",
+                user_id=session_id,
+                session_id=session_id
+            )
+
+        # Run the agent and stream responses
+        async for event in run_agent(message, session_id, current_agent, sub_agents):
+            yield event
 
     except Exception as e:
         import traceback

@@ -4,6 +4,7 @@ This module contains tool functions for budget management, cost calculation, and
 """
 
 from typing import Dict, Any
+from .utils import format_budget_response
 
 
 def calculate_trip_cost(
@@ -26,12 +27,13 @@ def calculate_trip_cost(
         miscellaneous: Other expenses
 
     Returns:
-        Complete cost breakdown
+        Complete cost breakdown with a 'message' field containing formatted markdown.
+        IMPORTANT: You MUST use the 'message' field verbatim in your response to users.
+        It contains special preview:// links that enable interactive popups in the UI.
     """
     total = flight_cost + accommodation_cost + activities_cost + food_cost + transportation_cost + miscellaneous
 
-    return {
-        'status': 'success',
+    budget_data = {
         'breakdown': {
             'flights': flight_cost,
             'accommodation': accommodation_cost,
@@ -51,6 +53,12 @@ def calculate_trip_cost(
         }
     }
 
+    return {
+        'status': 'success',
+        'message': format_budget_response(budget_data),
+        'data': budget_data
+    }
+
 
 def check_budget_status(
     total_budget: float,
@@ -64,7 +72,9 @@ def check_budget_status(
         current_spending: Current total spending
 
     Returns:
-        Budget status and recommendations
+        Budget status and recommendations with a 'message' field containing formatted markdown.
+        IMPORTANT: You MUST use the 'message' field verbatim in your response to users.
+        It contains special preview:// links that enable interactive popups in the UI.
     """
     remaining = total_budget - current_spending
     percentage_used = (current_spending / total_budget * 100) if total_budget > 0 else 0
@@ -75,8 +85,7 @@ def check_budget_status(
     elif percentage_used > 90:
         status = 'warning'
 
-    return {
-        'status': 'success',
+    budget_data = {
         'budget_status': status,
         'total_budget': total_budget,
         'current_spending': current_spending,
@@ -85,6 +94,12 @@ def check_budget_status(
         'alert': 'Over budget! Consider cost-saving alternatives.' if status == 'over_budget' else
                  'Approaching budget limit.' if status == 'warning' else
                  'Budget is on track.'
+    }
+
+    return {
+        'status': 'success',
+        'message': format_budget_response(budget_data),
+        'data': budget_data
     }
 
 
@@ -155,7 +170,9 @@ def allocate_budget(
         priorities: JSON string of priorities (high, medium, low) for each category
 
     Returns:
-        Recommended budget allocation
+        Recommended budget allocation with a 'message' field containing formatted markdown.
+        IMPORTANT: You MUST use the 'message' field verbatim in your response to users.
+        It contains special preview:// links that enable interactive popups in the UI.
     """
     # Default allocation percentages
     default_allocation = {
@@ -173,8 +190,7 @@ def allocate_budget(
 
     daily_budget = round(total_budget / trip_duration_days, 2) if trip_duration_days > 0 else 0
 
-    return {
-        'status': 'success',
+    budget_data = {
         'total_budget': total_budget,
         'trip_duration_days': trip_duration_days,
         'allocation': allocation,
@@ -184,4 +200,10 @@ def allocate_budget(
             'food': round(allocation['food'] / trip_duration_days, 2) if trip_duration_days > 0 else 0,
             'activities': round(allocation['activities'] / trip_duration_days, 2) if trip_duration_days > 0 else 0
         }
+    }
+
+    return {
+        'status': 'success',
+        'message': format_budget_response(budget_data),
+        'data': budget_data
     }

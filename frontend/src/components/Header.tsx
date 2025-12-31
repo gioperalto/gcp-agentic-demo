@@ -46,35 +46,35 @@ export const Header = () => {
               <div className="nav-dropdown-menu">
                 <Link
                   to="/benefits#travel-insurance"
-                  className="nav-dropdown-item"
+                  className="nav-dropdown-item cursor-pointer"
                   onClick={() => setBenefitsDropdownOpen(false)}
                 >
                   Travel Insurance
                 </Link>
                 <Link
                   to="/benefits#concierge"
-                  className="nav-dropdown-item"
+                  className="nav-dropdown-item cursor-pointer"
                   onClick={() => setBenefitsDropdownOpen(false)}
                 >
                   Concierge Services
                 </Link>
                 <Link
                   to="/benefits#lounge"
-                  className="nav-dropdown-item"
+                  className="nav-dropdown-item cursor-pointer"
                   onClick={() => setBenefitsDropdownOpen(false)}
                 >
                   Tribune Lounge
                 </Link>
                 <Link
                   to="/benefits#dining"
-                  className="nav-dropdown-item"
+                  className="nav-dropdown-item cursor-pointer"
                   onClick={() => setBenefitsDropdownOpen(false)}
                 >
                   Tribune Dining
                 </Link>
                 <Link
                   to="/benefits#jet-share"
-                  className="nav-dropdown-item"
+                  className="nav-dropdown-item cursor-pointer"
                   onClick={() => setBenefitsDropdownOpen(false)}
                 >
                   Tribune Private Jet

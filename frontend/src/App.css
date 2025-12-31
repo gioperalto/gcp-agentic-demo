@@ -1,6 +1,59 @@
 #root {
   width: 100%;
-  height: 100vh;
+  min-height: 100vh;
   margin: 0;
   padding: 0;
+}
+
+.app {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+/* Nano Banana credit overlay */
+.image-credit {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  background: linear-gradient(135deg, rgba(255, 223, 0, 0.95) 0%, rgba(255, 193, 7, 0.95) 100%);
+  color: #5d4037;
+  padding: 6px 12px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  border-top-left-radius: 8px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  box-shadow: -2px -2px 8px rgba(0, 0, 0, 0.1);
+  opacity: 0.9;
+  transition: all 0.3s ease;
+  backdrop-filter: blur(4px);
+}
+
+.image-credit:hover {
+  opacity: 1;
+  transform: scale(1.05);
+  box-shadow: -3px -3px 12px rgba(0, 0, 0, 0.15);
+}
+
+.credit-icon {
+  font-size: 1rem;
+  animation: wiggle 2s ease-in-out infinite;
+}
+
+@keyframes wiggle {
+  0%, 100% {
+    transform: rotate(0deg);
+  }
+  25% {
+    transform: rotate(-10deg);
+  }
+  75% {
+    transform: rotate(10deg);
+  }
 }

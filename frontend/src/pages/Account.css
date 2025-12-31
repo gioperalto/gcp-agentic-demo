@@ -1,0 +1,257 @@
+.account-page {
+  min-height: 100vh;
+  background: linear-gradient(to bottom, #f9f9f9 0%, #ffffff 100%);
+  padding: 2rem;
+}
+
+.experience-content {
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.experience-header {
+  text-align: center;
+  padding: 3rem 2rem;
+  border-radius: 16px;
+  margin-bottom: 3rem;
+}
+
+.legionnaire-header {
+  background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+  color: white;
+}
+
+.tribune-header {
+  background: linear-gradient(135deg, #000000 0%, #1a1a1a 100%);
+  border: 3px solid #d4af37;
+  color: white;
+}
+
+.no-card-header {
+  background: linear-gradient(135deg, #666 0%, #888 100%);
+  color: white;
+}
+
+.experience-header h1 {
+  font-size: 3rem;
+  margin-bottom: 0.5rem;
+}
+
+.tribune-header h1 {
+  color: #d4af37;
+}
+
+.experience-header p {
+  font-size: 1.2rem;
+  opacity: 0.9;
+}
+
+.experiences-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 2rem;
+}
+
+.experience-card {
+  background: white;
+  border-radius: 12px;
+  padding: 2rem;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  transition: transform 0.3s, box-shadow 0.3s;
+  text-align: center;
+}
+
+.experience-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
+}
+
+.experience-card.premium {
+  border: 2px solid #d4af37;
+  background: linear-gradient(to bottom, #ffffff 0%, #fffef8 100%);
+}
+
+.experience-icon {
+  font-size: 3rem;
+  margin-bottom: 1rem;
+}
+
+.experience-card h3 {
+  font-size: 1.5rem;
+  color: #1a1a1a;
+  margin-bottom: 1rem;
+}
+
+.experience-card p {
+  color: #666;
+  line-height: 1.6;
+  margin-bottom: 1.5rem;
+}
+
+.book-button {
+  width: 100%;
+  padding: 0.75rem;
+  background-color: #2c3e50;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.book-button:hover {
+  background-color: #34495e;
+  transform: scale(1.02);
+}
+
+.book-button.premium {
+  background: linear-gradient(135deg, #d4af37 0%, #c29d2f 100%);
+  color: #1a1a1a;
+}
+
+.book-button.premium:hover {
+  background: linear-gradient(135deg, #c29d2f 0%, #b08d28 100%);
+}
+
+/* Application Section Styles */
+.application-section {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+  gap: 3rem;
+  max-width: 1000px;
+  margin: 0 auto;
+}
+
+.application-card {
+  background: white;
+  border-radius: 16px;
+  padding: 3rem;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+  position: relative;
+  transition: transform 0.3s, box-shadow 0.3s;
+}
+
+.application-card:hover {
+  transform: translateY(-8px);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.15);
+}
+
+.application-card.premium-card {
+  border: 3px solid #d4af37;
+  background: linear-gradient(to bottom, #ffffff 0%, #fffef8 100%);
+}
+
+.premium-badge {
+  position: absolute;
+  top: -12px;
+  right: 20px;
+  background: linear-gradient(135deg, #d4af37 0%, #c29d2f 100%);
+  color: #1a1a1a;
+  padding: 0.5rem 1.5rem;
+  border-radius: 20px;
+  font-weight: 700;
+  font-size: 0.8rem;
+  letter-spacing: 1px;
+}
+
+.application-card h2 {
+  font-size: 2.5rem;
+  color: #1a1a1a;
+  margin-bottom: 0.5rem;
+}
+
+.premium-card h2 {
+  color: #d4af37;
+}
+
+.card-tagline {
+  font-size: 1.1rem;
+  color: #666;
+  margin-bottom: 2rem;
+  font-style: italic;
+}
+
+.benefit-list {
+  list-style: none;
+  padding: 0;
+  margin: 2rem 0;
+  text-align: left;
+}
+
+.benefit-list li {
+  padding: 0.75rem 0;
+  padding-left: 2rem;
+  position: relative;
+  color: #444;
+  font-size: 1rem;
+}
+
+.benefit-list li::before {
+  content: '✓';
+  position: absolute;
+  left: 0;
+  color: #4CAF50;
+  font-weight: bold;
+  font-size: 1.2rem;
+}
+
+.premium-card .benefit-list li::before {
+  color: #d4af37;
+}
+
+.price {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #1a1a1a;
+  margin: 2rem 0;
+  text-align: center;
+}
+
+.apply-card-button {
+  width: 100%;
+  padding: 1rem;
+  background-color: #2c3e50;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 1.1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.apply-card-button:hover {
+  background-color: #34495e;
+  transform: scale(1.02);
+}
+
+.apply-card-button.premium {
+  background: linear-gradient(135deg, #d4af37 0%, #c29d2f 100%);
+  color: #1a1a1a;
+}
+
+.apply-card-button.premium:hover {
+  background: linear-gradient(135deg, #c29d2f 0%, #b08d28 100%);
+}
+
+@media (max-width: 1024px) {
+  .experiences-grid {
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  }
+
+  .application-section {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 768px) {
+  .experience-header h1 {
+    font-size: 2rem;
+  }
+
+  .experiences-grid {
+    grid-template-columns: 1fr;
+  }
+}

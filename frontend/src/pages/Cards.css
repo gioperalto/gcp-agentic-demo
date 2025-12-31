@@ -1,0 +1,179 @@
+.cards-page {
+  min-height: 100vh;
+  background: linear-gradient(to bottom, #f5f5f5 0%, #ffffff 100%);
+  padding: 3rem 2rem;
+}
+
+.cards-header {
+  text-align: center;
+  margin-bottom: 3rem;
+}
+
+.cards-header h1 {
+  font-size: 3rem;
+  color: #1a1a1a;
+  margin-bottom: 0.5rem;
+}
+
+.cards-header p {
+  font-size: 1.2rem;
+  color: #666;
+}
+
+.cards-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
+  gap: 3rem;
+}
+
+.credit-card {
+  background: white;
+  border-radius: 16px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+  transition: transform 0.3s, box-shadow 0.3s;
+}
+
+.credit-card:hover {
+  transform: translateY(-8px);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.15);
+}
+
+.card-image-placeholder {
+  height: 280px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 2rem;
+  position: relative;
+}
+
+.credit-card.legionnaire .card-image-placeholder {
+  background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+  background-image: url('/img/cards/legionnaire.png');
+  background-size: cover;
+  background-position: center;
+}
+
+.credit-card.tribune .card-image-placeholder {
+  background: linear-gradient(135deg, #000000 0%, #1a1a1a 100%);
+  background-image: url('/img/cards/tribune.png');
+  background-size: cover;
+  background-position: center;
+}
+
+.card-info {
+  padding: 2rem;
+}
+
+.card-name {
+  font-size: 2rem;
+  color: #1a1a1a;
+  margin-bottom: 1.5rem;
+  font-weight: 700;
+}
+
+.tribune .card-name {
+  color: #d4af37;
+}
+
+.card-details {
+  margin-bottom: 1.5rem;
+}
+
+.card-detail-item {
+  display: flex;
+  justify-content: space-between;
+  padding: 0.75rem 0;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.detail-label {
+  font-weight: 600;
+  color: #666;
+}
+
+.detail-value {
+  font-weight: 700;
+  color: #1a1a1a;
+}
+
+.card-benefits {
+  margin: 1.5rem 0;
+}
+
+.card-benefits h3 {
+  font-size: 1.2rem;
+  color: #1a1a1a;
+  margin-bottom: 1rem;
+}
+
+.card-benefits ul {
+  list-style: none;
+  padding: 0;
+}
+
+.card-benefits li {
+  padding: 0.5rem 0;
+  padding-left: 1.5rem;
+  position: relative;
+  color: #444;
+}
+
+.card-benefits li::before {
+  content: '✓';
+  position: absolute;
+  left: 0;
+  color: #4CAF50;
+  font-weight: bold;
+}
+
+.apply-button {
+  width: 100%;
+  padding: 1rem;
+  background-color: #2c3e50;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 1.1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s;
+  margin-top: 1rem;
+}
+
+.apply-button:hover {
+  background-color: #34495e;
+  transform: scale(1.02);
+}
+
+.apply-button.premium {
+  background: linear-gradient(135deg, #d4af37 0%, #c29d2f 100%);
+  color: #1a1a1a;
+}
+
+.apply-button.premium:hover {
+  background: linear-gradient(135deg, #c29d2f 0%, #b08d28 100%);
+}
+
+@media (max-width: 1024px) {
+  .cards-container {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 600px) {
+  .cards-header h1 {
+    font-size: 2rem;
+  }
+
+  .card-image-placeholder {
+    height: 200px;
+  }
+
+  .card-name {
+    font-size: 1.5rem;
+  }
+}

@@ -1,6 +1,23 @@
+import { useState } from 'react';
+import type { CreditCard } from '../types/cards';
+import { CARDS } from '../data/cardData';
+import { CardModal } from '../components/CardModal';
 import './Cards.css';
 
 export const Cards = () => {
+  const [selectedCard, setSelectedCard] = useState<CreditCard | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+
+  const handleMoreDetails = (card: CreditCard) => {
+    setSelectedCard(card);
+    setIsModalOpen(true);
+  };
+
+  const handleCloseModal = () => {
+    setIsModalOpen(false);
+    setSelectedCard(null);
+  };
+
   return (
     <div className="cards-page">
       <div className="cards-header">
@@ -10,84 +27,48 @@ export const Cards = () => {
       </div>
 
       <div className="cards-container">
-        <div className="credit-card legionnaire">
-          <div className="card-image-placeholder">
-            <div className="image-credit">
-              Generated with Nano Banana
-              <span className="credit-icon">🍌</span>
+        {CARDS.map((card) => (
+          <div key={card.id} className={`credit-card ${card.slug}`}>
+            <div className="card-image-placeholder">
+              <div className="image-credit">
+                Generated with Nano Banana
+                <span className="credit-icon">🍌</span>
+              </div>
+            </div>
+            <div className="card-info">
+              <h2 className="card-name">{card.name}</h2>
+              <div className="card-benefits">
+                <h3>{card.id === 'tribune' ? 'Additional Benefits:' : 'Benefits:'}</h3>
+                <ul>
+                  {card.benefits.map((benefit, index) => (
+                    <li key={index}>{benefit}</li>
+                  ))}
+                </ul>
+              </div>
+              <div className="card-actions">
+                <button
+                  className="details-button"
+                  onClick={() => handleMoreDetails(card)}
+                >
+                  More Details
+                </button>
+                <button 
+                  className={`apply-button ${card.slug === 'tribune' ? 'premium' : ''}` }
+                  onClick={() => alert('Application process would start here. This is a demo.')}
+                >
+                  Apply Now
+                </button>
+              </div>
             </div>
           </div>
-          <div className="card-info">
-            <h2 className="card-name">Legionnaire</h2>
-            <div className="card-details">
-              <div className="card-detail-item">
-                <span className="detail-label">Annual Fee:</span>
-                <span className="detail-value">$120</span>
-              </div>
-              <div className="card-detail-item">
-                <span className="detail-label">APR range:</span>
-                <span className="detail-value">12.99% - 24.99%</span>
-              </div>
-              <div className="card-detail-item">
-                <span className="detail-label">Average credit score:</span>
-                <span className="detail-value">720</span>
-              </div>
-              <div className="card-detail-item">
-                <span className="detail-label">Rewards Rate:</span>
-                <span className="detail-value">2% on all purchases</span>
-              </div>
-            </div>
-            <div className="card-benefits">
-              <h3>Benefits:</h3>
-              <ul>
-                <li>Travel insurance coverage</li>
-                <li>24/7 concierge chat</li>
-              </ul>
-            </div>
-            <button className="apply-button">Apply Now</button>
-          </div>
-        </div>
-
-        <div className="credit-card tribune">
-          <div className="card-image-placeholder">
-            <div className="image-credit">
-              Generated with Nano Banana
-              <span className="credit-icon">🍌</span>
-            </div>
-          </div>
-          <div className="card-info">
-            <h2 className="card-name">Tribune</h2>
-            <div className="card-details">
-              <div className="card-detail-item">
-                <span className="detail-label">Annual Fee:</span>
-                <span className="detail-value">$10,000</span>
-              </div>
-              <div className="card-detail-item">
-                <span className="detail-label">APR range:</span>
-                <span className="detail-value">4.99-9.99%</span>
-              </div>
-              <div className="card-detail-item">
-                <span className="detail-label">Average credit score:</span>
-                <span className="detail-value">850</span>
-              </div>
-              <div className="card-detail-item">
-                <span className="detail-label">Rewards Rate:</span>
-                <span className="detail-value">Up to 5% on select purchases*</span>
-              </div>
-            </div>
-            <div className="card-benefits">
-              <h3>Additional Benefits:</h3>
-              <ul>
-                <li>Complimentary Tribune lounge access worldwide</li>
-                <li>Dedicated personal concierge</li>
-                <li>Access to Tribune dining experiences</li>
-                <li>Access to Tribune private jet share</li>
-              </ul>
-            </div>
-            <button className="apply-button premium">Apply Now</button>
-          </div>
-        </div>
+        ))}
       </div>
+
+      <CardModal
+        isOpen={isModalOpen}
+        onClose={handleCloseModal}
+        card={selectedCard}
+      />
     </div>
   );
 };

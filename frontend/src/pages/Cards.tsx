@@ -4,8 +4,9 @@ export const Cards = () => {
   return (
     <div className="cards-page">
       <div className="cards-header">
-        <h1>Our Premium Cards</h1>
-        <p>Choose the card that matches your lifestyle</p>
+        <h1>Our Cards</h1>
+        <p>All of our cards are made of metal, reflecting the standard we hold for all of our customers.</p>
+        <p>Metal cards are far more durable than those cheap plastic alternatives some of our competitors offer.</p>
       </div>
 
       <div className="cards-container">

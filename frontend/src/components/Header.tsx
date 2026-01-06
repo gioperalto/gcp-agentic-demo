@@ -1,12 +1,12 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { getCurrentUser, logout } from '../utils/auth';
+import { getCachedUser, logout } from '../utils/auth';
 import './Header.css';
 
 export const Header = () => {
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [benefitsDropdownOpen, setBenefitsDropdownOpen] = useState(false);
-  const user = getCurrentUser();
+  const user = getCachedUser();
   const navigate = useNavigate();
 
   const handleLogout = async () => {
@@ -16,11 +16,7 @@ export const Header = () => {
     window.location.reload(); // Refresh to update auth state
   };
 
-  const handleLogin = () => {
-    // In a real app, this would navigate to a login page
-    // For now, just refresh since we're using mock auth
-    alert('Mock login - check src/utils/auth.ts to modify authentication state');
-  };
+  const handleLogin = () => { navigate('/login'); };
 
   return (
     <header className="header">
@@ -82,8 +78,6 @@ export const Header = () => {
               </div>
             )}
           </div>
-
-          <Link to="/account" className="nav-link">Account</Link>
         </nav>
 
         <div className="user-menu">

@@ -1,10 +1,12 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import type { CreditCard } from '../types/cards';
 import { CARDS } from '../data/cardData';
 import { CardModal } from '../components/CardModal';
 import './Cards.css';
 
 export const Cards = () => {
+  const navigate = useNavigate();
   const [selectedCard, setSelectedCard] = useState<CreditCard | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
@@ -52,9 +54,9 @@ export const Cards = () => {
                 >
                   More Details
                 </button>
-                <button 
+                <button
                   className={`apply-button ${card.slug === 'tribune' ? 'premium' : ''}` }
-                  onClick={() => alert('Application process would start here. This is a demo.')}
+                  onClick={() => navigate(`/apply?card=${card.slug}`)}
                 >
                   Apply Now
                 </button>

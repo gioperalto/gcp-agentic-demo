@@ -1,50 +1,43 @@
-// Mock authentication utilities
+import { getCurrentUser as apiGetCurrentUser, login as apiLogin, logout as apiLogout } from './api';
+import type { User, LoginRequest } from '../types/user';
 
-export type User = {
-  id: string;
-  name: string;
-  email: string;
-  cardType: 'legionnaire' | 'tribune' | 'none';
-};
+let currentUser: User | null = null;
 
-// Mock user data
-const mockUser: User = {
-  id: '1',
-  name: 'John Doe',
-  email: 'john.doe@example.com',
-  cardType: 'legionnaire', // Change this to 'tribune' or 'none' to test different states
-};
+export async function login(credentials: LoginRequest): Promise<User> {
+  try {
+    const response = await apiLogin(credentials);
+    currentUser = response.user;
+    return response.user;
+  } catch (error) {
+    console.error('Login error:', error);
+    throw error;
+  }
+}
 
-// Mock authentication state
-let isAuthenticated = true; // Change to false to test logged out state
+export async function logout(): Promise<void> {
+  await apiLogout();
+  currentUser = null;
+}
 
-export const login = (_email: string, _password: string): Promise<User> => {
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      isAuthenticated = true;
-      resolve(mockUser);
-    }, 500);
-  });
-};
+export async function fetchCurrentUser(): Promise<User | null> {
+  try {
+    currentUser = await apiGetCurrentUser();
+    return currentUser;
+  } catch (error) {
+    console.error('Failed to fetch current user:', error);
+    currentUser = null;
+    return null;
+  }
+}
 
-export const logout = (): Promise<void> => {
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      isAuthenticated = false;
-      resolve();
-    }, 300);
-  });
-};
+export function getCachedUser(): User | null {
+  return currentUser;
+}
 
-export const getCurrentUser = (): User | null => {
-  return isAuthenticated ? mockUser : null;
-};
+export function checkAuthentication(): boolean {
+  return currentUser !== null;
+}
 
-export const checkAuthentication = (): boolean => {
-  return isAuthenticated;
-};
-
-export const getUserCardType = (): 'legionnaire' | 'tribune' | 'none' => {
-  const user = getCurrentUser();
-  return user ? user.cardType : 'none';
-};
+export function getUserCardType(): 'legionnaire' | 'tribune' | 'none' {
+  return currentUser?.currentCard || 'none';
+}

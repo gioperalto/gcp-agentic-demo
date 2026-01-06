@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import type { CreditCard, ApprovalStatus, ApprovalFormData } from '../types/cards';
 import './CardModal.css';
 
@@ -9,6 +10,7 @@ interface CardModalProps {
 }
 
 export const CardModal = ({ isOpen, onClose, card }: CardModalProps) => {
+  const navigate = useNavigate();
   const [showApprovalForm, setShowApprovalForm] = useState(false);
   const [formData, setFormData] = useState<ApprovalFormData>({
     salary: '',
@@ -291,7 +293,11 @@ export const CardModal = ({ isOpen, onClose, card }: CardModalProps) => {
 
           <button
             className="apply-now-button"
-            onClick={() => alert('Application process would start here. This is a demo.')}
+            onClick={() => {
+              if (card) {
+                navigate(`/apply?card=${card.slug}`);
+              }
+            }}
           >
             Apply Now
           </button>

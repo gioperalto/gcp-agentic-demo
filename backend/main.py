@@ -46,6 +46,12 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Include routers
+from routers import auth, cards
+
+app.include_router(auth.router)
+app.include_router(cards.router)
+
 
 class ChatRequest(BaseModel):
     message: str

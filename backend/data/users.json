@@ -1,0 +1,68 @@
+[
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440000",
+    "username": "demo_user",
+    "password": "password123",
+    "email": "demo@meridian.com",
+    "birthDate": "1990-05-15",
+    "salary": 85000,
+    "netWorth": 200000,
+    "creditScore": 750,
+    "address": {
+      "street": "123 Main St",
+      "city": "New York",
+      "state": "NY",
+      "zipCode": "10001",
+      "country": "USA"
+    },
+    "currentCard": null,
+    "rejectionDate": null,
+    "interestRate": null,
+    "createdAt": "2026-01-01T00:00:00Z",
+    "updatedAt": "2026-01-01T00:00:00Z"
+  },
+  {
+    "id": "660e8400-e29b-41d4-a716-446655440001",
+    "username": "wealthy_user",
+    "password": "password123",
+    "email": "wealthy@meridian.com",
+    "birthDate": "1985-08-20",
+    "salary": 250000,
+    "netWorth": 1500000,
+    "creditScore": 820,
+    "address": {
+      "street": "456 Park Ave",
+      "city": "New York",
+      "state": "NY",
+      "zipCode": "10022",
+      "country": "USA"
+    },
+    "currentCard": null,
+    "rejectionDate": null,
+    "interestRate": null,
+    "createdAt": "2026-01-01T00:00:00Z",
+    "updatedAt": "2026-01-01T00:00:00Z"
+  },
+  {
+    "id": "770e8400-e29b-41d4-a716-446655440002",
+    "username": "young_user",
+    "password": "password123",
+    "email": "young@meridian.com",
+    "birthDate": "1998-03-10",
+    "salary": 45000,
+    "netWorth": 10000,
+    "creditScore": 680,
+    "address": {
+      "street": "789 Broadway",
+      "city": "Brooklyn",
+      "state": "NY",
+      "zipCode": "11211",
+      "country": "USA"
+    },
+    "currentCard": null,
+    "rejectionDate": null,
+    "interestRate": null,
+    "createdAt": "2026-01-01T00:00:00Z",
+    "updatedAt": "2026-01-01T00:00:00Z"
+  }
+]

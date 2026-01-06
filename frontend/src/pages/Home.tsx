@@ -1,6 +1,7 @@
 import './Home.css';
 
 export const Home = () => {
+
   return (
     <div className="home">
       <div className="hero-section">
@@ -16,7 +17,7 @@ export const Home = () => {
       <div className="content-section">
         <div className="stats-container">
           <div className="stat-card">
-            <div className="stat-number">2.5M+</div>
+            <div className="stat-number">100k+</div>
             <div className="stat-label">Active Cardholders</div>
             <p className="stat-description">
               Join millions of members who experience premium rewards and exclusive benefits every day.
@@ -24,7 +25,7 @@ export const Home = () => {
           </div>
 
           <div className="stat-card">
-            <div className="stat-number">$12B+</div>
+            <div className="stat-number">$1B+</div>
             <div className="stat-label">Annual Spend</div>
             <p className="stat-description">
               Our cardholders invest in experiences that matter, earning unparalleled rewards along the way.

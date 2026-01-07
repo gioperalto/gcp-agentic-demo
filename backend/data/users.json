@@ -5,8 +5,8 @@
     "password": "password123",
     "email": "demo@meridian.com",
     "birthDate": "1990-05-15",
-    "salary": 85000,
-    "netWorth": 200000,
+    "salary": 85000.0,
+    "netWorth": 200000.0,
     "creditScore": 750,
     "address": {
       "street": "123 Main St",
@@ -15,11 +15,11 @@
       "zipCode": "10001",
       "country": "USA"
     },
-    "currentCard": null,
+    "currentCard": "legionnaire",
     "rejectionDate": null,
-    "interestRate": null,
+    "interestRate": 17.17,
     "createdAt": "2026-01-01T00:00:00Z",
-    "updatedAt": "2026-01-01T00:00:00Z"
+    "updatedAt": "2026-01-07T19:24:33.712514"
   },
   {
     "id": "660e8400-e29b-41d4-a716-446655440001",
@@ -27,8 +27,8 @@
     "password": "password123",
     "email": "wealthy@meridian.com",
     "birthDate": "1985-08-20",
-    "salary": 250000,
-    "netWorth": 1500000,
+    "salary": 250000.0,
+    "netWorth": 1500000.0,
     "creditScore": 820,
     "address": {
       "street": "456 Park Ave",
@@ -37,11 +37,11 @@
       "zipCode": "10022",
       "country": "USA"
     },
-    "currentCard": null,
+    "currentCard": "tribune",
     "rejectionDate": null,
-    "interestRate": null,
+    "interestRate": 5.48,
     "createdAt": "2026-01-01T00:00:00Z",
-    "updatedAt": "2026-01-01T00:00:00Z"
+    "updatedAt": "2026-01-06T20:30:02.208566"
   },
   {
     "id": "770e8400-e29b-41d4-a716-446655440002",
@@ -49,8 +49,8 @@
     "password": "password123",
     "email": "young@meridian.com",
     "birthDate": "1998-03-10",
-    "salary": 45000,
-    "netWorth": 10000,
+    "salary": 45000.0,
+    "netWorth": 10000.0,
     "creditScore": 680,
     "address": {
       "street": "789 Broadway",

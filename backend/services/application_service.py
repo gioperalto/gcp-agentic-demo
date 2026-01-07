@@ -1,5 +1,4 @@
-import json
-import uuid
+import json, uuid, random
 from typing import Optional, List, Tuple, Literal
 from datetime import datetime
 from pathlib import Path
@@ -73,14 +72,14 @@ def calculate_interest_rate(
 
     if card_slug == "legionnaire":
         if approval_tier == "Highly Qualified":
-            return 12.99
+            return round(12.99 + random.uniform(0, 6.0), 2)  # Randomize between 12.99% and 18.99%
         elif approval_tier == "Likely":
-            return 18.99
+            return round(18.99 + random.uniform(0, 6.0), 2)  # Randomize between 18.99% and 24.99%
     elif card_slug == "tribune":
         if approval_tier == "Highly Qualified":
-            return 4.99
+            return round(4.99 + random.uniform(0, 5.0), 2)  # Randomize between 4.99% and 9.99%
         elif approval_tier == "Likely":
-            return 7.49
+            return round(7.49 + random.uniform(0, 2.5), 2)  # Randomize between 7.49% and 9.99%
 
     return None  # Unlikely tier doesn't get approved
 

@@ -1,1 +1,77 @@
-[]
+[
+  {
+    "id": "04d15c9a-26c0-4d3a-9052-1d4aec96e8e2",
+    "userId": "550e8400-e29b-41d4-a716-446655440000",
+    "cardSlug": "legionnaire",
+    "status": "approved",
+    "approvalTier": "Highly Qualified",
+    "interestRate": 18.437843359889484,
+    "applicationDate": "2026-01-06T20:26:20.445743",
+    "userData": {
+      "salary": 85000.0,
+      "netWorth": 200000.0,
+      "creditScore": 750,
+      "age": 35
+    }
+  },
+  {
+    "id": "eec0c932-1146-4e81-a786-4fc7871c4e44",
+    "userId": "550e8400-e29b-41d4-a716-446655440000",
+    "cardSlug": "legionnaire",
+    "status": "approved",
+    "approvalTier": "Highly Qualified",
+    "interestRate": 17.7115,
+    "applicationDate": "2026-01-06T20:28:44.353558",
+    "userData": {
+      "salary": 85000.0,
+      "netWorth": 200000.0,
+      "creditScore": 750,
+      "age": 35
+    }
+  },
+  {
+    "id": "b79af255-57c0-4ca1-813c-ef1a26d2a275",
+    "userId": "660e8400-e29b-41d4-a716-446655440001",
+    "cardSlug": "tribune",
+    "status": "approved",
+    "approvalTier": "Highly Qualified",
+    "interestRate": 5.48,
+    "applicationDate": "2026-01-06T20:30:02.209399",
+    "userData": {
+      "salary": 250000.0,
+      "netWorth": 1500000.0,
+      "creditScore": 820,
+      "age": 40
+    }
+  },
+  {
+    "id": "6aa11ab9-1337-4fb3-a991-834309650b91",
+    "userId": "550e8400-e29b-41d4-a716-446655440000",
+    "cardSlug": "legionnaire",
+    "status": "approved",
+    "approvalTier": "Highly Qualified",
+    "interestRate": 17.22,
+    "applicationDate": "2026-01-06T21:00:40.227640",
+    "userData": {
+      "salary": 85000.0,
+      "netWorth": 200000.0,
+      "creditScore": 750,
+      "age": 35
+    }
+  },
+  {
+    "id": "bbd14a16-0cee-40fd-bced-3e009aa1e05e",
+    "userId": "550e8400-e29b-41d4-a716-446655440000",
+    "cardSlug": "legionnaire",
+    "status": "approved",
+    "approvalTier": "Highly Qualified",
+    "interestRate": 17.17,
+    "applicationDate": "2026-01-07T19:24:33.713537",
+    "userData": {
+      "salary": 85000.0,
+      "netWorth": 200000.0,
+      "creditScore": 750,
+      "age": 35
+    }
+  }
+]

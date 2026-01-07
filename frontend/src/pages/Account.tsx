@@ -1,8 +1,93 @@
-import { getUserCardType } from '../utils/auth';
+import { useNavigate } from 'react-router-dom';
+import { getUserCardType, getCachedUser } from '../utils/auth';
+import { CARDS } from '../data/cardData';
 import './Account.css';
 
 export const Account = () => {
+  const navigate = useNavigate();
   const cardType = getUserCardType();
+  const user = getCachedUser();
+  const currentCardData = CARDS.find(card => card.id === cardType);
+
+  const renderPersonalInfo = () => {
+    if (!user) return null;
+
+    return (
+      <div className="membership-stats-section">
+        <h2>Personal Information</h2>
+        <div className="stats-grid">
+          <div className="stat-item">
+            <div className="stat-number">User Info</div>
+            <div className="stat-description white">{user.username}</div>
+            <div className="stat-description white">{user.email}</div>
+          </div>
+          <div className="stat-item">
+            <div className="stat-number">{user.creditScore}</div>
+            <div className="stat-description white">Credit Score</div>
+          </div>
+          <div className="stat-item">
+            <div className="stat-number">Address</div>
+            <div className="stat-description white">
+              {user.address.street}<br />
+              {user.address.city}, {user.address.state} {user.address.zipCode}<br />
+              {user.address.country}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const renderCardDetails = () => {
+    if (!user || !currentCardData) return null;
+
+    return (
+      <div className="card-details-section">
+        <h2>Your {currentCardData.name} Card</h2>
+        <div className="card-details-grid">
+          <div className="card-detail-item">
+            <div className="detail-icon">💳</div>
+            <div className="detail-content">
+              <div className="detail-label">Card Type</div>
+              <div className="detail-value">{currentCardData.name}</div>
+            </div>
+          </div>
+          <div className="card-detail-item">
+            <div className="detail-icon">%</div>
+            <div className="detail-content">
+              <div className="detail-label">Interest Rate</div>
+              <div className="detail-value">{user.interestRate ? `${user.interestRate}%` : 'N/A'}</div>
+            </div>
+          </div>
+          <div className="card-detail-item">
+            <div className="detail-icon">💵</div>
+            <div className="detail-content">
+              <div className="detail-label">Annual Fee</div>
+              <div className="detail-value">${currentCardData.annualFee}</div>
+            </div>
+          </div>
+          <div className="card-detail-item">
+            <div className="detail-icon">🎁</div>
+            <div className="detail-content">
+              <div className="detail-label">Rewards Rate</div>
+              <div className="detail-value">{currentCardData.rewardsRate}</div>
+            </div>
+          </div>
+        </div>
+        <div className="card-benefits-summary">
+          <h3>Your Benefits</h3>
+          <ul>
+            {currentCardData.benefits.map((benefit, index) => (
+              <li key={index}>{benefit}</li>
+            ))}
+          </ul>
+          <button className="view-benefits-button" onClick={() => window.location.href = '/benefits'}>
+            View All Benefits
+          </button>
+        </div>
+      </div>
+    );
+  };
 
   const renderLegionnaireExperience = () => (
     <div className="experience-content">
@@ -126,47 +211,71 @@ export const Account = () => {
 
   const renderNoCardExperience = () => (
     <div className="experience-content">
-      <div className="experience-header no-card-header">
-        <h1>Discover Meridian Experiences</h1>
-        <p>Apply for a card to unlock exclusive benefits</p>
+      <div className="experience-header">
+        <h1>Unlock the benefits of Meridian</h1>
+        <p>Apply for a card to gain access to cashback rewards, concierge services, and more.</p>
       </div>
 
-      <div className="application-section">
-        <div className="application-card">
-          <h2>Legionnaire Card</h2>
-          <p className="card-tagline">Elevate your everyday experiences</p>
-          <ul className="benefit-list">
-            <li>3% rewards on all purchases</li>
-            <li>Priority airport lounge access</li>
-            <li>Exclusive dining experiences</li>
-            <li>Travel insurance coverage</li>
-            <li>24/7 concierge service</li>
-          </ul>
-          <div className="price">$495 annual fee</div>
-          <button className="apply-card-button">Apply for Legionnaire</button>
-        </div>
-
-        <div className="application-card premium-card">
-          <div className="premium-badge">PREMIUM</div>
-          <h2>Tribune Card</h2>
-          <p className="card-tagline">Experience luxury without limits</p>
-          <ul className="benefit-list">
-            <li>5% rewards on all purchases</li>
-            <li>Private aviation access</li>
-            <li>Luxury estate rentals</li>
-            <li>Yacht charter services</li>
-            <li>Dedicated personal concierge team</li>
-            <li>Exclusive art and cultural experiences</li>
-          </ul>
-          <div className="price">$995 annual fee</div>
-          <button className="apply-card-button premium">Apply for Tribune</button>
-        </div>
+      <div className="cards-container">
+        {CARDS.map((card) => (
+          <div key={card.id} className={`credit-card ${card.slug}`}>
+            <div className="card-image-placeholder">
+              <div className="image-credit">
+                Generated with Nano Banana
+                <span className="credit-icon">🍌</span>
+              </div>
+            </div>
+            <div className="card-info">
+              <h2 className="card-name">{card.name}</h2>
+              <div className="card-details">
+                <div className="card-detail-item">
+                  <span className="detail-label">Annual Fee:</span>
+                  <span className="detail-value">${card.annualFee}</span>
+                </div>
+                <div className="card-detail-item">
+                  <span className="detail-label">APR range:</span>
+                  <span className="detail-value">{card.aprRange}</span>
+                </div>
+                <div className="card-detail-item">
+                  <span className="detail-label">Average credit score:</span>
+                  <span className="detail-value">{card.averageCreditScore}</span>
+                </div>
+                <div className="card-detail-item">
+                  <span className="detail-label">Rewards Rate:</span>
+                  <span className="detail-value">{card.rewardsRate}</span>
+                </div>
+              </div>
+              <div className="card-benefits">
+                <h3>{card.id === 'tribune' ? 'Additional Benefits:' : 'Benefits:'}</h3>
+                <ul>
+                  {card.benefits.map((benefit, index) => (
+                    <li key={index}>{benefit}</li>
+                  ))}
+                </ul>
+              </div>
+              <div className="card-actions">
+                <button
+                  className={`apply-button ${card.slug === 'tribune' ? 'premium' : ''}` }
+                  onClick={() => navigate(`/apply?card=${card.slug}`)}
+                >
+                  Apply Now
+                </button>
+              </div>
+            </div>
+          </div>
+        ))}
       </div>
     </div>
   );
 
   return (
     <div className="account-page">
+      {user && (
+        <>
+          {renderPersonalInfo()}
+          {renderCardDetails()}
+        </>
+      )}
       {cardType === 'legionnaire' && renderLegionnaireExperience()}
       {cardType === 'tribune' && renderTribuneExperience()}
       {cardType === 'none' && renderNoCardExperience()}

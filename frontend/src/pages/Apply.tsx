@@ -213,7 +213,7 @@ export const Apply = () => {
                 {applying ? 'Processing...' : 'Submit Application'}
               </button>
               <button
-                onClick={() => navigate('/cards')}
+                onClick={() => user ? navigate('/account') : navigate('/cards')}
                 className="cancel-button"
                 disabled={applying}
               >

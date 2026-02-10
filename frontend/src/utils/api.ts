@@ -1,6 +1,10 @@
 import type { ChatEvent } from '../types/chat';
 import type { User, LoginRequest, LoginResponse } from '../types/user';
 import type { ApplicationRequest, ApplicationResponse } from '../types/application';
+import type { Flight, FlightBookingRequest, FlightBookingResponse } from '../types/flights';
+import type { Accommodation, AccommodationFilters, BookingRequest, BookingResponse } from '../types/accommodation';
+import type { Experience, ExperienceBookingRequest, ExperienceBookingResponse } from '../types/experience';
+import type { Restaurant, RestaurantReservation } from '../types/restaurant';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
@@ -214,4 +218,244 @@ export async function* streamChatResponse(message: string, sessionId: string = '
       }
     }
   }
+}
+
+// Accommodation endpoints
+export async function getAccommodations(filters?: AccommodationFilters): Promise<Accommodation[]> {
+  const queryParams = new URLSearchParams();
+
+  if (filters?.country) {
+    queryParams.append('country', filters.country);
+  }
+  if (filters?.type) {
+    queryParams.append('type', filters.type);
+  }
+  if (filters?.minPrice !== undefined) {
+    queryParams.append('min_price', filters.minPrice.toString());
+  }
+  if (filters?.maxPrice !== undefined) {
+    queryParams.append('max_price', filters.maxPrice.toString());
+  }
+  if (filters?.minRating !== undefined) {
+    queryParams.append('min_rating', filters.minRating.toString());
+  }
+
+  const url = `${API_BASE_URL}/api/accommodations${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
+
+  const response = await fetch(url, {
+    headers: getHeaders(),
+  });
+
+  if (!response.ok) {
+    throw new Error(`HTTP error! status: ${response.status}`);
+  }
+
+  return response.json();
+}
+
+export async function getAccommodationById(id: string): Promise<Accommodation> {
+  const response = await fetch(`${API_BASE_URL}/api/accommodations/${id}`, {
+    headers: getHeaders(),
+  });
+
+  if (!response.ok) {
+    throw new Error(`HTTP error! status: ${response.status}`);
+  }
+
+  return response.json();
+}
+
+export async function bookAccommodation(request: BookingRequest): Promise<BookingResponse> {
+  const response = await fetch(`${API_BASE_URL}/api/accommodations/book`, {
+    method: 'POST',
+    headers: getHeaders(),
+    body: JSON.stringify(request),
+  });
+
+  if (!response.ok) {
+    if (response.status === 401) {
+      setAuthToken(null);
+      throw new Error('Not authenticated');
+    }
+    const error = await response.json();
+    throw new Error(error.detail || 'Booking failed');
+  }
+
+  return response.json();
+}
+
+// Experience endpoints
+export async function getExperiences(filters?: {
+  country?: string;
+  type?: string;
+  minPrice?: number;
+  maxPrice?: number;
+  minRating?: number;
+}): Promise<Experience[]> {
+  const queryParams = new URLSearchParams();
+
+  if (filters?.country) {
+    queryParams.append('country', filters.country);
+  }
+  if (filters?.type) {
+    queryParams.append('type', filters.type);
+  }
+  if (filters?.minPrice !== undefined) {
+    queryParams.append('min_price', filters.minPrice.toString());
+  }
+  if (filters?.maxPrice !== undefined) {
+    queryParams.append('max_price', filters.maxPrice.toString());
+  }
+  if (filters?.minRating !== undefined) {
+    queryParams.append('min_rating', filters.minRating.toString());
+  }
+
+  const url = `${API_BASE_URL}/api/travel/experiences${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
+
+  const response = await fetch(url, {
+    headers: getHeaders(),
+  });
+
+  if (!response.ok) {
+    throw new Error(`HTTP error! status: ${response.status}`);
+  }
+
+  return response.json();
+}
+
+export async function getExperienceById(id: string): Promise<Experience> {
+  const response = await fetch(`${API_BASE_URL}/api/travel/experiences/${id}`, {
+    headers: getHeaders(),
+  });
+
+  if (!response.ok) {
+    throw new Error(`HTTP error! status: ${response.status}`);
+  }
+
+  return response.json();
+}
+
+export async function bookExperience(request: ExperienceBookingRequest): Promise<ExperienceBookingResponse> {
+  // Transform the request to match backend's BookingRequest format
+  const bookingRequest = {
+    userId: request.userId,
+    type: 'experience' as const,
+    itemId: request.itemId,
+    participants: request.participants,
+    usePoints: false,
+    nights: null
+  };
+
+  const response = await fetch(`${API_BASE_URL}/api/travel/book`, {
+    method: 'POST',
+    headers: getHeaders(),
+    body: JSON.stringify(bookingRequest),
+  });
+
+  if (!response.ok) {
+    if (response.status === 401) {
+      setAuthToken(null);
+      throw new Error('Not authenticated');
+    }
+    const error = await response.json();
+    throw new Error(error.detail || 'Booking failed');
+  }
+
+  return response.json();
+}
+
+// Flights endpoints
+export async function getFlights(): Promise<Flight[]> {
+  const response = await fetch(`${API_BASE_URL}/api/flights`, {
+    headers: getHeaders(),
+  });
+
+  if (!response.ok) {
+    throw new Error('Failed to fetch flights');
+  }
+
+  return response.json();
+}
+
+export async function bookFlight(request: FlightBookingRequest): Promise<FlightBookingResponse> {
+  const response = await fetch(`${API_BASE_URL}/api/flights/book`, {
+    method: 'POST',
+    headers: getHeaders(),
+    body: JSON.stringify(request),
+  });
+
+  if (!response.ok) {
+    if (response.status === 401) {
+      setAuthToken(null);
+      throw new Error('Not authenticated');
+    }
+    const error = await response.json();
+    throw new Error(error.detail || 'Booking failed');
+  }
+
+  return response.json();
+}
+
+// Restaurant endpoints
+export async function getRestaurants(filters?: { country?: string; priceRange?: string[]; cuisine?: string; affordabilityTier?: string; searchQuery?: string }): Promise<Restaurant[]> {
+  const queryParams = new URLSearchParams();
+
+  if (filters?.country) {
+    queryParams.append('country', filters.country);
+  }
+  if (filters?.priceRange && filters.priceRange.length > 0) {
+    filters.priceRange.forEach(pr => queryParams.append('price_range', pr));
+  }
+  if (filters?.cuisine) {
+    queryParams.append('cuisine', filters.cuisine);
+  }
+  if (filters?.affordabilityTier) {
+    queryParams.append('affordability_tier', filters.affordabilityTier);
+  }
+  if (filters?.searchQuery) {
+    queryParams.append('search', filters.searchQuery);
+  }
+
+  const url = `${API_BASE_URL}/api/travel/restaurants${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
+
+  const response = await fetch(url, {
+    headers: getHeaders(),
+  });
+
+  if (!response.ok) {
+    throw new Error(`HTTP error! status: ${response.status}`);
+  }
+
+  return response.json();
+}
+
+export async function getRestaurantById(id: string): Promise<Restaurant> {
+  const response = await fetch(`${API_BASE_URL}/api/travel/restaurants/${id}`, {
+    headers: getHeaders(),
+  });
+
+  if (!response.ok) {
+    throw new Error(`HTTP error! status: ${response.status}`);
+  }
+
+  return response.json();
+}
+
+export async function makeRestaurantReservation(reservation: RestaurantReservation): Promise<{ success: boolean; message: string; reservation?: any }> {
+  const response = await fetch(`${API_BASE_URL}/api/travel/restaurants/reserve`, {
+    method: 'POST',
+    headers: getHeaders(),
+    body: JSON.stringify(reservation),
+  });
+
+  if (!response.ok) {
+    if (response.status === 401) {
+      setAuthToken(null);
+      throw new Error('Not authenticated');
+    }
+    const error = await response.json();
+    throw new Error(error.detail || 'Reservation failed');
+  }
+
+  return response.json();
 }

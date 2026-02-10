@@ -52,10 +52,13 @@ app.add_middleware(
 )
 
 # Include routers
-from routers import auth, cards
+from routers import auth, cards, travel, flights, accommodations
 
 app.include_router(auth.router)
 app.include_router(cards.router)
+app.include_router(travel.router)
+app.include_router(flights.router)
+app.include_router(accommodations.router)
 
 
 class ChatRequest(BaseModel):

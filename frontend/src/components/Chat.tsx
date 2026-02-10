@@ -308,7 +308,7 @@ export function Chat() {
           <div ref={messagesEndRef} />
         </div>
 
-        <ChatInput onSendMessage={handleSendMessage} disabled={isLoading} />
+        <ChatInput onSendMessage={handleSendMessage} disabled={isLoading} cardType={cardType} />
       </div>
 
       <PreviewModal

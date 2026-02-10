@@ -6,7 +6,7 @@ import { Cards } from './pages/Cards'
 import { Benefits } from './pages/Benefits'
 import { Account } from './pages/Account'
 import { Apply } from './pages/Apply'
-import { Chat } from './components/Chat'
+import { Concierge } from './pages/Concierge'
 import './App.css'
 
 function App() {
@@ -21,7 +21,7 @@ function App() {
           <Route path="/benefits" element={<Benefits />} />
           <Route path="/account" element={<Account />} />
           <Route path="/apply" element={<Apply />} />
-          <Route path="/chat" element={<Chat />} />
+          <Route path="/concierge" element={<Concierge />} />
         </Routes>
       </div>
     </Router>

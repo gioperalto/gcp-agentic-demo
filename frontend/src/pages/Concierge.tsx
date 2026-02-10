@@ -1,0 +1,375 @@
+import { useState, useRef, useEffect } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { ulid } from 'ulid';
+import type { Message } from '../types/chat';
+import { streamChatResponse, streamLegionnaireChatResponse } from '../utils/api';
+import { ChatMessage } from '../components/ChatMessage';
+import { ChatInput } from '../components/ChatInput';
+import { PreviewModal } from '../components/PreviewModal';
+import { getUserCardType, getCachedUser, fetchCurrentUser } from '../utils/auth';
+import './Concierge.css';
+
+export function Concierge() {
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const tierParam = searchParams.get('tier'); // 'tribune' or 'legionnaire'
+
+  const [user, setUser] = useState(getCachedUser());
+  const [cardType, setCardType] = useState(getUserCardType());
+  const [isCheckingAuth, setIsCheckingAuth] = useState(true);
+  const [selectedTier, setSelectedTier] = useState<'tribune' | 'legionnaire' | null>(null);
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [currentAgent, setCurrentAgent] = useState<string>('Sam');
+  const [previewData, setPreviewData] = useState<{ isOpen: boolean; data: unknown; type: string }>({
+    isOpen: false,
+    data: null,
+    type: ''
+  });
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const currentMessageRef = useRef<string>('');
+  const currentAgentRef = useRef<string>('Sam');
+  const sessionIdRef = useRef<string>(ulid());
+
+  // Fetch current user on mount if not cached
+  useEffect(() => {
+    const checkAuth = async () => {
+      if (!user) {
+        try {
+          const fetchedUser = await fetchCurrentUser();
+          setUser(fetchedUser);
+          setCardType(getUserCardType());
+        } catch {
+          console.log('User not authenticated');
+        }
+      }
+      setIsCheckingAuth(false);
+    };
+
+    checkAuth();
+  }, [user]);
+
+  // Set tier from URL parameter or user's card type
+  useEffect(() => {
+    if (!isCheckingAuth && !selectedTier) {
+      if (tierParam === 'tribune' || tierParam === 'legionnaire') {
+        setSelectedTier(tierParam);
+      } else if (cardType) {
+        setSelectedTier(cardType);
+      }
+    }
+  }, [isCheckingAuth, tierParam, cardType, selectedTier]);
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages.length]);
+
+  // Add initial message when tier is selected
+  useEffect(() => {
+    if (selectedTier && messages.length === 0) {
+      const initialMessage: Message = selectedTier === 'tribune' ? {
+        id: 'initial_tribune_message',
+        type: 'agent',
+        content: `Welcome, ${user?.username || 'Tribune Cardholder'}! I'm Sam, your dedicated Tribune concierge. As a valued Tribune member, you have access to our premium travel planning service with specialized agents. How may I assist with your travel plans today?`,
+        agent: 'Sam',
+        timestamp: new Date(),
+      } : {
+        id: 'initial_legionnaire_message',
+        type: 'agent',
+        content: `Welcome, ${user?.username || 'Legionnaire Cardholder'}! I'm your personal concierge assistant. I'm here to help you with restaurant recommendations, event bookings, travel planning, and more. How can I assist you today?`,
+        agent: 'Concierge',
+        timestamp: new Date(),
+      };
+      setMessages([initialMessage]);
+    }
+  }, [selectedTier, user]);
+
+  const handleSendMessage = async (content: string) => {
+    if (!selectedTier) return;
+
+    const userMessage: Message = {
+      id: Date.now().toString(),
+      type: 'user',
+      content,
+      timestamp: new Date(),
+    };
+
+    setMessages((prev) => [...prev, userMessage]);
+    setIsLoading(true);
+    currentMessageRef.current = '';
+
+    try {
+      let currentMessageId = Date.now().toString() + '_agent';
+      const streamFunction = selectedTier === 'tribune' ? streamChatResponse : streamLegionnaireChatResponse;
+
+      for await (const event of streamFunction(content, sessionIdRef.current)) {
+        if (event.type === 'agent_transfer') {
+          const transferMessage: Message = {
+            id: Date.now().toString() + '_transfer',
+            type: 'transfer',
+            content: event.data.message || '',
+            agent: event.data.agent,
+            timestamp: new Date(),
+          };
+          setMessages((prev) => [...prev, transferMessage]);
+          const newAgent = event.data.agent || 'Agent';
+          setCurrentAgent(newAgent);
+          currentAgentRef.current = newAgent;
+          currentMessageRef.current = '';
+          currentMessageId = Date.now().toString() + '_agent';
+
+        } else if (event.type === 'content') {
+          const text = event.data.text || '';
+          currentMessageRef.current += text;
+
+          setMessages((prev) => {
+            const existing = prev.find((m) => m.id === currentMessageId);
+            if (existing) {
+              return prev.map((m) =>
+                m.id === currentMessageId
+                  ? { ...m, content: currentMessageRef.current }
+                  : m
+              );
+            } else {
+              return [
+                ...prev,
+                {
+                  id: currentMessageId,
+                  type: 'agent',
+                  content: currentMessageRef.current,
+                  agent: currentAgentRef.current,
+                  timestamp: new Date(),
+                },
+              ];
+            }
+          });
+
+        } else if (event.type === 'done') {
+          setIsLoading(false);
+        } else if (event.type === 'error') {
+          console.error('Chat error:', event.data.message);
+          setMessages((prev) => [
+            ...prev,
+            {
+              id: Date.now().toString(),
+              type: 'agent',
+              content: `Error: ${event.data.message}`,
+              timestamp: new Date(),
+            },
+          ]);
+          setIsLoading(false);
+        }
+      }
+    } catch (error) {
+      console.error('Failed to send message:', error);
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: Date.now().toString(),
+          type: 'agent',
+          content: 'Sorry, there was an error processing your request.',
+          timestamp: new Date(),
+        },
+      ]);
+      setIsLoading(false);
+    }
+  };
+
+  const handlePreviewClick = (data: unknown, type: string) => {
+    setPreviewData({
+      isOpen: true,
+      data,
+      type
+    });
+  };
+
+  const handleTierSelect = (tier: 'tribune' | 'legionnaire') => {
+    setSelectedTier(tier);
+    setMessages([]);
+    sessionIdRef.current = ulid(); // New session for new tier
+  };
+
+  // Show loading state while checking authentication
+  if (isCheckingAuth) {
+    return (
+      <div className="concierge-page">
+        <div className="auth-loading">
+          <div className="loading-spinner"></div>
+          <p>Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Check if user has access to any concierge tier
+  if (!user) {
+    return (
+      <div className="concierge-page">
+        <div className="concierge-gate">
+          <div className="gate-icon">💬</div>
+          <h1 className="gate-title">Concierge Services</h1>
+          <p className="gate-subtitle">
+            Exclusive AI-powered concierge assistance for Meridian cardholders
+          </p>
+
+          <div className="gate-actions">
+            <button className="gate-button premium" onClick={() => navigate('/login')}>
+              Sign In to Access
+            </button>
+            <button className="gate-button secondary" onClick={() => navigate('/cards')}>
+              Learn About Our Cards
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Check if user has the required card type for selected tier
+  if (selectedTier === 'tribune' && cardType !== 'tribune') {
+    return (
+      <div className="concierge-page">
+        <div className="concierge-gate">
+          <div className="gate-icon">💎</div>
+          <h1 className="gate-title">Tribune Premium Concierge</h1>
+          <p className="gate-subtitle">
+            This premium feature is exclusive to Tribune cardholders
+          </p>
+
+          <div className="gate-actions">
+            {cardType === 'legionnaire' && (
+              <>
+                <p className="gate-message">
+                  Upgrade to Tribune to unlock our premium AI travel planning team.
+                </p>
+                <button className="gate-button premium" onClick={() => navigate('/apply?card=tribune')}>
+                  Apply for Tribune Card
+                </button>
+                <button className="gate-button secondary" onClick={() => handleTierSelect('legionnaire')}>
+                  Use Legionnaire Concierge
+                </button>
+              </>
+            )}
+            {!cardType && (
+              <>
+                <button className="gate-button premium" onClick={() => navigate('/apply?card=tribune')}>
+                  Apply for Tribune Card
+                </button>
+                <button className="gate-button secondary" onClick={() => navigate('/cards')}>
+                  Compare Cards
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Show tier selection if no tier is selected
+  if (!selectedTier) {
+    return (
+      <div className="concierge-page">
+        <div className="tier-selection">
+          <h1>Select Your Concierge Service</h1>
+          <p className="tier-selection-subtitle">
+            Choose the concierge tier that matches your card benefits
+          </p>
+
+          <div className="tier-cards">
+            <div className="tier-card legionnaire-card" onClick={() => handleTierSelect('legionnaire')}>
+              <h2>Legionnaire Concierge</h2>
+              <div className="tier-badge">Chat Services</div>
+              <p className="tier-description">
+                24/7 AI-powered chat support for reservations, travel planning, and lifestyle assistance
+              </p>
+              <ul className="tier-features">
+                <li>24/7 chat concierge support</li>
+                <li>Restaurant & event bookings</li>
+                <li>Travel recommendations</li>
+              </ul>
+              <button className="tier-select-button">Start Chat</button>
+            </div>
+
+            <div
+              className={`tier-card tribune-card ${cardType !== 'tribune' ? 'disabled' : ''}`}
+              onClick={() => cardType === 'tribune' && handleTierSelect('tribune')}
+            >
+              <h2>Tribune AI Concierge Team</h2>
+              <div className="tier-badge premium">Cutting-Edge AI Team</div>
+              <p className="tier-description">
+                Elite AI concierge team with specialized agents for comprehensive travel planning
+              </p>
+              <ul className="tier-features">
+                <li>Multi-agent AI team</li>
+                <li>Voice & chat support</li>
+                <li>Complex trip planning</li>
+                <li>VIP experiences</li>
+              </ul>
+              <button className="tier-select-button" disabled={cardType !== 'tribune'}>
+                {cardType === 'tribune' ? 'Start Chat' : 'Tribune Card Required'}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Render the chat interface for selected tier
+  const isTribune = selectedTier === 'tribune';
+  const tierClass = isTribune ? 'tribune-premium' : 'legionnaire-basic';
+  const tierName = isTribune ? 'Tribune Premium Concierge' : 'Legionnaire Concierge';
+
+  return (
+    <div className={`chat-wrapper ${previewData.isOpen ? 'split-view' : ''}`}>
+      <div className={`chat-container ${tierClass}`}>
+        <div className={`chat-header ${isTribune ? 'tribune-header' : 'legionnaire-header'}`}>
+          <div className="header-content">
+            <h1>{tierName}</h1>
+            <p className="header-subtitle">
+              {isTribune
+                ? `Your personal travel planning service with ${currentAgent}`
+                : 'Your 24/7 personal assistant'
+              }
+            </p>
+          </div>
+          <span className="premium-badge-overlay">{isTribune ? 'TRIBUNE' : 'LEGIONNAIRE'}</span>
+        </div>
+
+        <div className="messages-container">
+          {messages.map((message) => (
+            <ChatMessage
+              key={message.id}
+              message={message}
+              onPreviewClick={handlePreviewClick}
+            />
+          ))}
+
+          {isLoading && (
+            <div className={`typing-indicator ${isTribune ? 'tribune-typing' : 'legionnaire-typing'}`}>
+              <span></span>
+              <span></span>
+              <span></span>
+            </div>
+          )}
+
+          <div ref={messagesEndRef} />
+        </div>
+
+        <ChatInput onSendMessage={handleSendMessage} disabled={isLoading} />
+      </div>
+
+      <PreviewModal
+        isOpen={previewData.isOpen}
+        onClose={() => setPreviewData({ isOpen: false, data: null, type: '' })}
+        data={previewData.data}
+        type={previewData.type}
+      />
+    </div>
+  );
+}

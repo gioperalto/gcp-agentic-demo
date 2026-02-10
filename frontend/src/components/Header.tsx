@@ -41,6 +41,14 @@ export const Header = () => {
             {benefitsDropdownOpen && (
               <div className="nav-dropdown-menu">
                 <Link
+                  to="/concierge"
+                  className="nav-dropdown-item cursor-pointer"
+                  onClick={() => setBenefitsDropdownOpen(false)}
+                >
+                  💬 Concierge Chat
+                </Link>
+                <div className="nav-dropdown-divider"></div>
+                <Link
                   to="/benefits#travel-insurance"
                   className="nav-dropdown-item cursor-pointer"
                   onClick={() => setBenefitsDropdownOpen(false)}

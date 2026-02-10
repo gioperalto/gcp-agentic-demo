@@ -5,7 +5,7 @@ import os, json, asyncio, sys
 from ddtrace.llmobs import LLMObs
 from ddtrace.llmobs.decorators import workflow, agent
 from ddtrace.appsec.track_user_sdk import track_custom_event
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from typing import AsyncGenerator
@@ -13,11 +13,15 @@ from pydantic import BaseModel
 from dotenv import load_dotenv
 from google.adk.runners import InMemoryRunner
 from google.genai import types
+from google.cloud.speech_v2 import SpeechClient
+from google.cloud.speech_v2.types import cloud_speech
+from google.api_core.client_options import ClientOptions
 
 # Add parent directory to path to import travel_planner
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from travel_planner.agent import root_agent
+from legionnaire_concierge.agent import legionnaire_agent
 
 # Load environment variables
 load_dotenv()
@@ -32,8 +36,9 @@ LLMObs.enable(
   service="travel-planner-api",
 )
 
-# Create runner instance
+# Create runner instances
 runner = InMemoryRunner(agent=root_agent, app_name="travel-planner")
+legionnaire_runner = InMemoryRunner(agent=legionnaire_agent, app_name="legionnaire-concierge")
 
 app = FastAPI(title="Travel Planner API")
 
@@ -74,6 +79,89 @@ def get_agent_friendly_message(agent_name: str) -> str:
         "Sam": "Returning to Sam, your travel planner! 🌟"
     }
     return messages.get(agent_name, f"Transferring you to {agent_name}...")
+
+
+async def stream_legionnaire_response(message: str, session_id: str) -> AsyncGenerator[str, None]:
+    """
+    Stream legionnaire agent responses (basic concierge without subagents)
+    """
+    @workflow(session_id=session_id)
+    async def run_legionnaire_agent(message: str, session_id: str) -> AsyncGenerator[str, None]:
+        """
+        Run the legionnaire agent and stream events
+        """
+        # Run the agent with async streaming
+        async for event in legionnaire_runner.run_async(
+            user_id=session_id,
+            session_id=session_id,
+            new_message=types.Content(
+                role="user",
+                parts=[types.Part(text=message)]
+            )
+        ):
+            # Get the content from the event
+            event_content = None
+            if hasattr(event, 'content'):
+                event_content = event.content
+
+            # Stream content based on event type
+            content_text = None
+
+            # Handle Google ADK Event objects with content.parts
+            if event_content and hasattr(event_content, 'parts') and event_content.parts:
+                text_parts = []
+                for part in event_content.parts:
+                    if hasattr(part, 'text') and part.text:
+                        text_parts.append(part.text)
+
+                if text_parts:
+                    content_text = ''.join(text_parts)
+
+            if content_text:
+                content_msg = ChatMessage(
+                    type="content",
+                    data={"text": content_text}
+                )
+                yield f"data: {content_msg.model_dump_json()}\n\n"
+                await asyncio.sleep(0.01)
+
+        # Send completion message
+        done_msg = ChatMessage(
+            type="done",
+            data={"message": "Response complete"}
+        )
+        yield f"data: {done_msg.model_dump_json()}\n\n"
+
+    try:
+        # Ensure session exists before running the agent
+        existing_session = await legionnaire_runner.session_service.get_session(
+            app_name="legionnaire-concierge",
+            user_id=session_id,
+            session_id=session_id
+        )
+
+        if existing_session is None:
+            # Create new session with the frontend-provided session_id
+            await legionnaire_runner.session_service.create_session(
+                app_name="legionnaire-concierge",
+                user_id=session_id,
+                session_id=session_id
+            )
+
+        # Run the agent and stream responses
+        async for event in run_legionnaire_agent(message, session_id):
+            yield event
+
+    except Exception as e:
+        import traceback
+        error_detail = traceback.format_exc()
+        print(f"Error in stream_legionnaire_response: {error_detail}")
+
+        error_msg = ChatMessage(
+            type="error",
+            data={"message": str(e), "detail": error_detail}
+        )
+        yield f"data: {error_msg.model_dump_json()}\n\n"
 
 
 async def stream_agent_response(message: str, session_id: str) -> AsyncGenerator[str, None]:
@@ -209,10 +297,26 @@ async def stream_agent_response(message: str, session_id: str) -> AsyncGenerator
         yield f"data: {error_msg.model_dump_json()}\n\n"
 
 
+@app.post("/api/chat/legionnaire/stream")
+async def legionnaire_chat_stream(request: ChatRequest):
+    """
+    Stream chat responses for Legionnaire cardholders (basic concierge without subagents)
+    """
+    return StreamingResponse(
+        stream_legionnaire_response(request.message, request.session_id),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no"
+        }
+    )
+
+
 @app.post("/api/chat/stream")
 async def chat_stream(request: ChatRequest):
     """
-    Stream chat responses with Server-Sent Events
+    Stream chat responses with Server-Sent Events (Tribune Premium - with subagents)
     """
     return StreamingResponse(
         stream_agent_response(request.message, request.session_id),
@@ -229,6 +333,45 @@ async def chat_stream(request: ChatRequest):
 async def health_check():
     """Health check endpoint"""
     return {"status": "healthy", "service": "travel-planner"}
+
+
+@app.post("/api/speech-to-text")
+async def speech_to_text(audio: UploadFile = File(...)):
+    """
+    Convert speech audio to text using Google Cloud Speech-to-Text API
+    """
+    try:
+        # Read audio file content
+        audio_content = await audio.read()
+
+        # Get project ID
+        PROJECT_ID = os.getenv("GOOGLE_CLOUD_PROJECT")
+
+        client = SpeechClient()
+
+        request = cloud_speech.RecognizeRequest(
+            recognizer=f"projects/{PROJECT_ID}/locations/global/recognizers/gcp-agentic-ai-demo-recognizer",
+            content=audio_content,
+        )
+
+        # Perform speech recognition
+        response = client.recognize(request=request)
+
+        # Extract transcription
+        transcription = ""
+        for result in response.results:
+            transcription += result.alternatives[0].transcript
+
+        if not transcription:
+            return {"text": "", "message": "No speech detected"}
+
+        return {"text": transcription}
+
+    except Exception as e:
+        import traceback
+        error_detail = traceback.format_exc()
+        print(f"Error in speech_to_text: {error_detail}")
+        raise HTTPException(status_code=500, detail=f"Speech-to-text error: {str(e)}")
 
 
 @app.get("/")

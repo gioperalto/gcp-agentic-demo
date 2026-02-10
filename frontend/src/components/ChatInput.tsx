@@ -6,9 +6,10 @@ import './ChatInput.css';
 interface ChatInputProps {
   onSendMessage: (message: string) => void;
   disabled?: boolean;
+  enableMicrophone?: boolean;
 }
 
-export function ChatInput({ onSendMessage, disabled = false }: ChatInputProps) {
+export function ChatInput({ onSendMessage, disabled = false, enableMicrophone = false }: ChatInputProps) {
   const [message, setMessage] = useState('');
   const [isRecording, setIsRecording] = useState(false);
   const [isTranscribing, setIsTranscribing] = useState(false);
@@ -107,36 +108,38 @@ export function ChatInput({ onSendMessage, disabled = false }: ChatInputProps) {
         disabled={disabled || isRecording || isTranscribing}
         rows={1}
       />
-      <button
-        type="button"
-        className={`microphone-button ${isRecording ? 'recording' : ''}`}
-        onClick={handleMicrophoneClick}
-        disabled={disabled || isTranscribing}
-        title={isRecording ? 'Stop recording' : 'Start voice input'}
-      >
-        {isRecording ? (
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            viewBox="0 0 24 24"
-            fill="currentColor"
-            width="24"
-            height="24"
-          >
-            <rect x="6" y="6" width="12" height="12" rx="2" />
-          </svg>
-        ) : (
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            viewBox="0 0 24 24"
-            fill="currentColor"
-            width="24"
-            height="24"
-          >
-            <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z" />
-            <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z" />
-          </svg>
-        )}
-      </button>
+      {enableMicrophone && (
+        <button
+          type="button"
+          className={`microphone-button ${isRecording ? 'recording' : ''}`}
+          onClick={handleMicrophoneClick}
+          disabled={disabled || isTranscribing}
+          title={isRecording ? 'Stop recording' : 'Start voice input'}
+        >
+          {isRecording ? (
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 24 24"
+              fill="currentColor"
+              width="24"
+              height="24"
+            >
+              <rect x="6" y="6" width="12" height="12" rx="2" />
+            </svg>
+          ) : (
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 24 24"
+              fill="currentColor"
+              width="24"
+              height="24"
+            >
+              <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z" />
+              <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z" />
+            </svg>
+          )}
+        </button>
+      )}
       <button
         type="submit"
         className="send-button"

@@ -361,7 +361,7 @@ export function Concierge() {
           <div ref={messagesEndRef} />
         </div>
 
-        <ChatInput onSendMessage={handleSendMessage} disabled={isLoading} />
+        <ChatInput onSendMessage={handleSendMessage} disabled={isLoading} enableMicrophone={isTribune} />
       </div>
 
       <PreviewModal

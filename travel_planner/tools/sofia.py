@@ -1,142 +1,234 @@
 """
 Sofia's Itinerary Tools
-This module contains tool functions for itinerary building, attractions, and restaurant recommendations.
+This module contains tool functions for itinerary building and experiences.
 """
 
+import json
+import os
 from typing import Dict, List, Any, Optional
+
+
+def _load_experiences_data() -> List[Dict[str, Any]]:
+    """Load experiences data from JSON file."""
+    data_path = os.path.join(
+        os.path.dirname(os.path.dirname(os.path.dirname(__file__))),
+        'backend', 'data', 'experiences.json'
+    )
+    try:
+        with open(data_path, 'r') as f:
+            return json.load(f)
+    except FileNotFoundError:
+        return []
 
 
 def search_attractions(
     destination: str,
     interests: List[str] = None,
-    date: str = None
+    date: str = None,
+    min_rating: float = 4.5
 ) -> Dict[str, Any]:
     """
-    Search for attractions and activities in a destination.
+    Search for premium experiences and attractions for Tribune cardholders.
+    Focuses on mid-range to luxury experiences.
 
     Args:
         destination: City or location
-        interests: List of interest categories (culture, food, adventure, relaxation)
+        interests: List of interest categories (hiking, atv, winery-tour, yacht, boat-tour, farm-to-table, adventure, cultural)
         date: Specific date to check availability
+        min_rating: Minimum rating (defaults to 4.5 for quality)
 
     Returns:
-        Dictionary with search criteria to help the agent find real attraction data online.
+        Dictionary with premium experience options and clickable links.
     """
-    # Build search query
-    search_guidance = f"Search for attractions and things to do in {destination}"
+    # Load experiences from local data
+    all_experiences = _load_experiences_data()
+
+    # Filter by destination (city or country)
+    city_matches = [exp for exp in all_experiences
+                   if destination.lower() in exp.get('city', '').lower()
+                   or destination.lower() in exp.get('country', '').lower()]
+
+    # Focus on MID-RANGE to LUXURY experiences
+    premium_experiences = [
+        exp for exp in city_matches
+        if exp.get('affordabilityTier') in ['mid-range', 'luxury'] and
+        exp.get('rating', 0) >= min_rating
+    ]
+
+    # Apply optional filters
+    filtered = premium_experiences
 
     if interests:
-        search_guidance += f" focusing on interests like: {', '.join(interests)}"
+        # Filter by experience type matching interests
+        filtered = [
+            exp for exp in filtered
+            if any(interest.lower() in exp.get('type', '').lower() for interest in interests)
+        ]
 
-    if date:
-        search_guidance += f" available on {date}"
+    # Sort by rating and price (highest first)
+    filtered.sort(key=lambda x: (x.get('rating', 0), x.get('price', 0)), reverse=True)
 
-    search_guidance += ". Look for popular tourist attractions, museums, parks, monuments, beaches, markets, galleries, and activities. Check TripAdvisor, Google Maps, local tourism websites, and travel guides for current information including ratings, opening hours, ticket prices, and visitor reviews."
+    # Build response with clickable links
+    if not filtered:
+        return {
+            'status': 'no_results',
+            'message': f'No premium experiences found in {destination} matching your criteria. Consider broadening your search.',
+            'filters_applied': {
+                'destination': destination,
+                'interests': interests,
+                'min_rating': min_rating
+            }
+        }
+
+    # Format results with links
+    results_text = f"I found **{len(filtered)} exceptional experiences** in {destination}:\n\n"
+
+    for exp in filtered[:10]:  # Show top 10
+        exp_id = exp.get('id')
+        name = exp.get('name')
+        exp_type = exp.get('type', 'experience').replace('-', ' ').title()
+        rating = exp.get('rating', 'N/A')
+        price = exp.get('price', 'N/A')
+        duration = exp.get('duration', 'N/A')
+        description = exp.get('description', '')
+
+        results_text += f"**[{name}](/experiences?id={exp_id})**\n"
+        results_text += f"- Type: {exp_type} | Rating: {rating}★ | ${price} | Duration: {duration}\n"
+        results_text += f"- {description[:120]}{'...' if len(description) > 120 else ''}\n\n"
 
     return {
-        'status': 'search_required',
-        'message': search_guidance,
-        'search_criteria': {
-            'destination': destination,
-            'interests': interests,
-            'date': date
-        },
-        'suggested_sources': [
-            'TripAdvisor',
-            'Google Maps/Travel',
-            'Viator',
-            'GetYourGuide',
-            'Local tourism board websites',
-            'Lonely Planet',
-            'Time Out'
-        ],
-        'information_to_gather': [
-            'Attraction name and type',
-            'Location and how to get there',
-            'Opening hours',
-            'Ticket prices',
-            'Average visit duration',
-            'Best time to visit',
-            'User ratings and reviews',
-            'Booking requirements'
-        ]
+        'status': 'success',
+        'message': results_text,
+        'experiences': filtered[:10],
+        'total_found': len(filtered)
     }
 
 
 def create_daily_itinerary(
     destination: str,
     date: str,
-    attractions: List[str],
+    experience_ids: List[str] = None,
     preferences: str = None
 ) -> Dict[str, Any]:
     """
-    Create a detailed daily itinerary.
+    Create a detailed daily itinerary with luxury experiences.
 
     Args:
         destination: City or location
         date: Date for the itinerary
-        attractions: List of attraction IDs to include
-        preferences: User preferences as JSON string (pace, meal times, etc.)
+        experience_ids: List of experience IDs to include
+        preferences: User preferences (pace, interests, etc.)
 
     Returns:
-        Guidance for creating an itinerary
+        Detailed itinerary with links to experiences
     """
-    search_guidance = f"Create a detailed itinerary for {destination} on {date}"
+    # Load experiences from local data
+    all_experiences = _load_experiences_data()
 
-    if attractions:
-        search_guidance += f" including these attractions: {', '.join(attractions)}"
+    # If specific experiences provided, get them
+    if experience_ids:
+        selected_experiences = [
+            exp for exp in all_experiences
+            if exp.get('id') in experience_ids
+        ]
+    else:
+        # Otherwise get premium experiences for the destination
+        city_matches = [exp for exp in all_experiences
+                       if destination.lower() in exp.get('city', '').lower()
+                       or destination.lower() in exp.get('country', '').lower()]
+        premium_experiences = [
+            exp for exp in city_matches
+            if exp.get('affordabilityTier') in ['mid-range', 'luxury']
+        ]
+        # Sort by rating
+        premium_experiences.sort(key=lambda x: x.get('rating', 0), reverse=True)
+        selected_experiences = premium_experiences[:3]  # Top 3
 
-    if preferences:
-        search_guidance += f" considering preferences: {preferences}"
+    if not selected_experiences:
+        return {
+            'status': 'no_results',
+            'message': f'No experiences found to create an itinerary for {destination} on {date}.'
+        }
 
-    search_guidance += ". Research each attraction's opening hours, typical visit duration, and location. Organize them logically based on proximity to minimize travel time. Include buffer time between activities, meal breaks, and rest periods. Consider the best visiting times for each attraction (e.g., museums in the morning, sunset viewpoints in the evening)."
+    # Build itinerary
+    itinerary_text = f"**Luxury Itinerary for {destination}** - {date}\n\n"
+
+    for i, exp in enumerate(selected_experiences, 1):
+        exp_id = exp.get('id')
+        name = exp.get('name')
+        exp_type = exp.get('type', 'experience').replace('-', ' ').title()
+        duration = exp.get('duration', 'N/A')
+        price = exp.get('price', 'N/A')
+        description = exp.get('description', '')
+
+        itinerary_text += f"**{i}. [{name}](/experiences?id={exp_id})**\n"
+        itinerary_text += f"- Type: {exp_type} | Duration: {duration} | ${price}\n"
+        itinerary_text += f"- {description[:150]}{'...' if len(description) > 150 else ''}\n\n"
+
+    itinerary_text += "\n**Note:** Allow time between activities for meals, rest, and travel. Consider booking high-demand experiences in advance."
 
     return {
-        'status': 'search_required',
-        'message': search_guidance,
-        'itinerary_planning_criteria': {
-            'destination': destination,
-            'date': date,
-            'attractions': attractions,
-            'preferences': preferences
-        },
-        'planning_considerations': [
-            'Opening and closing hours of each attraction',
-            'Estimated time needed at each location',
-            'Travel time between locations',
-            'Meal times and restaurant locations',
-            'Peak visiting times and crowds',
-            'Energy levels throughout the day',
-            'Weather conditions',
-            'Booking requirements'
-        ]
+        'status': 'success',
+        'message': itinerary_text,
+        'experiences': selected_experiences
     }
 
 
-def check_operating_hours(attraction_id: str, date: str) -> Dict[str, Any]:
+def check_operating_hours(experience_id: str, date: str) -> Dict[str, Any]:
     """
-    Check operating hours for a specific attraction on a given date.
+    Get details for a specific experience including availability.
 
     Args:
-        attraction_id: Attraction identifier
+        experience_id: Experience identifier
         date: Date to check (YYYY-MM-DD)
 
     Returns:
-        Guidance for checking operating hours
+        Detailed experience information with link
     """
+    # Load experiences from local data
+    all_experiences = _load_experiences_data()
+
+    # Find the specific experience
+    experience = next((exp for exp in all_experiences if exp.get('id') == experience_id), None)
+
+    if not experience:
+        return {
+            'status': 'not_found',
+            'message': f'Experience with ID {experience_id} not found.',
+            'experience_id': experience_id
+        }
+
+    # Build detailed response
+    name = experience.get('name')
+    exp_type = experience.get('type', 'experience').replace('-', ' ').title()
+    rating = experience.get('rating', 'N/A')
+    price = experience.get('price', 'N/A')
+    duration = experience.get('duration', 'N/A')
+    city = experience.get('city', '')
+    country = experience.get('country', '')
+    description = experience.get('description', '')
+    min_participants = experience.get('minParticipants', 1)
+    max_participants = experience.get('maxParticipants', 'N/A')
+    included_items = experience.get('includedItems', [])
+
+    details_text = f"**[{name}](/experiences?id={experience_id})**\n\n"
+    details_text += f"**Location:** {city}, {country}\n"
+    details_text += f"**Type:** {exp_type} | **Rating:** {rating}★\n"
+    details_text += f"**Duration:** {duration} | **Price:** ${price} per person\n"
+    details_text += f"**Group Size:** {min_participants}-{max_participants} participants\n\n"
+    details_text += f"**About:** {description}\n\n"
+
+    if included_items:
+        details_text += f"**What's Included:**\n"
+        for item in included_items:
+            details_text += f"- {item}\n"
+
+    details_text += f"\n**Availability:** This experience is available for booking. Contact concierge for specific times on {date}.\n"
+    details_text += f"\n[Book This Experience](/experiences?id={experience_id})"
+
     return {
-        'status': 'search_required',
-        'message': f'To check the operating hours for {attraction_id} on {date}, search for the attraction\'s official website or check platforms like Google Maps, TripAdvisor, or the venue\'s social media. Look for: regular operating hours, special holiday hours, last entry times, days when it\'s closed, and any seasonal variations. Also check if advance booking is required.',
-        'attraction_id': attraction_id,
-        'date': date,
-        'information_to_check': [
-            'Regular operating hours',
-            'Special hours for the specific date',
-            'Days closed (if any)',
-            'Last entry/admission time',
-            'Seasonal variations',
-            'Holiday closures',
-            'Advance booking requirements',
-            'Peak times to avoid crowds'
-        ]
+        'status': 'success',
+        'message': details_text,
+        'experience': experience,
+        'requested_date': date
     }

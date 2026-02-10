@@ -1,5 +1,5 @@
 from pydantic import BaseModel, EmailStr, Field
-from typing import Optional, Literal
+from typing import Optional, Literal, List
 
 class Address(BaseModel):
     street: str
@@ -7,6 +7,16 @@ class Address(BaseModel):
     state: str
     zipCode: str
     country: str
+
+class Reservation(BaseModel):
+    id: str
+    type: Literal["accommodation", "restaurant", "flight", "experience"]
+    itemId: str
+    itemName: str
+    amount: float
+    date: str  # ISO 8601
+    participants: Optional[int] = 1
+    status: Literal["confirmed", "pending", "cancelled"] = "confirmed"
 
 class User(BaseModel):
     id: str
@@ -21,6 +31,11 @@ class User(BaseModel):
     currentCard: Optional[Literal["legionnaire", "tribune"]] = None
     rejectionDate: Optional[str] = None  # ISO 8601
     interestRate: Optional[float] = None
+    creditLimit: Optional[float] = None
+    availableCredit: Optional[float] = None
+    rewardPoints: float = 0.0
+    rewardPointsMultiplier: Optional[float] = None  # Points per dollar spent
+    reservations: List[Reservation] = []
     createdAt: str
     updatedAt: str
 
@@ -37,3 +52,8 @@ class UserResponse(BaseModel):
     currentCard: Optional[Literal["legionnaire", "tribune"]]
     rejectionDate: Optional[str]
     interestRate: Optional[float]
+    creditLimit: Optional[float]
+    availableCredit: Optional[float]
+    rewardPoints: float
+    rewardPointsMultiplier: Optional[float]
+    reservations: List[Reservation]

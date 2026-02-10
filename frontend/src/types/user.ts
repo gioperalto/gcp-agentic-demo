@@ -6,6 +6,17 @@ export interface Address {
   country: string;
 }
 
+export interface Reservation {
+  id: string;
+  type: 'accommodation' | 'restaurant' | 'flight' | 'experience';
+  itemId: string;
+  itemName: string;
+  amount: number;
+  date: string; // ISO 8601
+  participants?: number;
+  status: 'confirmed' | 'pending' | 'cancelled';
+}
+
 export interface User {
   id: string;
   username: string;
@@ -18,6 +29,11 @@ export interface User {
   currentCard: 'legionnaire' | 'tribune' | null;
   rejectionDate: string | null; // ISO 8601
   interestRate: number | null;
+  creditLimit: number | null;
+  availableCredit: number | null;
+  rewardPoints: number;
+  rewardPointsMultiplier: number | null;
+  reservations: Reservation[];
 }
 
 export interface LoginRequest {

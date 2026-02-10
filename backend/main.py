@@ -85,7 +85,7 @@ async def stream_legionnaire_response(message: str, session_id: str) -> AsyncGen
     """
     Stream legionnaire agent responses (basic concierge without subagents)
     """
-    @workflow(session_id=session_id)
+    @workflow(name='legionnaire-agent',session_id=session_id)
     async def run_legionnaire_agent(message: str, session_id: str) -> AsyncGenerator[str, None]:
         """
         Run the legionnaire agent and stream events
@@ -168,7 +168,7 @@ async def stream_agent_response(message: str, session_id: str) -> AsyncGenerator
     """
     Stream agent responses with agent transfer notifications
     """
-    @workflow(session_id=session_id)
+    @workflow(name='tribune-concierge',session_id=session_id)
     async def run_agent(message: str, session_id: str, current_agent: str, sub_agents: set) -> AsyncGenerator[str, None]:
         """
         Run the agent and stream events with agent transfer notifications

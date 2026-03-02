@@ -78,7 +78,6 @@ def get_agent_friendly_message(agent_name: str) -> str:
         "Marcus": "Connecting you with Marcus, our accommodation expert. He'll help you find the perfect place to stay! 🏨",
         "Sofia": "Bringing in Sofia, our itinerary specialist. She'll help plan your perfect trip! 🗺️",
         "Luca": "Connecting you with Luca, our restaurant specialist. He'll help you find amazing dining experiences! 🍽️",
-        "Alex": "Connecting you with Alex, our budget manager. They'll help you manage your travel costs! 💰",
         "Sam": "Returning to Sam, your travel planner! 🌟"
     }
     return messages.get(agent_name, f"Transferring you to {agent_name}...")
@@ -267,7 +266,7 @@ async def stream_agent_response(message: str, session_id: str) -> AsyncGenerator
 
     try:
         current_agent = "Sam"  # Start with root agent
-        sub_agents = {"Jenny", "Marcus", "Sofia", "Luca", "Alex"}  # Known sub-agents
+        sub_agents = {"Jenny", "Marcus", "Sofia", "Luca"}  # Known sub-agents
 
         # Ensure session exists before running the agent
         existing_session = await runner.session_service.get_session(

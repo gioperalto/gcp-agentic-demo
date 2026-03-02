@@ -9,7 +9,6 @@ from .tools.jenny import search_flights, compare_flight_prices, get_flight_detai
 from .tools.marcus import search_accommodations, get_accommodation_reviews
 from .tools.sofia import search_attractions, create_daily_itinerary, check_operating_hours
 from .tools.luca import get_restaurant_recommendations, get_restaurant_details
-from .tools.alex import calculate_trip_cost, check_budget_status, suggest_cost_savings, allocate_budget
 
 # Load environment variables from .env file
 load_dotenv()
@@ -42,7 +41,6 @@ WHEN TO TRANSFER TO OTHER AGENTS:
 - Transfer to Marcus if the user asks about accommodations or hotels
 - Transfer to Sofia if the user asks about itineraries, experiences, or activities
 - Transfer to Luca if the user asks about restaurants or dining
-- Transfer to Alex if the user asks about budgets or costs
 
 HOW TO SEARCH FOR FLIGHTS:
 1. Use the search_flights tool to find flights from our curated collection
@@ -81,7 +79,6 @@ WHEN TO TRANSFER TO OTHER AGENTS:
 - Transfer to Jenny if the user asks about flights
 - Transfer to Sofia if the user asks about itineraries, experiences, or activities
 - Transfer to Luca if the user asks about restaurants or dining
-- Transfer to Alex if the user asks about budgets or costs
 
 HOW TO SEARCH FOR ACCOMMODATIONS:
 1. Use the search_accommodations tool to find luxury properties from our curated collection
@@ -120,7 +117,6 @@ WHEN TO TRANSFER TO OTHER AGENTS:
 - Transfer to Jenny if the user asks about flights
 - Transfer to Marcus if the user asks about accommodations or hotels
 - Transfer to Luca if the user asks about restaurants or dining
-- Transfer to Alex if the user asks about budgets or costs
 
 HOW TO SEARCH FOR EXPERIENCES AND CREATE ITINERARIES:
 1. Use the search_attractions tool to find premium experiences from our curated collection
@@ -168,7 +164,6 @@ WHEN TO TRANSFER TO OTHER AGENTS:
 - Transfer to Jenny if the user asks about flights
 - Transfer to Marcus if the user asks about accommodations or hotels
 - Transfer to Sofia if the user asks about itineraries, experiences, or activities
-- Transfer to Alex if the user asks about budgets or costs
 
 HOW TO SEARCH FOR RESTAURANTS:
 1. Use the get_restaurant_recommendations tool to find high-end restaurants from our curated collection
@@ -193,34 +188,6 @@ IMPORTANT NOTES:
     tools=[FunctionTool(get_restaurant_recommendations), FunctionTool(get_restaurant_details)],
 )
 
-# Budget management sub-agent
-budget_manager_agent = Agent(
-    model=os.getenv("GOOGLE_GENAI_MODEL"),
-    name='Alex',
-    description='Agent specialized in managing travel budgets.',
-    instruction='''You are Alex, the Budget Manager Agent. Your responsibilities include helping users manage their travel budgets by providing cost estimates, tracking expenses, and suggesting cost-saving options. Use available tools to gather pricing information and assist users in staying within their budgets.
-
-WHEN TO INTRODUCE YOURSELF:
-- Introduce yourself as Alex when you first interact with a user
-- After introducing yourself, immediately proceed to help with their budget-related request
-
-WHEN TO TRANSFER TO OTHER AGENTS:
-- Transfer to Jenny if the user asks about flights
-- Transfer to Marcus if the user asks about accommodations or hotels
-- Transfer to Sofia if the user asks about itineraries, attractions, or activities
-- Transfer to Luca if the user asks about restaurants or dining
-
-CRITICAL INSTRUCTION - You MUST follow this exactly:
-When you call the calculate_trip_cost, check_budget_status, or allocate_budget tools, they return a dictionary with a 'message' field. This message field contains pre-formatted markdown text with special preview:// links that enable interactive popups in the UI.
-You MUST copy the entire 'message' field VERBATIM into your response to users. Do NOT paraphrase, rewrite, or modify the message in any way.
-Do NOT extract data and create your own markdown - always use the exact 'message' field content as provided by the tool.
-
-Example:
-Tool returns: {"status": "success", "message": "**Trip Cost Breakdown**\nTotal Cost: $2500\n[View Detailed Breakdown](preview://budget/...)", "data": {...}}
-You should respond: "I've calculated your trip costs! **Trip Cost Breakdown**\nTotal Cost: $2500\n[View Detailed Breakdown](preview://budget/...)"  [Using the exact message text]''',
-    tools=[FunctionTool(calculate_trip_cost), FunctionTool(check_budget_status), FunctionTool(suggest_cost_savings), FunctionTool(allocate_budget)],
-)
-
 # Main agent
 root_agent = Agent(
     model=os.getenv("GOOGLE_GENAI_MODEL"),
@@ -231,7 +198,6 @@ root_agent = Agent(
 - Marcus for luxury accommodations (5-star hotels and villas)
 - Sofia for exceptional experiences and curated itineraries
 - Luca for fine dining recommendations ($$$ and $$$$)
-- Alex for budget management
 
 IMPORTANT CONTEXT:
 Today's date is {get_current_date_context()}.
@@ -248,6 +214,6 @@ LUXURY SERVICE PHILOSOPHY:
 CRITICAL: When agents provide responses with links (format: /accommodations?id=..., /flights?id=..., /restaurants?id=..., /experiences?id=...), you MUST pass these through VERBATIM. These links keep users in the concierge chat interface.
 
 Greet users warmly, be conversational, and help them plan extraordinary trips by directing them to the right specialist when needed.''',
-    sub_agents=[flight_search_agent, accomadation_agent, itinerary_agent, restaurant_agent, budget_manager_agent],
+    sub_agents=[flight_search_agent, accomadation_agent, itinerary_agent, restaurant_agent],
     tools=[],
 )

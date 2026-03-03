@@ -96,23 +96,6 @@ export async function applyForCard(request: ApplicationRequest): Promise<Applica
   return response.json();
 }
 
-// Speech-to-text endpoint
-export async function transcribeAudio(audioBlob: Blob): Promise<string> {
-  const formData = new FormData();
-  formData.append('audio', audioBlob, 'audio.webm');
-
-  const response = await fetch(`${API_BASE_URL}/api/speech-to-text`, {
-    method: 'POST',
-    body: formData,
-  });
-
-  if (!response.ok) {
-    throw new Error(`HTTP error! status: ${response.status}`);
-  }
-
-  const data = await response.json();
-  return data.text || '';
-}
 
 // Chat streaming functions
 

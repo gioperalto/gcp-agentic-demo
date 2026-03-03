@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { ulid } from 'ulid';
 import type { Message } from '../types/chat';
@@ -7,6 +7,7 @@ import { ChatMessage } from '../components/ChatMessage';
 import { ChatInput } from '../components/ChatInput';
 import { PreviewModal } from '../components/PreviewModal';
 import { getUserCardType, getCachedUser, fetchCurrentUser } from '../utils/auth';
+import { useVoiceMode } from '../hooks/useVoiceMode';
 import './Concierge.css';
 
 export function Concierge() {
@@ -30,6 +31,105 @@ export function Concierge() {
   const currentMessageRef = useRef<string>('');
   const currentAgentRef = useRef<string>('Sam');
   const sessionIdRef = useRef<string>(ulid());
+
+  // Voice message ID refs for streaming updates
+  const voiceAgentMsgIdRef = useRef<string | null>(null);
+  const voiceUserMsgIdRef = useRef<string | null>(null);
+
+  // Voice mode callbacks — create/update messages in real-time (same pattern as text chat streaming)
+  const handleVoiceAgentTranscript = useCallback((text: string, isFinal: boolean) => {
+    if (!text) return;
+
+    const isNew = !voiceAgentMsgIdRef.current;
+    if (isNew) {
+      voiceAgentMsgIdRef.current = Date.now().toString() + '_voice_agent';
+    }
+
+    const msgId = voiceAgentMsgIdRef.current;
+    console.log(`[concierge] Agent transcript: isFinal=${isFinal}, isNew=${isNew}, msgId=${msgId}, text="${text.substring(0, 50)}..."`);
+
+    setMessages(prev => {
+      const existing = prev.find(m => m.id === msgId);
+      if (existing) {
+        return prev.map(m => m.id === msgId ? { ...m, content: text } : m);
+      } else {
+        return [...prev, {
+          id: msgId,
+          type: 'agent' as const,
+          content: text,
+          agent: currentAgentRef.current,
+          timestamp: new Date(),
+        }];
+      }
+    });
+
+    if (isFinal) {
+      voiceAgentMsgIdRef.current = null;
+    }
+  }, []);
+
+  const handleVoiceUserTranscript = useCallback((text: string, isFinal: boolean) => {
+    if (!text) return;
+
+    const isNew = !voiceUserMsgIdRef.current;
+    if (isNew) {
+      voiceUserMsgIdRef.current = Date.now().toString() + '_voice_user';
+    }
+
+    const msgId = voiceUserMsgIdRef.current;
+    console.log(`[concierge] User transcript: isFinal=${isFinal}, isNew=${isNew}, msgId=${msgId}, text="${text.substring(0, 50)}..."`);
+
+    setMessages(prev => {
+      const existing = prev.find(m => m.id === msgId);
+      if (existing) {
+        return prev.map(m => m.id === msgId ? { ...m, content: text } : m);
+      } else {
+        return [...prev, {
+          id: msgId,
+          type: 'user' as const,
+          content: text,
+          timestamp: new Date(),
+        }];
+      }
+    });
+
+    if (isFinal) {
+      voiceUserMsgIdRef.current = null;
+    }
+  }, []);
+
+  const handleVoiceAgentTransfer = useCallback((agentName: string) => {
+    setCurrentAgent(agentName);
+    currentAgentRef.current = agentName;
+  }, []);
+
+  const handleVoiceError = useCallback((error: string) => {
+    console.error('Voice mode error:', error);
+    setMessages(prev => [
+      ...prev,
+      {
+        id: Date.now().toString() + '_voice_error',
+        type: 'agent',
+        content: `Voice mode ended: ${error}`,
+        timestamp: new Date(),
+      },
+    ]);
+  }, []);
+
+  const voiceMode = useVoiceMode(sessionIdRef.current, {
+    onAgentTranscript: handleVoiceAgentTranscript,
+    onUserTranscript: handleVoiceUserTranscript,
+    onAgentTransfer: handleVoiceAgentTransfer,
+    onError: handleVoiceError,
+  });
+
+  const handleToggleVoiceMode = useCallback(() => {
+    if (voiceMode.isActive || voiceMode.isConnecting) {
+      voiceMode.stopVoiceMode();
+    } else {
+      voiceMode.startVoiceMode();
+    }
+  }, [voiceMode]);
 
   // Fetch current user on mount if not cached
   useEffect(() => {
@@ -350,7 +450,16 @@ export function Concierge() {
             />
           ))}
 
-          {isLoading && (
+          {voiceMode.isActive && (
+            <div className="voice-status-bar">
+              <div className={`voice-status-dot ${voiceMode.isSpeaking ? 'speaking' : 'listening'}`}></div>
+              <span className="voice-status-label">
+                {voiceMode.isSpeaking ? 'Agent speaking...' : 'Listening...'}
+              </span>
+            </div>
+          )}
+
+          {isLoading && !voiceMode.isActive && (
             <div className={`typing-indicator ${isTribune ? 'tribune-typing' : 'legionnaire-typing'}`}>
               <span></span>
               <span></span>
@@ -361,7 +470,14 @@ export function Concierge() {
           <div ref={messagesEndRef} />
         </div>
 
-        <ChatInput onSendMessage={handleSendMessage} disabled={isLoading} enableMicrophone={isTribune} />
+        <ChatInput
+          onSendMessage={handleSendMessage}
+          disabled={isLoading}
+          enableMicrophone={isTribune}
+          isVoiceModeActive={voiceMode.isActive}
+          isVoiceModeConnecting={voiceMode.isConnecting}
+          onToggleVoiceMode={handleToggleVoiceMode}
+        />
       </div>
 
       <PreviewModal

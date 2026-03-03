@@ -1,30 +1,34 @@
 """
 FastAPI backend for Travel Planner with streaming support
 """
-import os, json, asyncio, sys
+import os, json, asyncio, sys, logging
+from dotenv import load_dotenv
+
+# Load env BEFORE any ADK imports so GOOGLE_GENAI_MODEL etc. are available
+load_dotenv()
+
+# Text agents need the Vertex AI global endpoint (gemini-3-flash-preview is only
+# available there). Voice agents need us-central1, but their Gemini client is
+# lazily initialised later — see the /ws/voice handler.
+os.environ['GOOGLE_CLOUD_LOCATION'] = 'global'
+
 from ddtrace.llmobs import LLMObs
-from ddtrace.llmobs.decorators import workflow, agent
 from ddtrace.appsec.track_user_sdk import track_custom_event
-from fastapi import FastAPI, HTTPException, UploadFile, File
+from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from typing import AsyncGenerator
 from pydantic import BaseModel
-from dotenv import load_dotenv
 from google.adk.runners import InMemoryRunner
+from google.adk.agents.live_request_queue import LiveRequest, LiveRequestQueue
+from google.adk.agents.run_config import RunConfig, StreamingMode
 from google.genai import types
-from google.cloud.speech_v2 import SpeechClient
-from google.cloud.speech_v2.types import cloud_speech
-from google.api_core.client_options import ClientOptions
 
-# Add parent directory to path to import travel_planner
+# Add parent directory to path to import tribune_concierge
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from travel_planner.agent import root_agent
+from tribune_concierge.agent import root_agent, live_root_agent
 from legionnaire_concierge.agent import legionnaire_agent
-
-# Load environment variables
-load_dotenv()
 
 # Datadog LLM Observability setup
 LLMObs.enable(
@@ -39,6 +43,7 @@ LLMObs.enable(
 # Create runner instances
 runner = InMemoryRunner(agent=root_agent, app_name="travel-planner")
 legionnaire_runner = InMemoryRunner(agent=legionnaire_agent, app_name="legionnaire-concierge")
+live_runner = InMemoryRunner(agent=live_root_agent, app_name="tribune-concierge-live")
 
 app = FastAPI(title="Travel Planner API")
 
@@ -70,7 +75,6 @@ class ChatMessage(BaseModel):
     type: str  # "agent_transfer", "content", "done", "error"
     data: dict
 
-@agent
 def get_agent_friendly_message(agent_name: str) -> str:
     """Generate user-friendly transfer messages based on agent name"""
     messages = {
@@ -87,7 +91,6 @@ async def stream_legionnaire_response(message: str, session_id: str) -> AsyncGen
     """
     Stream legionnaire agent responses (basic concierge without subagents)
     """
-    @workflow(name='legionnaire-agent',session_id=session_id)
     async def run_legionnaire_agent(message: str, session_id: str) -> AsyncGenerator[str, None]:
         """
         Run the legionnaire agent and stream events
@@ -105,6 +108,10 @@ async def stream_legionnaire_response(message: str, session_id: str) -> AsyncGen
             event_content = None
             if hasattr(event, 'content'):
                 event_content = event.content
+
+            # Skip echoed user input events to avoid duplicate messages
+            if event_content and hasattr(event_content, 'role') and event_content.role == 'user':
+                continue
 
             # Stream content based on event type
             content_text = None
@@ -170,7 +177,6 @@ async def stream_agent_response(message: str, session_id: str) -> AsyncGenerator
     """
     Stream agent responses with agent transfer notifications
     """
-    @workflow(name='tribune-concierge',session_id=session_id)
     async def run_agent(message: str, session_id: str, current_agent: str, sub_agents: set) -> AsyncGenerator[str, None]:
         """
         Run the agent and stream events with agent transfer notifications
@@ -188,6 +194,10 @@ async def stream_agent_response(message: str, session_id: str) -> AsyncGenerator
             event_content = None
             if hasattr(event, 'content'):
                 event_content = event.content
+
+            # Skip echoed user input events to avoid duplicate messages
+            if event_content and hasattr(event_content, 'role') and event_content.role == 'user':
+                continue
 
             # Check for agent transfers by examining event attributes
             event_agent = None
@@ -337,43 +347,91 @@ async def health_check():
     return {"status": "healthy", "service": "travel-planner"}
 
 
-@app.post("/api/speech-to-text")
-async def speech_to_text(audio: UploadFile = File(...)):
+@app.websocket("/ws/voice")
+async def voice_websocket(websocket: WebSocket, session_id: str = "default"):
     """
-    Convert speech audio to text using Google Cloud Speech-to-Text API
+    Real-time bidirectional voice conversation via Gemini Live API.
+    Browser sends JSON LiveRequest frames (audio as base64 blob).
+    Server streams back JSON Event frames (audio, transcripts, tool calls).
     """
-    try:
-        # Read audio file content
-        audio_content = await audio.read()
+    # Voice model requires the us-central1 regional endpoint.
+    # Set this before the live Gemini client is lazily initialised.
+    os.environ['GOOGLE_CLOUD_LOCATION'] = 'us-central1'
 
-        # Get project ID
-        PROJECT_ID = os.getenv("GOOGLE_CLOUD_PROJECT")
+    await websocket.accept()
 
-        client = SpeechClient()
-
-        request = cloud_speech.RecognizeRequest(
-            recognizer=f"projects/{PROJECT_ID}/locations/global/recognizers/gcp-agentic-ai-demo-recognizer",
-            content=audio_content,
+    # Ensure session exists
+    existing_session = await live_runner.session_service.get_session(
+        app_name="tribune-concierge-live",
+        user_id=session_id,
+        session_id=session_id,
+    )
+    if existing_session is None:
+        existing_session = await live_runner.session_service.create_session(
+            app_name="tribune-concierge-live",
+            user_id=session_id,
+            session_id=session_id,
         )
 
-        # Perform speech recognition
-        response = client.recognize(request=request)
+    live_request_queue = LiveRequestQueue()
 
-        # Extract transcription
-        transcription = ""
-        for result in response.results:
-            transcription += result.alternatives[0].transcript
+    run_config = RunConfig(
+        response_modalities=["AUDIO"],
+        output_audio_transcription=types.AudioTranscriptionConfig(),
+        input_audio_transcription=types.AudioTranscriptionConfig(),
+        streaming_mode=StreamingMode.BIDI,
+    )
 
-        if not transcription:
-            return {"text": "", "message": "No speech detected"}
+    logger = logging.getLogger("voice_ws")
 
-        return {"text": transcription}
+    async def forward_events():
+        """Stream events from runner.run_live() back to the browser."""
+        try:
+            async for event in live_runner.run_live(
+                user_id=session_id,
+                session_id=session_id,
+                live_request_queue=live_request_queue,
+                run_config=run_config,
+            ):
+                await websocket.send_text(
+                    event.model_dump_json(exclude_none=True, by_alias=True)
+                )
+        except Exception:
+            logger.exception("forward_events error for session %s", session_id)
+            raise
 
+    async def process_messages():
+        """Receive JSON LiveRequest frames from browser and feed to queue."""
+        try:
+            while True:
+                data = await websocket.receive_text()
+                live_request_queue.send(LiveRequest.model_validate_json(data))
+        except WebSocketDisconnect:
+            logger.info("Client disconnected, closing queue for session %s", session_id)
+            live_request_queue.close()
+
+    tasks = [
+        asyncio.create_task(forward_events()),
+        asyncio.create_task(process_messages()),
+    ]
+    done, pending = await asyncio.wait(tasks, return_when=asyncio.FIRST_EXCEPTION)
+    try:
+        for task in done:
+            task.result()
+    except WebSocketDisconnect:
+        logger.info("Voice WebSocket client disconnected: %s", session_id)
     except Exception as e:
-        import traceback
-        error_detail = traceback.format_exc()
-        print(f"Error in speech_to_text: {error_detail}")
-        raise HTTPException(status_code=500, detail=f"Speech-to-text error: {str(e)}")
+        logger.exception("Voice WebSocket error for session %s", session_id)
+        try:
+            await websocket.close(code=1011, reason=str(e)[:123])
+        except Exception:
+            pass
+    finally:
+        live_request_queue.close()
+        for task in pending:
+            task.cancel()
+        await asyncio.gather(*pending, return_exceptions=True)
+
 
 
 @app.get("/")

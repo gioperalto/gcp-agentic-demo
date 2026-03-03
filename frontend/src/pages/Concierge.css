@@ -422,6 +422,47 @@
   }
 }
 
+/* Voice Status Bar (compact inline indicator) */
+.voice-status-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.4rem 1rem;
+  background: rgba(212, 175, 55, 0.1);
+  border: 1px solid rgba(212, 175, 55, 0.2);
+  border-radius: 20px;
+  width: fit-content;
+  align-self: center;
+}
+
+.voice-status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #d4af37;
+  flex-shrink: 0;
+}
+
+.voice-status-dot.listening {
+  animation: dot-pulse 1.5s ease-in-out infinite;
+}
+
+.voice-status-dot.speaking {
+  background: #4caf50;
+  animation: dot-pulse 0.8s ease-in-out infinite;
+}
+
+@keyframes dot-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+
+.voice-status-label {
+  font-size: 0.8rem;
+  color: #888;
+  font-weight: 500;
+}
+
 /* Responsive Design */
 @media (max-width: 768px) {
   .tier-cards {

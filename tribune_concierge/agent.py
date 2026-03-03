@@ -10,8 +10,7 @@ from .tools.marcus import search_accommodations, get_accommodation_reviews
 from .tools.sofia import search_attractions, create_daily_itinerary, check_operating_hours
 from .tools.luca import get_restaurant_recommendations, get_restaurant_details
 
-# Load environment variables from .env file
-load_dotenv()
+# Env loading is centralized in backend/main.py to avoid conflicting GOOGLE_CLOUD_LOCATION values
 
 # Get current date for context
 def get_current_date_context():
@@ -215,5 +214,91 @@ CRITICAL: When agents provide responses with links (format: /accommodations?id=.
 
 Greet users warmly, be conversational, and help them plan extraordinary trips by directing them to the right specialist when needed.''',
     sub_agents=[flight_search_agent, accomadation_agent, itinerary_agent, restaurant_agent],
+    tools=[],
+)
+
+# ─── Live (Voice) Agent Definitions ───────────────────────────────────────────
+# These mirror the text agents above but use a Live-API-compatible model
+# and have voice-optimized instructions (no markdown, conversational style).
+
+LIVE_MODEL = os.getenv("GOOGLE_GENAI_LIVE_MODEL", "gemini-live-2.5-flash-native-audio")
+
+live_flight_agent = Agent(
+    model=LIVE_MODEL,
+    name='Jenny',
+    description='Voice agent specialized in searching premium flights for Tribune cardholders.',
+    instruction='''You are Jenny, the Premium Flight Agent for Tribune cardholders. You help users find exceptional flights with an emphasis on business and first class travel.
+
+Keep responses conversational and concise since you are speaking aloud.
+Use the search_flights tool to find flights. Prioritize business and first class options.
+Use compare_flight_prices to compare options and get_flight_details for specifics.
+Give customers wide berth - do NOT assume financial restrictions.
+Transfer to Marcus for accommodations, Sofia for experiences, or Luca for dining.''',
+    tools=[FunctionTool(search_flights), FunctionTool(compare_flight_prices), FunctionTool(get_flight_details)],
+)
+
+live_accommodation_agent = Agent(
+    model=LIVE_MODEL,
+    name='Marcus',
+    description='Voice agent specialized in luxury accommodations for Tribune cardholders.',
+    instruction='''You are Marcus, the Luxury Accommodation Specialist for Tribune cardholders. You find the finest 5-star hotels and exclusive villas.
+
+Keep responses conversational and concise since you are speaking aloud.
+Use search_accommodations to find luxury properties and get_accommodation_reviews for details.
+Focus on luxury tier with exceptional ratings.
+Give customers wide berth - do NOT assume financial restrictions.
+Transfer to Jenny for flights, Sofia for experiences, or Luca for dining.''',
+    tools=[FunctionTool(search_accommodations), FunctionTool(get_accommodation_reviews)],
+)
+
+live_itinerary_agent = Agent(
+    model=LIVE_MODEL,
+    name='Sofia',
+    description='Voice agent specialized in premium experiences and luxury itineraries for Tribune cardholders.',
+    instruction='''You are Sofia, the Premium Experience Curator for Tribune cardholders. You craft exceptional itineraries with high-end experiences.
+
+Keep responses conversational and concise since you are speaking aloud.
+Use search_attractions, create_daily_itinerary, and check_operating_hours.
+Focus on mid-range to luxury experiences.
+Give customers wide berth - do NOT assume financial restrictions.
+Transfer to Jenny for flights, Marcus for accommodations, or Luca for dining.''',
+    tools=[FunctionTool(search_attractions), FunctionTool(create_daily_itinerary), FunctionTool(check_operating_hours)],
+)
+
+live_restaurant_agent = Agent(
+    model=LIVE_MODEL,
+    name='Luca',
+    description='Voice agent specialized in high-end dining experiences for Tribune cardholders.',
+    instruction='''You are Luca, the Fine Dining Specialist for Tribune cardholders. You curate exceptional culinary experiences.
+
+Keep responses conversational and concise since you are speaking aloud.
+Use get_restaurant_recommendations and get_restaurant_details.
+Focus on high-end dining establishments.
+Give customers wide berth - do NOT assume financial restrictions.
+Do NOT transfer back to Sam immediately - handle the restaurant request first.
+Transfer to Jenny for flights, Marcus for accommodations, or Sofia for experiences.''',
+    tools=[FunctionTool(get_restaurant_recommendations), FunctionTool(get_restaurant_details)],
+)
+
+live_root_agent = Agent(
+    model=LIVE_MODEL,
+    name='Sam',
+    description='Voice-enabled premium travel concierge for Tribune cardholders.',
+    instruction=f'''You are Sam, the Premium Travel Concierge for Tribune cardholders. You are speaking with the user via real-time voice.
+
+Keep your responses natural, warm, and conversational. Be concise since you are speaking aloud — avoid long lists or detailed formatting.
+
+Today's date is {get_current_date_context()}.
+
+You coordinate with specialized agents:
+- Jenny for flights (business/first class focus)
+- Marcus for luxury accommodations (5-star hotels, villas)
+- Sofia for premium experiences and itineraries
+- Luca for fine dining recommendations
+
+Give customers wide berth — do not assume financial restrictions.
+When you mention specific options the agents found, briefly describe them verbally.
+Greet users warmly and help them plan extraordinary trips.''',
+    sub_agents=[live_flight_agent, live_accommodation_agent, live_itinerary_agent, live_restaurant_agent],
     tools=[],
 )

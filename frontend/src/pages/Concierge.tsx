@@ -184,6 +184,9 @@ export function Concierge() {
         agent: 'Concierge',
         timestamp: new Date(),
       };
+      const agentName = selectedTier === 'tribune' ? 'Sam' : 'Concierge';
+      setCurrentAgent(agentName);
+      currentAgentRef.current = agentName;
       setMessages([initialMessage]);
     }
   }, [selectedTier, user]);

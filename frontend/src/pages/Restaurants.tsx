@@ -1,9 +1,13 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { getCachedUser, fetchCurrentUser } from '../utils/auth';
 import { getRestaurants, makeRestaurantReservation } from '../utils/api';
 import type { Restaurant, RestaurantFilters, RestaurantReservation } from '../types/restaurant';
 import './Restaurants.css';
 
 export function Restaurants() {
+  const navigate = useNavigate();
+  const [user, setUser] = useState(getCachedUser());
   const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
   const [filteredRestaurants, setFilteredRestaurants] = useState<Restaurant[]>([]);
   const [loading, setLoading] = useState(true);
@@ -27,6 +31,16 @@ export function Restaurants() {
   const [reservationTime, setReservationTime] = useState('');
   const [specialRequests, setSpecialRequests] = useState('');
   const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    const loadUser = async () => {
+      if (!user) {
+        const fetchedUser = await fetchCurrentUser();
+        setUser(fetchedUser);
+      }
+    };
+    loadUser();
+  }, []);
 
   // Load restaurants
   useEffect(() => {
@@ -151,6 +165,28 @@ export function Restaurants() {
   // Get unique countries and cuisines for filters
   const countries = Array.from(new Set(restaurants.map(r => r.country))).sort();
   const cuisines = Array.from(new Set(restaurants.map(r => r.cuisine))).sort();
+
+  if (!user) {
+    return (
+      <div className="restaurants-page">
+        <div className="auth-gate">
+          <div className="gate-icon">🍽️</div>
+          <h1 className="gate-title">Restaurants</h1>
+          <p className="gate-subtitle">
+            Sign in to discover and reserve tables at exceptional dining destinations
+          </p>
+          <div className="gate-actions">
+            <button className="gate-button premium" onClick={() => navigate('/login')}>
+              Sign In to Continue
+            </button>
+            <button className="gate-button secondary" onClick={() => navigate('/cards')}>
+              Learn About Our Cards
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (loading) {
     return (

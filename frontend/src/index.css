@@ -32,3 +32,67 @@ button {
   scrollbar-width: thin;
   scrollbar-color: #cbd5e1 #f1f1f1;
 }
+
+/* Shared auth gate styles */
+.auth-gate {
+  text-align: center;
+  padding: 4rem 2rem;
+  max-width: 600px;
+  margin: 4rem auto;
+}
+
+.gate-icon {
+  font-size: 5rem;
+  margin-bottom: 1rem;
+}
+
+.gate-title {
+  font-size: 2.5rem;
+  color: #1a1a1a;
+  margin-bottom: 1rem;
+}
+
+.gate-subtitle {
+  font-size: 1.1rem;
+  color: #666;
+  margin-bottom: 2rem;
+}
+
+.gate-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  max-width: 400px;
+  margin: 0 auto;
+}
+
+.gate-button {
+  padding: 1rem 2rem;
+  border: none;
+  border-radius: 8px;
+  font-size: 1.1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.gate-button.premium {
+  background-color: #2c3e50;
+  color: white;
+}
+
+.gate-button.premium:hover {
+  background-color: #34495e;
+  transform: scale(1.02);
+}
+
+.gate-button.secondary {
+  background-color: transparent;
+  color: #2c3e50;
+  border: 2px solid #2c3e50;
+}
+
+.gate-button.secondary:hover {
+  background-color: #2c3e50;
+  color: white;
+}

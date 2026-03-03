@@ -32,12 +32,12 @@ from legionnaire_concierge.agent import legionnaire_agent
 
 # Datadog LLM Observability setup
 LLMObs.enable(
-  ml_app="travel-planner",
+  ml_app=os.getenv("DD_LLMOBS_ML_APP", "travel-planner"),
   api_key=os.getenv("DATADOG_API_KEY"),
   site=os.getenv("DD_SITE", "datadoghq.com"),
   agentless_enabled=True,
-  env=os.getenv("ENV", "development"),
-  service="travel-planner-api",
+  env=os.getenv("DD_ENV", "dev"),
+  service=os.getenv("DD_SERVICE", "travel-planner-api"),
 )
 
 # Create runner instances
@@ -54,6 +54,14 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=[
+        "x-datadog-trace-id",
+        "x-datadog-parent-id",
+        "x-datadog-sampling-priority",
+        "x-datadog-origin",
+        "traceparent",
+        "tracestate",
+    ],
 )
 
 # Include routers

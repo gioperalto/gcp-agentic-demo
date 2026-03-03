@@ -28,7 +28,17 @@ export const Accommodations = () => {
   const [bookingSuccess, setBookingSuccess] = useState<string | null>(null);
   const [bookingError, setBookingError] = useState<string | null>(null);
 
-  const user = getCachedUser();
+  const [user, setUser] = useState(getCachedUser());
+
+  useEffect(() => {
+    const loadUser = async () => {
+      if (!user) {
+        const fetchedUser = await fetchCurrentUser();
+        setUser(fetchedUser);
+      }
+    };
+    loadUser();
+  }, []);
 
   useEffect(() => {
     loadAccommodations();
@@ -168,6 +178,28 @@ export const Accommodations = () => {
       </div>
     );
   };
+
+  if (!user) {
+    return (
+      <div className="accommodations-page">
+        <div className="auth-gate">
+          <div className="gate-icon">🏨</div>
+          <h1 className="gate-title">Accommodations</h1>
+          <p className="gate-subtitle">
+            Sign in to browse and book accommodations with your Meridian card
+          </p>
+          <div className="gate-actions">
+            <button className="gate-button premium" onClick={() => navigate('/login')}>
+              Sign In to Continue
+            </button>
+            <button className="gate-button secondary" onClick={() => navigate('/cards')}>
+              Learn About Our Cards
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="accommodations-page">

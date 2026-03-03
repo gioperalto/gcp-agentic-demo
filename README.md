@@ -8,7 +8,9 @@ A full-stack credit card platform featuring AI-powered concierge services using 
   - **Legionnaire Concierge**: 24/7 AI chat support for basic concierge services
   - **Tribune AI Concierge Team**: Premium multi-agent system with specialized travel planning agents
 
-- **Voice-to-Text Integration**: Voice input support using Google Cloud Speech-to-Text
+- **Voice Integration**: Real-time bidirectional voice via Gemini Live API (Tribune only)
+
+- **Travel Services**: Browse and book flights, accommodations, restaurants, and experiences
 
 - **User Authentication**: JWT-based authentication system
 
@@ -16,14 +18,16 @@ A full-stack credit card platform featuring AI-powered concierge services using 
 
 - **Benefits Portal**: Comprehensive benefits information for cardholders
 
+- **Observability**: Datadog LLM Observability, APM, logs, and CSPM via Docker Compose
+
 ## Architecture Overview
 
 ```
-┌─────────────────┐         ┌──────────────────┐
-│                 │         │                  │
-│  React Frontend │◄────────┤  FastAPI Backend │
-│  (Port 5173)    │   SSE   │  (Port 8000)     │
-│                 │         │                  │
+┌─────────────────┐         ┌──────────────────┐       ┌──────────────┐
+│                 │         │                  │       │  Datadog     │
+│  React Frontend │◄────────┤  FastAPI Backend │──────►│  Agent       │
+│  (Port 5173)    │   SSE   │  (Port 8000)     │       │  (APM/Logs)  │
+│                 │         │                  │       └──────────────┘
 └─────────────────┘         └────────┬─────────┘
                                      │
                     ┌────────────────┴──────────────────┐
@@ -44,21 +48,21 @@ A full-stack credit card platform featuring AI-powered concierge services using 
 │ Jenny │     │  Marcus  │    │  Sofia  │
 │(Flight│     │ (Hotels) │    │(Itiner.)│
 └───────┘     └──────────┘    └─────────┘
-    │               │
-┌───▼───┐     ┌─────▼────┐
-│ Luca  │     │   Alex   │
-│(Dining│     │ (Budget) │
-└───────┘     └──────────┘
+    │
+┌───▼───┐
+│ Luca  │
+│(Dining│
+└───────┘
 ```
 
 ## Tech Stack
 
 ### Backend
-- **FastAPI**: Modern, fast web framework for building APIs
+- **FastAPI**: Web framework for building APIs
 - **Google ADK**: Agent Development Kit for building AI agents
-- **Google Generative AI**: Gemini models for conversational AI
-- **Google Cloud Speech-to-Text**: Voice transcription service
-- **Datadog LLM Observability**: Monitoring and tracing for LLM applications
+- **Google Vertex AI**: Gemini models for conversational AI
+- **Gemini Live API**: Real-time bidirectional voice conversations
+- **Datadog**: LLM Observability, APM, and log monitoring
 - **Python 3.10+**
 
 ### Frontend
@@ -67,7 +71,84 @@ A full-stack credit card platform featuring AI-powered concierge services using 
 - **React Router**: Client-side routing
 - **Vite**: Build tool and dev server
 
-## Quick Start
+---
+
+## Quick Start (Docker Compose)
+
+The recommended way to run the full stack (backend, frontend, and Datadog agent) is via Docker Compose.
+
+### Prerequisites
+
+- [Docker](https://docs.docker.com/get-docker/) and [Docker Compose](https://docs.docker.com/compose/install/)
+- A GCP service account JSON file with Vertex AI access
+- (Optional) A [Datadog API key](https://app.datadoghq.com/organization-settings/api-keys) for observability
+
+### 1. Configure Environment
+
+Copy the example env file and fill in your values:
+
+```bash
+cp .env.example .env
+```
+
+Edit `.env` with your actual credentials:
+
+```bash
+DD_ENV=dev
+DATADOG_API_KEY=your-datadog-api-key
+GOOGLE_GENAI_MODEL=gemini-3-flash-preview
+GOOGLE_GENAI_USE_VERTEXAI=True
+GOOGLE_APPLICATION_CREDENTIALS=/path/to/your/service-account.json
+GOOGLE_CLOUD_PROJECT=your-gcp-project-id
+GOOGLE_GENAI_LIVE_MODEL=gemini-live-2.5-flash-native-audio
+GOOGLE_CLOUD_LOCATION=us-central1
+JWT_SECRET_KEY=change-me-in-production
+VITE_API_URL=http://localhost:8000
+```
+
+`GOOGLE_APPLICATION_CREDENTIALS` must be an **absolute path** to the service account JSON file on your host machine. Docker Compose mounts it into the container automatically.
+
+### 2. Build and Start
+
+```bash
+docker compose up --build
+```
+
+This starts three services:
+
+| Service | URL | Description |
+|---------|-----|-------------|
+| **frontend** | http://localhost:5173 | React app (Vite dev server) |
+| **backend** | http://localhost:8000 | FastAPI (with ddtrace APM) |
+| **dd-agent** | localhost:8125/udp, :8126/tcp | Datadog Agent (logs, APM, CSPM) |
+
+### 3. Verify
+
+```bash
+# Backend health check
+curl http://localhost:8000/api/health
+# → {"status":"healthy","service":"travel-planner"}
+
+# Frontend
+open http://localhost:5173
+```
+
+### 4. Hot Reload (Development)
+
+Source directories are volume-mounted for live reloading:
+
+- **Backend**: Edit files in `backend/`, `tribune_concierge/`, or `legionnaire_concierge/` — uvicorn auto-reloads
+- **Frontend**: Edit files in `frontend/src/` — Vite HMR updates the browser instantly
+
+### 5. Stop
+
+```bash
+docker compose down
+```
+
+---
+
+## Quick Start (Local — without Docker)
 
 ### 1. Install Dependencies
 
@@ -87,20 +168,7 @@ cd ..
 
 ### 2. Configure Environment
 
-**Backend (.env in backend/ directory):**
-```bash
-GOOGLE_API_KEY=your_google_api_key
-GOOGLE_GENAI_MODEL=gemini-2.0-flash-exp
-DATADOG_API_KEY=your_datadog_api_key
-DD_SITE=datadoghq.com
-ENV=development
-JWT_SECRET_KEY=your_secret_key_here
-```
-
-**Frontend (.env in frontend/ directory):**
-```bash
-VITE_API_URL=http://localhost:8000
-```
+Create a `.env` file in the project root (see `.env.example`) with your GCP and Datadog credentials. The backend loads env vars via `dotenv`.
 
 ### 3. Start the Backend
 
@@ -109,7 +177,7 @@ cd backend
 python main.py
 ```
 
-The backend will start on `http://localhost:8000`
+The backend starts on http://localhost:8000
 - API docs: http://localhost:8000/docs
 - Health check: http://localhost:8000/api/health
 
@@ -122,295 +190,83 @@ cd frontend
 npm run dev
 ```
 
-The frontend will start on `http://localhost:5173`
-
-### 5. Test the Application
-
-1. Open your browser to http://localhost:5173
-2. Log in with mock user credentials (see Mock Users section)
-3. Navigate to the Concierge page
-4. Select Tribune or Legionnaire tier based on your card type
-5. Start chatting!
+The frontend starts on http://localhost:5173
 
 ---
 
-## API Documentation
+## Mock Users
 
-### Base URL
-```
-http://localhost:8000
-```
+For testing purposes, the following mock users are available:
 
-### Authentication
+| Username | Password | Card Type | Credit Limit | Reward Multiplier |
+|----------|----------|-----------|-------------|-------------------|
+| `demo_user` | `password123` | Legionnaire | $15,000 | 1.0x |
+| `wealthy_user` | `password123` | Tribune | $50,000 | 2.5x |
+| `young_user` | `password123` | None | — | — |
 
-- Google ADK uses API key authentication via `GOOGLE_API_KEY` environment variable
-- JWT tokens for user authentication
+---
 
-### Core Endpoints
+## Environment Variables
 
-#### Health Check
-```http
-GET /api/health
-```
+All environment variables are consolidated in a single root `.env` file. See `.env.example` for reference.
 
-**Response:**
-```json
-{
-  "status": "healthy",
-  "service": "travel-planner"
-}
-```
-
-#### Root
-```http
-GET /
-```
-
-**Response:**
-```json
-{
-  "message": "Travel Planner API",
-  "version": "1.0.0",
-  "docs": "/docs"
-}
-```
-
-### Authentication Endpoints
-
-#### Login
-```http
-POST /api/auth/login
-Content-Type: application/json
-```
-
-**Request Body:**
-```json
-{
-  "username": "john_tribune",
-  "password": "password123"
-}
-```
-
-**Response (200 OK):**
-```json
-{
-  "access_token": "eyJhbGciOiJIUzI1NiIs...",
-  "user": {
-    "id": "1",
-    "username": "john_tribune",
-    "email": "john@example.com",
-    "card_type": "tribune"
-  }
-}
-```
-
-**Error Response (401 Unauthorized):**
-```json
-{
-  "detail": "Invalid username or password"
-}
-```
-
-#### Get Current User
-```http
-GET /api/auth/me
-Authorization: Bearer {token}
-```
-
-**Response (200 OK):**
-```json
-{
-  "id": "1",
-  "username": "john_tribune",
-  "email": "john@example.com",
-  "card_type": "tribune"
-}
-```
-
-**Error Response (401 Unauthorized):**
-```json
-{
-  "detail": "Missing or invalid authorization header"
-}
-```
-
-### Card Application Endpoints
-
-#### Apply for Card
-```http
-POST /api/cards/apply
-Authorization: Bearer {token}
-Content-Type: application/json
-```
-
-**Request Body:**
-```json
-{
-  "card_type": "tribune",
-  "first_name": "John",
-  "last_name": "Doe",
-  "email": "john.doe@example.com",
-  "annual_income": 150000
-}
-```
-
-**Response (200 OK):**
-```json
-{
-  "application_id": "app_01HQZX...",
-  "status": "approved",
-  "card_type": "tribune",
-  "created_at": "2024-01-08T12:00:00Z"
-}
-```
-
-### Chat Endpoints
-
-#### Tribune Premium Chat (Multi-Agent)
-```http
-POST /api/chat/stream
-Content-Type: application/json
-```
-
-**Request Body:**
-```json
-{
-  "message": "I need to plan a trip to Paris",
-  "session_id": "session_abc123"
-}
-```
-
-**Response:** Server-Sent Events (text/event-stream)
-
-**Event Types:**
-
-1. **agent_transfer** - Agent handoff notification
-```
-data: {"type":"agent_transfer","data":{"agent":"Jenny","message":"Transferring you to Jenny, our flight specialist. She'll help you find the best flights! ✈️"}}
-```
-
-2. **content** - Streaming text content
-```
-data: {"type":"content","data":{"text":"Hello! I'd be happy to help you plan your trip to Paris..."}}
-```
-
-3. **done** - Completion signal
-```
-data: {"type":"done","data":{"message":"Response complete"}}
-```
-
-4. **error** - Error notification
-```
-data: {"type":"error","data":{"message":"An error occurred","detail":"Stack trace..."}}
-```
-
-#### Legionnaire Basic Chat (Single Agent)
-```http
-POST /api/chat/legionnaire/stream
-Content-Type: application/json
-```
-
-**Request Body:**
-```json
-{
-  "message": "Can you recommend a restaurant?",
-  "session_id": "session_xyz789"
-}
-```
-
-**Response:** Server-Sent Events (text/event-stream)
-
-Same event structure as Tribune chat, but without agent_transfer events since there's only one agent.
-
-### Speech-to-Text Endpoint
-
-#### Transcribe Audio
-```http
-POST /api/speech-to-text
-Content-Type: multipart/form-data
-```
-
-**Request:** multipart/form-data
-- **audio** (file): Audio file in webm/opus format
-
-**Response (200 OK):**
-```json
-{
-  "text": "I need help planning a trip to Tokyo"
-}
-```
-
-**Response (No Speech):**
-```json
-{
-  "text": "",
-  "message": "No speech detected"
-}
-```
-
-**Error Response (500):**
-```json
-{
-  "detail": "Speech-to-text error: [error message]"
-}
-```
+| Variable | Description | Required |
+|----------|-------------|----------|
+| `DD_ENV` | Datadog environment tag | No (default: `dev`) |
+| `DATADOG_API_KEY` | Datadog API key for observability | No |
+| `GOOGLE_GENAI_MODEL` | Gemini model name | Yes |
+| `GOOGLE_GENAI_USE_VERTEXAI` | Use Vertex AI endpoints | Yes |
+| `GOOGLE_APPLICATION_CREDENTIALS` | Path to GCP service account JSON | Yes |
+| `GOOGLE_CLOUD_PROJECT` | GCP project ID | Yes |
+| `GOOGLE_CLOUD_LOCATION` | GCP region | Yes |
+| `GOOGLE_GENAI_LIVE_MODEL` | Gemini Live model for voice | Yes |
+| `JWT_SECRET_KEY` | Secret key for JWT tokens | Yes |
+| `VITE_API_URL` | Backend API URL for the frontend | No (default: `http://localhost:8000`) |
 
 ---
 
 ## Agent System
 
 ### Tribune Premium (Multi-Agent System)
-Located in `travel_planner/agent.py`
+Located in `tribune_concierge/agent.py`
 
-- **Sam** 🌟 - Main coordinator who understands your needs
-- **Jenny** ✈️ - Flight search specialist
-- **Marcus** 🏨 - Accommodation booking expert
-- **Sofia** 🗺️ - Itinerary planning & attractions specialist
-- **Luca** 🍽️ - Restaurant recommendations specialist
-- **Alex** 💰 - Budget management expert
+- **Sam** — Main coordinator who understands your needs
+- **Jenny** — Flight search specialist
+- **Marcus** — Accommodation booking expert
+- **Sofia** — Itinerary planning & attractions specialist
+- **Luca** — Restaurant recommendations specialist
 
 ### Legionnaire Basic (Single Agent)
 Located in `legionnaire_concierge/agent.py`
 
-- **Concierge** 💬 - General-purpose AI assistant for basic concierge services
+- **Concierge** — General-purpose AI assistant for basic concierge services
 
 ---
 
-## Testing
+## API Documentation
 
-### Run Backend Tests
+### Core Endpoints
 
-```bash
-cd backend
-pytest test_api.py -v
-```
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/api/health` | Health check |
+| `POST` | `/api/auth/login` | User login (returns JWT) |
+| `GET` | `/api/auth/me` | Current user info |
+| `POST` | `/api/cards/apply` | Apply for a card |
+| `POST` | `/api/chat/stream` | Tribune chat (SSE, multi-agent) |
+| `POST` | `/api/chat/legionnaire/stream` | Legionnaire chat (SSE, single agent) |
+| `WS` | `/ws/voice` | Voice conversation (Gemini Live API) |
 
-**Test Coverage:**
-- ✅ Health check endpoint
-- ✅ Authentication (login, token validation)
-- ✅ Card application
-- ✅ Tribune chat streaming
-- ✅ Legionnaire chat streaming
-- ✅ Speech-to-text (including integration test with real Google API credentials)
-- ✅ CORS configuration
+### Travel Data Endpoints
 
-**Note on Speech-to-Text Test:**
-The `test_speech_to_text_with_valid_audio` test makes a real API call to Google Cloud Speech-to-Text using credentials from your `.env` file. This test:
-- Verifies the API integration works correctly
-- Uses actual `GOOGLE_API_KEY` authentication
-- Creates a valid audio file and tests transcription
-- Gracefully skips if the Speech-to-Text API is not enabled on your Google Cloud project
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/api/flights` | Browse flights |
+| `GET` | `/api/accommodations` | Browse accommodations |
+| `GET` | `/api/travel/restaurants` | Browse restaurants |
+| `GET` | `/api/travel/experiences` | Browse experiences |
 
-### Test Results Example
-```
-test_api.py::TestHealthEndpoint::test_health_check PASSED
-test_api.py::TestAuthEndpoints::test_login_with_valid_credentials PASSED
-test_api.py::TestAuthEndpoints::test_get_me_with_valid_token PASSED
-test_api.py::TestTribuneChatEndpoint::test_tribune_chat_stream_endpoint_exists PASSED
-test_api.py::TestLegionnaireChatEndpoint::test_legionnaire_chat_stream_endpoint_exists PASSED
-test_api.py::TestSpeechToTextEndpoint::test_speech_to_text_with_valid_audio SKIPPED (or PASSED)
-==================== 18 passed, 1 skipped, 8 warnings ====================
-```
+Interactive API docs available at http://localhost:8000/docs when the backend is running.
 
 ---
 
@@ -420,117 +276,112 @@ test_api.py::TestSpeechToTextEndpoint::test_speech_to_text_with_valid_audio SKIP
 gcp-agentic-demo/
 ├── backend/
 │   ├── main.py                 # FastAPI application
-│   ├── test_api.py            # API endpoint tests
-│   ├── test_agent.py          # Agent behavior tests
+│   ├── Dockerfile              # Backend container image
 │   ├── requirements.txt        # Python dependencies
+│   ├── data/                   # JSON seed data
+│   │   ├── users.json
+│   │   ├── flights.json
+│   │   ├── accommodations.json
+│   │   ├── restaurants.json
+│   │   └── experiences.json
 │   ├── models/                 # Pydantic models
 │   │   ├── auth.py
 │   │   ├── user.py
+│   │   ├── travel.py
 │   │   └── application.py
-│   ├── routers/               # API route handlers
+│   ├── routers/                # API route handlers
 │   │   ├── auth.py
-│   │   └── cards.py
-│   ├── services/              # Business logic
+│   │   ├── cards.py
+│   │   ├── travel.py
+│   │   ├── flights.py
+│   │   └── accommodations.py
+│   ├── services/               # Business logic
 │   │   ├── auth_service.py
-│   │   └── user_service.py
-│   └── .env                    # Environment variables
+│   │   ├── user_service.py
+│   │   ├── travel_service.py
+│   │   └── application_service.py
+│   └── test_api.py             # API tests
 ├── frontend/
+│   ├── Dockerfile              # Frontend container image
 │   ├── src/
-│   │   ├── components/        # React components
-│   │   │   ├── Chat.tsx
-│   │   │   ├── ChatInput.tsx
-│   │   │   ├── ChatMessage.tsx
-│   │   │   ├── Header.tsx
-│   │   │   └── PreviewModal.tsx
-│   │   ├── pages/            # Page components
-│   │   │   ├── Home.tsx
-│   │   │   ├── Login.tsx
-│   │   │   ├── Cards.tsx
-│   │   │   ├── Benefits.tsx
+│   │   ├── components/         # React components
+│   │   ├── pages/              # Page components
+│   │   │   ├── Flights.tsx
+│   │   │   ├── Accommodations.tsx
+│   │   │   ├── Restaurants.tsx
+│   │   │   ├── Experiences.tsx
 │   │   │   ├── Concierge.tsx
-│   │   │   ├── Account.tsx
-│   │   │   └── Apply.tsx
-│   │   ├── utils/            # Utility functions
-│   │   │   ├── api.ts
-│   │   │   └── auth.ts
-│   │   └── types/            # TypeScript types
-│   │       ├── chat.ts
-│   │       └── user.ts
+│   │   │   └── ...
+│   │   ├── utils/
+│   │   └── types/
 │   ├── package.json
-│   └── .env
-├── travel_planner/
-│   ├── agent.py              # Tribune multi-agent system
-│   └── tools/                # Agent tools
-│       ├── jenny.py          # Flight tools
-│       ├── marcus.py         # Accommodation tools
-│       ├── sofia.py          # Itinerary tools
-│       ├── luca.py           # Restaurant tools
-│       └── alex.py           # Budget tools
-├── legionnaire_concierge/
-│   ├── agent.py              # Legionnaire single agent
-│   └── __init__.py
-├── docker-compose.yml
+│   └── vite.config.ts
+├── tribune_concierge/          # Tribune multi-agent system
+│   ├── agent.py
+│   └── tools/
+│       ├── jenny.py            # Flight tools
+│       ├── marcus.py           # Accommodation tools
+│       ├── sofia.py            # Itinerary tools
+│       ├── luca.py             # Restaurant tools
+│       └── ...
+├── legionnaire_concierge/      # Legionnaire single agent
+│   └── agent.py
+├── docker-compose.yml          # Full stack orchestration
+├── .dockerignore
+├── .env.example                # Environment variable template
 └── README.md
 ```
 
 ---
 
-## Mock Users
+## Testing
 
-For testing purposes, the following mock users are available:
-
-| Username | Password | Card Type | Email |
-|----------|----------|-----------|-------|
-| `john_tribune` | `password123` | Tribune | john@example.com |
-| `jane_legionnaire` | `password123` | Legionnaire | jane@example.com |
-| `bob_none` | `password123` | None | bob@example.com |
+```bash
+cd backend
+pytest test_api.py -v
+```
 
 ---
 
-## Environment Variables
+## Monitoring
 
-### Backend
+The Docker Compose setup includes a Datadog Agent with:
 
-| Variable | Description | Required | Default |
-|----------|-------------|----------|---------|
-| `GOOGLE_API_KEY` | Google Cloud API key | Yes | - |
-| `GOOGLE_GENAI_MODEL` | Gemini model name | Yes | `gemini-2.0-flash-exp` |
-| `DATADOG_API_KEY` | Datadog API key for observability | No | - |
-| `DD_SITE` | Datadog site | No | `datadoghq.com` |
-| `ENV` | Environment name | No | `development` |
-| `JWT_SECRET_KEY` | Secret key for JWT tokens | Yes | - |
+- **APM**: Automatic tracing via `ddtrace-run` (backend)
+- **Logs**: Container log collection with source/service tagging
+- **CSPM**: Cloud Security Posture Management
+- **LLM Observability**: Agent interaction tracing
 
-### Frontend
-
-| Variable | Description | Required | Default |
-|----------|-------------|----------|---------|
-| `VITE_API_URL` | Backend API URL | No | `http://localhost:8000` |
+Unified service tagging is applied via env vars, Docker labels, and autodiscovery annotations. Services appear in Datadog as `travel-planner-api` and `travel-planner-frontend`.
 
 ---
 
 ## Troubleshooting
 
+### Docker Compose issues
+- Ensure `GOOGLE_APPLICATION_CREDENTIALS` in `.env` is an absolute path to a file that exists on your host
+- If the Datadog agent fails, verify `DATADOG_API_KEY` is set (or remove the `dd-agent` service to run without it)
+- Run `docker compose logs <service>` to inspect individual service logs
+
 ### Backend won't start
 - Check that port 8000 is available
-- Verify your `.env` file has the required `GOOGLE_API_KEY` variable
+- Verify your `.env` file has all required GCP variables
 - Make sure all Python dependencies are installed
-- Activate virtual environment: `source .venv/bin/activate`
 
 ### Frontend shows connection error
 - Verify the backend is running on port 8000
-- Check the `VITE_API_URL` in `frontend/.env`
+- Check the `VITE_API_URL` value
 - Look for CORS errors in the browser console
 
 ### Agents not responding
 - Check the backend logs for errors
-- Verify your Google API credentials are correct
-- Ensure the Google ADK is properly installed
-- Check that `GOOGLE_GENAI_MODEL` is set correctly
+- Verify your GCP service account has Vertex AI access
+- Ensure `GOOGLE_GENAI_MODEL` is set correctly
 
 ### Voice input not working
+- Voice is available to Tribune cardholders only
 - Ensure microphone permissions are granted in the browser
-- Check that `GOOGLE_API_KEY` has Speech-to-Text API enabled
-- Verify audio is being captured (check browser console for errors)
+- Check that `GOOGLE_GENAI_LIVE_MODEL` is set in your `.env`
 
 ---
 
@@ -540,8 +391,8 @@ For testing purposes, the following mock users are available:
 
 To add a new agent to the Tribune system:
 
-1. Create agent tools in `travel_planner/tools/`
-2. Define the agent in `travel_planner/agent.py`
+1. Create agent tools in `tribune_concierge/tools/`
+2. Define the agent in `tribune_concierge/agent.py`
 3. Add the agent to the `root_agent.sub_agents` list
 4. Update the agent transfer messages in `backend/main.py`
 
@@ -550,81 +401,9 @@ To add a new agent to the Tribune system:
 1. Create route handler in `backend/routers/`
 2. Include router in `backend/main.py`
 3. Add tests in `backend/test_api.py`
-4. Update API documentation in this README
-
-### Frontend Development
-
-```bash
-cd frontend
-npm run dev
-# Make changes to src/ files
-# Vite will hot-reload automatically
-```
-
-### Backend Development
-
-```bash
-cd backend
-python main.py
-# Make changes to *.py files
-# Server will auto-reload with uvicorn --reload
-```
-
----
-
-## Deployment
-
-### Using Docker Compose
-
-```bash
-docker-compose up -d
-```
-
-This will start both the backend and frontend services.
-
-### Production Deployment
-
-For production deployment:
-
-1. Update CORS origins in `backend/main.py`
-2. Set `VITE_API_URL` to your production backend URL
-3. Build the frontend: `cd frontend && npm run build`
-4. Deploy the backend with a production ASGI server (e.g., Gunicorn with Uvicorn workers)
-5. Serve the frontend `dist/` folder from a CDN or static host
-
----
-
-## Monitoring
-
-The application includes Datadog LLM Observability for monitoring:
-- Agent interactions
-- Tool calls
-- Response times
-- Error rates
-- User sessions
-
-Enable by setting `DATADOG_API_KEY` in environment variables.
-
----
-
-## API Documentation (Interactive)
-
-Once the backend is running, visit:
-- **Swagger UI**: http://localhost:8000/docs
-- **ReDoc**: http://localhost:8000/redoc
 
 ---
 
 ## License
 
 Proprietary - Meridian Financial Services
-
----
-
-## Support
-
-For questions or issues, please contact the development team.
-
----
-
-Happy Travel Planning! 🌍✈️

@@ -80,18 +80,32 @@ img.logo-image {
 /* Dropdown */
 .nav-dropdown {
   position: relative;
+  padding-bottom: 8px;
+  margin-bottom: -8px;
+}
+
+/* Invisible bridge covering the gap between trigger and menu,
+   plus wide horizontal padding so the menu only closes when the
+   cursor moves clearly left or right — not when scrolling. */
+.nav-dropdown-menu::before {
+  content: '';
+  position: absolute;
+  top: -16px;
+  left: -40px;
+  right: -40px;
+  height: 16px;
 }
 
 .nav-dropdown-menu {
   position: absolute;
-  top: calc(100% + 8px);
+  top: calc(100% + 0px);
   left: 50%;
   transform: translateX(-50%);
   background-color: var(--m-surface-raised);
   border: 1px solid var(--m-border);
   border-radius: var(--radius-md);
   min-width: 220px;
-  overflow: hidden;
+  overflow: visible;
   z-index: 1000;
   box-shadow: 0 16px 48px rgba(0, 0, 0, 0.5);
   animation: dropdownIn 0.2s var(--ease-out);

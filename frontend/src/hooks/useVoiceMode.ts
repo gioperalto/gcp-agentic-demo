@@ -60,6 +60,7 @@ export function useVoiceMode(sessionId: string, callbacks?: VoiceModeCallbacks) 
   const wsRef = useRef<WebSocket | null>(null);
   const captureCtxRef = useRef<AudioContext | null>(null);
   const micStreamRef = useRef<MediaStream | null>(null);
+  const micMutedRef = useRef(false);
 
   // Playback: use AudioContext + BufferSource scheduling (matching ADK reference)
   const playbackCtxRef = useRef<AudioContext | null>(null);
@@ -74,6 +75,11 @@ export function useVoiceMode(sessionId: string, callbacks?: VoiceModeCallbacks) 
   const userTranscriptRef = useRef<string>('');
   const callbacksRef = useRef(callbacks);
   callbacksRef.current = callbacks;
+
+  // Track whether to suppress the first agent transcript (initial greeting)
+  const suppressGreetingRef = useRef(false);
+  // Track the current speaking agent to detect actual transfers (not per-event noise)
+  const currentAuthorRef = useRef<string>('Sam');
 
   /**
    * Schedule Int16 LE PCM audio for immediate gapless playback.
@@ -148,6 +154,9 @@ export function useVoiceMode(sessionId: string, callbacks?: VoiceModeCallbacks) 
 
     agentTranscriptRef.current = '';
     userTranscriptRef.current = '';
+    micMutedRef.current = false;
+    suppressGreetingRef.current = false;
+    currentAuthorRef.current = 'Sam';
 
     setState({
       isActive: false,
@@ -157,10 +166,14 @@ export function useVoiceMode(sessionId: string, callbacks?: VoiceModeCallbacks) 
     });
   }, []);
 
-  const startVoiceMode = useCallback(async () => {
+  const startVoiceMode = useCallback(async (initialGreeting?: string) => {
     if (state.isActive || state.isConnecting) return;
 
     setState(prev => ({ ...prev, isConnecting: true }));
+
+    // Mute mic if we need to play an initial greeting first
+    micMutedRef.current = !!initialGreeting;
+    suppressGreetingRef.current = !!initialGreeting;
 
     try {
       // 1. Open WebSocket
@@ -194,8 +207,9 @@ export function useVoiceMode(sessionId: string, callbacks?: VoiceModeCallbacks) 
       const micSource = captureCtx.createMediaStreamSource(micStream);
       const captureNode = new AudioWorkletNode(captureCtx, 'audio-capture-processor');
 
-      // Wire: mic → worklet → WebSocket
+      // Wire: mic → worklet → WebSocket (muted during initial greeting)
       captureNode.port.onmessage = (event: MessageEvent) => {
+        if (micMutedRef.current) return;
         if (ws.readyState === WebSocket.OPEN) {
           const base64Audio = arrayBufferToBase64(event.data);
           const liveRequest = {
@@ -228,6 +242,21 @@ export function useVoiceMode(sessionId: string, callbacks?: VoiceModeCallbacks) 
         try {
           const data = JSON.parse(event.data);
 
+          // Backend keepalive ping — just feed the watchdog timer, skip processing
+          if (data.ping) return;
+
+          // Agent transfer detection — run BEFORE audio/transcript processing
+          // so the transfer message appears in chat before the new agent's content.
+          if (data.author && data.author !== currentAuthorRef.current) {
+            const prevAuthor = currentAuthorRef.current;
+            currentAuthorRef.current = data.author;
+            // Only surface transfers TO sub-agents, not back to Sam
+            if (data.author !== 'Sam') {
+              console.log(`[voice] Agent transfer: ${prevAuthor} → ${data.author}`);
+              callbacks?.onAgentTransfer?.(data.author);
+            }
+          }
+
           // Extract and play audio from inlineData
           if (data.content?.parts) {
             for (const part of data.content.parts) {
@@ -248,22 +277,30 @@ export function useVoiceMode(sessionId: string, callbacks?: VoiceModeCallbacks) 
           // data, so we must not process transcription after finalizing.
           if (data.interrupted) {
             // User interrupted the agent — finalize partial agent transcript
-            if (agentTranscriptRef.current) {
+            if (agentTranscriptRef.current && !suppressGreetingRef.current) {
               callbacks?.onAgentTranscript?.(agentTranscriptRef.current, true);
-              agentTranscriptRef.current = '';
             }
+            agentTranscriptRef.current = '';
+            suppressGreetingRef.current = false;
             setState(prev => ({ ...prev, isSpeaking: false, currentTranscript: '' }));
           } else if (data.turnComplete) {
+            // Unmute mic after the initial greeting finishes
+            if (micMutedRef.current) {
+              console.log('[voice] Initial greeting done — unmuting mic');
+              micMutedRef.current = false;
+            }
             // Turn complete — finalize agent transcript
             console.log(`[voice] Turn complete. Audio chunks: ${audioChunkCount}, Transcript events: ${transcriptEventCount}`);
             audioChunkCount = 0;
             transcriptEventCount = 0;
             setState(prev => ({ ...prev, isSpeaking: false, currentTranscript: '' }));
-            if (agentTranscriptRef.current) {
+            if (agentTranscriptRef.current && !suppressGreetingRef.current) {
               console.log(`[voice] Finalizing agent transcript (${agentTranscriptRef.current.length} chars)`);
               callbacks?.onAgentTranscript?.(agentTranscriptRef.current, true);
-              agentTranscriptRef.current = '';
             }
+            agentTranscriptRef.current = '';
+            // Stop suppressing after the greeting turn completes
+            suppressGreetingRef.current = false;
           } else {
             // Output transcription (agent speaking)
             if (data.outputTranscription?.text) {
@@ -281,9 +318,11 @@ export function useVoiceMode(sessionId: string, callbacks?: VoiceModeCallbacks) 
               } else {
                 agentTranscriptRef.current += data.outputTranscription.text;
               }
-              setState(prev => ({ ...prev, currentTranscript: agentTranscriptRef.current }));
-              // Don't mark as isFinal here — turnComplete handles finalization
-              callbacks?.onAgentTranscript?.(agentTranscriptRef.current, false);
+              if (!suppressGreetingRef.current) {
+                setState(prev => ({ ...prev, currentTranscript: agentTranscriptRef.current }));
+                // Don't mark as isFinal here — turnComplete handles finalization
+                callbacks?.onAgentTranscript?.(agentTranscriptRef.current, false);
+              }
             }
 
             // Input transcription (user speaking)
@@ -301,10 +340,7 @@ export function useVoiceMode(sessionId: string, callbacks?: VoiceModeCallbacks) 
             }
           }
 
-          // Agent transfer detection
-          if (data.author && data.author !== 'Sam') {
-            callbacks?.onAgentTransfer?.(data.author);
-          }
+
         } catch (e) {
           console.error('[voice] Event processing error:', e, 'raw:', event.data.substring(0, 200));
         }
@@ -332,16 +368,29 @@ export function useVoiceMode(sessionId: string, callbacks?: VoiceModeCallbacks) 
         cleanup();
       };
 
-      // Start idle watchdog: if no events for 30s, surface error and cleanup
+      // Start idle watchdog: if no events for 90s, surface error and cleanup.
+      // Agent transfers involve tool calls (search_flights, etc.) that can take
+      // 30-60s with no events — the previous 30s timeout was too aggressive.
       lastEventTimeRef.current = Date.now();
       watchdogIntervalRef.current = setInterval(() => {
         const elapsed = Date.now() - lastEventTimeRef.current;
-        if (elapsed > 30_000) {
-          console.warn('[voice] Idle watchdog triggered — no events for 30s');
+        if (elapsed > 90_000) {
+          console.warn('[voice] Idle watchdog triggered — no events for 90s');
           callbacks?.onError?.('Voice connection appears stale — reconnecting may help');
           cleanup();
         }
-      }, 10_000);
+      }, 15_000);
+
+      // Send initial greeting prompt so Sam speaks first (mic is muted until turnComplete)
+      if (initialGreeting && ws.readyState === WebSocket.OPEN) {
+        console.log('[voice] Sending initial greeting prompt to Live API');
+        ws.send(JSON.stringify({
+          content: {
+            role: 'user',
+            parts: [{ text: initialGreeting }],
+          },
+        }));
+      }
 
       setState({
         isActive: true,

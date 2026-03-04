@@ -19,7 +19,7 @@ def _load_restaurants_data() -> List[Dict[str, Any]]:
         with open(data_path, 'r') as f:
             data = json.load(f)
             return data.get('restaurants', [])
-    except FileNotFoundError:
+    except Exception:
         return []
 
 

@@ -18,7 +18,7 @@ def _load_accommodations_data() -> List[Dict[str, Any]]:
     try:
         with open(data_path, 'r') as f:
             return json.load(f)
-    except FileNotFoundError:
+    except Exception:
         return []
 
 

@@ -10,17 +10,6 @@ import { getUserCardType, getCachedUser, fetchCurrentUser } from '../utils/auth'
 import { useVoiceMode } from '../hooks/useVoiceMode';
 import './Concierge.css';
 
-// Speak text aloud using the Web Speech API
-function speakText(text: string) {
-  if (!('speechSynthesis' in window)) return;
-  window.speechSynthesis.cancel();
-  const utterance = new SpeechSynthesisUtterance(text);
-  utterance.rate = 1.0;
-  utterance.pitch = 1.0;
-  utterance.volume = 1.0;
-  window.speechSynthesis.speak(utterance);
-}
-
 export function Concierge() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -124,8 +113,6 @@ export function Concierge() {
     }]);
     setCurrentAgent(agentName);
     currentAgentRef.current = agentName;
-    // Speak the transfer message
-    speakText(content);
   }, []);
 
   const handleVoiceError = useCallback((error: string) => {
@@ -152,15 +139,18 @@ export function Concierge() {
     if (voiceMode.isActive || voiceMode.isConnecting) {
       voiceMode.stopVoiceMode();
     } else {
-      // Speak the welcome message on first voice activation
+      // On first activation, send the welcome message as a text prompt so the
+      // Live API (Sam) speaks it aloud in the Zephyr voice.  The mic stays
+      // muted until Sam's greeting finishes (turnComplete).
+      let greeting: string | undefined;
       if (!hasUsedVoiceRef.current) {
         hasUsedVoiceRef.current = true;
         const welcomeMsg = messages.find(m => m.id?.startsWith('initial_'));
         if (welcomeMsg) {
-          speakText(welcomeMsg.content);
+          greeting = `Greet the user with something like: "${welcomeMsg.content}"`;
         }
       }
-      voiceMode.startVoiceMode();
+      voiceMode.startVoiceMode(greeting);
     }
   }, [voiceMode, messages]);
 

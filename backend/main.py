@@ -385,6 +385,11 @@ async def voice_websocket(websocket: WebSocket, session_id: str = "default"):
 
     run_config = RunConfig(
         response_modalities=["AUDIO"],
+        speech_config=types.SpeechConfig(
+            voice_config=types.VoiceConfig(
+                prebuilt_voice_config=types.PrebuiltVoiceConfig(voice_name="Zephyr"),
+            ),
+        ),
         output_audio_transcription=types.AudioTranscriptionConfig(),
         input_audio_transcription=types.AudioTranscriptionConfig(),
         streaming_mode=StreamingMode.BIDI,
@@ -392,8 +397,11 @@ async def voice_websocket(websocket: WebSocket, session_id: str = "default"):
 
     logger = logging.getLogger("voice_ws")
 
+    last_author = None
+
     async def forward_events():
         """Stream events from runner.run_live() back to the browser."""
+        nonlocal last_author
         try:
             async for event in live_runner.run_live(
                 user_id=session_id,
@@ -401,12 +409,28 @@ async def voice_websocket(websocket: WebSocket, session_id: str = "default"):
                 live_request_queue=live_request_queue,
                 run_config=run_config,
             ):
+                # Log agent transfers for debugging
+                author = getattr(event, 'author', None)
+                if author and author != last_author:
+                    logger.info("Agent transfer: %s → %s (session %s)", last_author, author, session_id)
+                    last_author = author
                 await websocket.send_text(
                     event.model_dump_json(exclude_none=True, by_alias=True)
                 )
         except Exception:
             logger.exception("forward_events error for session %s", session_id)
             raise
+
+    async def keepalive():
+        """Send periodic pings so the frontend watchdog stays alive during
+        long operations like agent-transfer tool calls."""
+        try:
+            while True:
+                await asyncio.sleep(20)
+                if websocket.client_state.name == "CONNECTED":
+                    await websocket.send_text('{"ping":true}')
+        except Exception:
+            pass  # connection closed — let the other tasks handle it
 
     async def process_messages():
         """Receive JSON LiveRequest frames from browser and feed to queue."""
@@ -421,6 +445,7 @@ async def voice_websocket(websocket: WebSocket, session_id: str = "default"):
     tasks = [
         asyncio.create_task(forward_events()),
         asyncio.create_task(process_messages()),
+        asyncio.create_task(keepalive()),
     ]
     done, pending = await asyncio.wait(tasks, return_when=asyncio.FIRST_EXCEPTION)
     try:

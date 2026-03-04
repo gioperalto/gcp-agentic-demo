@@ -2,6 +2,8 @@
   {
     "id": "550e8400-e29b-41d4-a716-446655440000",
     "username": "demo_user",
+    "firstName": "Nanci",
+    "lastName": "Scinto",
     "password": "password123",
     "email": "demo@meridian.com",
     "birthDate": "1990-05-15",
@@ -29,6 +31,8 @@
   {
     "id": "660e8400-e29b-41d4-a716-446655440001",
     "username": "wealthy_user",
+    "firstName": "Thalia",
+    "lastName": "Hartquist",
     "password": "password123",
     "email": "wealthy@meridian.com",
     "birthDate": "1985-08-20",
@@ -56,6 +60,8 @@
   {
     "id": "770e8400-e29b-41d4-a716-446655440002",
     "username": "young_user",
+    "firstName": "Crysta",
+    "lastName": "Garside",
     "password": "password123",
     "email": "young@meridian.com",
     "birthDate": "1998-03-10",

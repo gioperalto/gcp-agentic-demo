@@ -99,7 +99,7 @@ export const Header = () => {
                 className="dropdown-toggle"
                 onClick={() => setDropdownOpen(!dropdownOpen)}
               >
-                {user.username} ▼
+                {user.firstName} {user.lastName} ▼
               </button>
 
               {dropdownOpen && (

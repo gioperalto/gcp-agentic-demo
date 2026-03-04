@@ -207,13 +207,13 @@ export function Concierge() {
       const initialMessage: Message = selectedTier === 'tribune' ? {
         id: 'initial_tribune_message',
         type: 'agent',
-        content: `Welcome, ${user?.username || 'Tribune Cardholder'}! I'm Sam, your dedicated Tribune concierge. As a valued Tribune member, you have access to our premium travel planning service with specialized agents. How may I assist with your travel plans today?`,
+        content: `Welcome, ${user?.firstName || 'Tribune Cardholder'}! I'm Sam, your dedicated Tribune concierge. As a valued Tribune member, you have access to our premium travel planning service with specialized agents. How may I assist with your travel plans today?`,
         agent: 'Sam',
         timestamp: new Date(),
       } : {
         id: 'initial_legionnaire_message',
         type: 'agent',
-        content: `Welcome, ${user?.username || 'Legionnaire Cardholder'}! I'm your personal concierge assistant. I'm here to help you with restaurant recommendations, event bookings, travel planning, and more. How can I assist you today?`,
+        content: `Welcome, ${user?.firstName || 'Legionnaire Cardholder'}! I'm your personal concierge assistant. I'm here to help you with restaurant recommendations, event bookings, travel planning, and more. How can I assist you today?`,
         agent: 'Concierge',
         timestamp: new Date(),
       };

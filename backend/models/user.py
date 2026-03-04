@@ -21,6 +21,8 @@ class Reservation(BaseModel):
 class User(BaseModel):
     id: str
     username: str
+    firstName: str
+    lastName: str
     password: str  # Plain text for demo
     email: EmailStr
     birthDate: str  # YYYY-MM-DD format
@@ -43,6 +45,8 @@ class UserResponse(BaseModel):
     """User data returned to frontend (no password)"""
     id: str
     username: str
+    firstName: str
+    lastName: str
     email: EmailStr
     birthDate: str
     salary: float

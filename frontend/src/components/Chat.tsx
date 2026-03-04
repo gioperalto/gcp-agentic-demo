@@ -61,7 +61,7 @@ export function Chat() {
       const initialMessage: Message = {
         id: 'initial_sam_message',
         type: 'agent',
-        content: `Welcome, ${user?.username || 'Tribune Cardholder'}! I'm Sam, your dedicated Tribune concierge. As a valued Tribune member, you have access to our premium travel planning service. How may I assist with your travel plans today?`,
+        content: `Welcome, ${user?.firstName || 'Tribune Cardholder'}! I'm Sam, your dedicated Tribune concierge. As a valued Tribune member, you have access to our premium travel planning service. How may I assist with your travel plans today?`,
         agent: 'Sam',
         timestamp: new Date(),
       };

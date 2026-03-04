@@ -10,6 +10,17 @@ import { getUserCardType, getCachedUser, fetchCurrentUser } from '../utils/auth'
 import { useVoiceMode } from '../hooks/useVoiceMode';
 import './Concierge.css';
 
+// Speak text aloud using the Web Speech API
+function speakText(text: string) {
+  if (!('speechSynthesis' in window)) return;
+  window.speechSynthesis.cancel();
+  const utterance = new SpeechSynthesisUtterance(text);
+  utterance.rate = 1.0;
+  utterance.pitch = 1.0;
+  utterance.volume = 1.0;
+  window.speechSynthesis.speak(utterance);
+}
+
 export function Concierge() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -31,6 +42,9 @@ export function Concierge() {
   const currentMessageRef = useRef<string>('');
   const currentAgentRef = useRef<string>('Sam');
   const sessionIdRef = useRef<string>(ulid());
+
+  // Track whether voice has been activated this session (for TTS on transfers)
+  const hasUsedVoiceRef = useRef(false);
 
   // Voice message ID refs for streaming updates
   const voiceAgentMsgIdRef = useRef<string | null>(null);
@@ -98,9 +112,20 @@ export function Concierge() {
     }
   }, []);
 
-  const handleVoiceAgentTransfer = useCallback((agentName: string) => {
+  const handleVoiceAgentTransfer = useCallback((agentName: string, transferMessage?: string) => {
+    const content = transferMessage || `Transferring you to ${agentName}...`;
+    // Show the transfer message in the chat
+    setMessages(prev => [...prev, {
+      id: Date.now().toString() + '_transfer',
+      type: 'transfer' as const,
+      content,
+      agent: agentName,
+      timestamp: new Date(),
+    }]);
     setCurrentAgent(agentName);
     currentAgentRef.current = agentName;
+    // Speak the transfer message
+    speakText(content);
   }, []);
 
   const handleVoiceError = useCallback((error: string) => {
@@ -127,9 +152,17 @@ export function Concierge() {
     if (voiceMode.isActive || voiceMode.isConnecting) {
       voiceMode.stopVoiceMode();
     } else {
+      // Speak the welcome message on first voice activation
+      if (!hasUsedVoiceRef.current) {
+        hasUsedVoiceRef.current = true;
+        const welcomeMsg = messages.find(m => m.id?.startsWith('initial_'));
+        if (welcomeMsg) {
+          speakText(welcomeMsg.content);
+        }
+      }
       voiceMode.startVoiceMode();
     }
-  }, [voiceMode]);
+  }, [voiceMode, messages]);
 
   // Fetch current user on mount if not cached
   useEffect(() => {
@@ -211,10 +244,11 @@ export function Concierge() {
 
       for await (const event of streamFunction(content, sessionIdRef.current)) {
         if (event.type === 'agent_transfer') {
+          const transferContent = event.data.message || '';
           const transferMessage: Message = {
             id: Date.now().toString() + '_transfer',
             type: 'transfer',
-            content: event.data.message || '',
+            content: transferContent,
             agent: event.data.agent,
             timestamp: new Date(),
           };
@@ -224,6 +258,11 @@ export function Concierge() {
           currentAgentRef.current = newAgent;
           currentMessageRef.current = '';
           currentMessageId = Date.now().toString() + '_agent';
+
+          // Speak the transfer message if voice has been used this session
+          if (hasUsedVoiceRef.current && transferContent) {
+            speakText(transferContent);
+          }
 
         } else if (event.type === 'content') {
           const text = event.data.text || '';

@@ -17,7 +17,7 @@ export const Account = () => {
         <h2>Personal Information</h2>
         <div className="stats-grid">
           <div className="stat-item">
-            <div className="stat-number">User Info</div>
+            <div className="stat-number">{user.firstName} {user.lastName}</div>
             <div className="stat-description white">{user.username}</div>
             <div className="stat-description white">{user.email}</div>
           </div>
@@ -92,7 +92,7 @@ export const Account = () => {
   const renderLegionnaireExperience = () => (
     <div className="experience-content">
       <div className="experience-header legionnaire-header">
-        <h1>Welcome, Legionnaire Cardholder</h1>
+        <h1>Welcome, {user?.firstName || 'Legionnaire Cardholder'}</h1>
         <p>Your exclusive benefits and experiences await</p>
       </div>
 
@@ -145,7 +145,7 @@ export const Account = () => {
   const renderTribuneExperience = () => (
     <div className="experience-content">
       <div className="experience-header tribune-header">
-        <h1>Welcome, Tribune Cardholder</h1>
+        <h1>Welcome, {user?.firstName || 'Tribune Cardholder'}</h1>
         <p>Experience the pinnacle of luxury and exclusivity</p>
       </div>
 

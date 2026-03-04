@@ -20,6 +20,8 @@ export interface Reservation {
 export interface User {
   id: string;
   username: string;
+  firstName: string;
+  lastName: string;
   email: string;
   birthDate: string; // YYYY-MM-DD
   salary: number;

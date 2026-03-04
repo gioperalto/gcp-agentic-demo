@@ -28,6 +28,10 @@ export const Header = () => {
         <nav className="nav">
           <Link to="/" className="nav-link">Home</Link>
           <Link to="/cards" className="nav-link">Cards</Link>
+          <Link to="/accommodations" className="nav-link">Accommodations</Link>
+          <Link to="/flights" className="nav-link">Flights</Link>
+          <Link to="/restaurants" className="nav-link">Restaurants</Link>
+          <Link to="/experiences" className="nav-link">Experiences</Link>
 
           <div
             className="nav-dropdown"

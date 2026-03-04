@@ -1,6 +1,5 @@
 ddtrace
 google-adk
-google-cloud-speech
 fastapi
 uvicorn[standard]
 python-dotenv

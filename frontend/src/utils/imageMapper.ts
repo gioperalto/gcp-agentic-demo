@@ -21,22 +21,22 @@ export function getAccommodationImage(type: string): string {
 }
 
 /**
- * Get the image path for an attraction based on its type
+ * Get the image path for an experience based on its type
  * Types: Museum, Park, Restaurant, Monument, Beach, Market, Gallery
  */
-export function getAttractionImage(type: string): string {
+export function getExperienceImage(type: string): string {
   const typeMap: Record<string, string> = {
-    'museum': '/img/attractions/museum.png',
-    'park': '/img/attractions/park.png',
-    'restaurant': '/img/attractions/restaurant.png',
-    'monument': '/img/attractions/monument.png',
-    'beach': '/img/attractions/beach.png',
-    'market': '/img/attractions/market.png',
-    'gallery': '/img/attractions/gallery.png',
+    'museum': '/img/experiences/museum.png',
+    'park': '/img/experiences/park.png',
+    'restaurant': '/img/experiences/restaurant.png',
+    'monument': '/img/experiences/monument.png',
+    'beach': '/img/experiences/beach.png',
+    'market': '/img/experiences/market.png',
+    'gallery': '/img/experiences/gallery.png',
   };
 
   const normalizedType = type.toLowerCase();
-  return typeMap[normalizedType] || '/img/attractions/monument.png'; // Default to monument
+  return typeMap[normalizedType] || '/img/experiences/exp-arg-001.jpg'; // Default to Iguazu Falls Hiking Adventure
 }
 
 /**
@@ -84,7 +84,7 @@ export function getImageForType(data: any, type: string): string | null {
       return data.type ? getAccommodationImage(data.type) : null;
 
     case 'attraction':
-      return data.type ? getAttractionImage(data.type) : null;
+      return data.type ? getExperienceImage(data.type) : null;
 
     case 'restaurant':
       return data.cuisine ? getRestaurantImage(data.cuisine) : null;

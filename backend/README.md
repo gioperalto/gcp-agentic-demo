@@ -11,7 +11,6 @@ FastAPI backend service for the Travel Planner application with real-time stream
   - Jenny (Flight Specialist) ✈️
   - Marcus (Accommodation Expert) 🏨
   - Sofia (Itinerary Planner) 🗺️
-  - Alex (Budget Manager) 💰
 
 ## API Endpoints
 

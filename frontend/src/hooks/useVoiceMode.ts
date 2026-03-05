@@ -61,6 +61,7 @@ export function useVoiceMode(sessionId: string, callbacks?: VoiceModeCallbacks) 
   const captureCtxRef = useRef<AudioContext | null>(null);
   const micStreamRef = useRef<MediaStream | null>(null);
   const micMutedRef = useRef(false);
+  const isActiveRef = useRef(false);
 
   // Playback: use AudioContext + BufferSource scheduling (matching ADK reference)
   const playbackCtxRef = useRef<AudioContext | null>(null);
@@ -157,6 +158,7 @@ export function useVoiceMode(sessionId: string, callbacks?: VoiceModeCallbacks) 
     micMutedRef.current = false;
     suppressGreetingRef.current = false;
     currentAuthorRef.current = 'Sam';
+    isActiveRef.current = false;
 
     setState({
       isActive: false,
@@ -356,7 +358,7 @@ export function useVoiceMode(sessionId: string, callbacks?: VoiceModeCallbacks) 
           callbacks?.onAgentTranscript?.(agentTranscriptRef.current, true);
         }
         // Surface unexpected close to user (1000 = normal close)
-        if (ev.code !== 1000 && state.isActive) {
+        if (ev.code !== 1000 && isActiveRef.current) {
           const reason = ev.reason || `Connection lost (code ${ev.code})`;
           callbacks?.onError?.(reason);
         }
@@ -392,6 +394,7 @@ export function useVoiceMode(sessionId: string, callbacks?: VoiceModeCallbacks) 
         }));
       }
 
+      isActiveRef.current = true;
       setState({
         isActive: true,
         isConnecting: false,

@@ -1683,7 +1683,7 @@
     "price": 42000,
     "duration": "12h 00m",
     "stops": 0,
-    "imageUrl": "https://placeholder.com/tribune-private-jet.jpg"
+    "imageUrl": "/logo.png"
   },
   {
     "id": "flt-arg-pj-002",
@@ -1697,7 +1697,7 @@
     "price": 38000,
     "duration": "11h 30m",
     "stops": 0,
-    "imageUrl": "https://placeholder.com/tribune-private-jet.jpg"
+    "imageUrl": "/logo.png"
   },
   {
     "id": "flt-bra-pj-001",
@@ -1711,7 +1711,7 @@
     "price": 45000,
     "duration": "11h 30m",
     "stops": 0,
-    "imageUrl": "https://placeholder.com/tribune-private-jet.jpg"
+    "imageUrl": "/logo.png"
   },
   {
     "id": "flt-bra-pj-002",
@@ -1725,7 +1725,7 @@
     "price": 39500,
     "duration": "10h 00m",
     "stops": 0,
-    "imageUrl": "https://placeholder.com/tribune-private-jet.jpg"
+    "imageUrl": "/logo.png"
   },
   {
     "id": "flt-mex-pj-001",
@@ -1739,7 +1739,7 @@
     "price": 18500,
     "duration": "5h 30m",
     "stops": 0,
-    "imageUrl": "https://placeholder.com/tribune-private-jet.jpg"
+    "imageUrl": "/logo.png"
   },
   {
     "id": "flt-mex-pj-002",
@@ -1753,7 +1753,7 @@
     "price": 22000,
     "duration": "4h 30m",
     "stops": 0,
-    "imageUrl": "https://placeholder.com/tribune-private-jet.jpg"
+    "imageUrl": "/logo.png"
   },
   {
     "id": "flt-jpn-pj-001",
@@ -1767,7 +1767,7 @@
     "price": 68000,
     "duration": "14h 30m",
     "stops": 0,
-    "imageUrl": "https://placeholder.com/tribune-private-jet.jpg"
+    "imageUrl": "/logo.png"
   },
   {
     "id": "flt-jpn-pj-002",
@@ -1781,7 +1781,7 @@
     "price": 65000,
     "duration": "13h 00m",
     "stops": 0,
-    "imageUrl": "https://placeholder.com/tribune-private-jet.jpg"
+    "imageUrl": "/logo.png"
   },
   {
     "id": "flt-spa-pj-001",
@@ -1795,7 +1795,7 @@
     "price": 35000,
     "duration": "9h 30m",
     "stops": 0,
-    "imageUrl": "https://placeholder.com/tribune-private-jet.jpg"
+    "imageUrl": "/logo.png"
   },
   {
     "id": "flt-spa-pj-002",
@@ -1809,7 +1809,7 @@
     "price": 37500,
     "duration": "10h 00m",
     "stops": 0,
-    "imageUrl": "https://placeholder.com/tribune-private-jet.jpg"
+    "imageUrl": "/logo.png"
   },
   {
     "id": "flt-ita-pj-001",
@@ -1823,7 +1823,7 @@
     "price": 38000,
     "duration": "10h 00m",
     "stops": 0,
-    "imageUrl": "https://placeholder.com/tribune-private-jet.jpg"
+    "imageUrl": "/logo.png"
   },
   {
     "id": "flt-ita-pj-002",
@@ -1837,6 +1837,6 @@
     "price": 41000,
     "duration": "11h 30m",
     "stops": 0,
-    "imageUrl": "https://placeholder.com/tribune-private-jet.jpg"
+    "imageUrl": "/logo.png"
   }
 ]

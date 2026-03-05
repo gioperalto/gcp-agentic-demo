@@ -249,10 +249,7 @@ export function Concierge() {
           currentMessageRef.current = '';
           currentMessageId = Date.now().toString() + '_agent';
 
-          // Speak the transfer message if voice has been used this session
-          if (hasUsedVoiceRef.current && transferContent) {
-            speakText(transferContent);
-          }
+          // Voice mode agent transfers are handled by the Live API in useVoiceMode.ts
 
         } else if (event.type === 'content') {
           const text = event.data.text || '';

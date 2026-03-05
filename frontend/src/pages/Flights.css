@@ -867,4 +867,199 @@
     width: 100%;
     justify-content: center;
   }
+
+  .pj-toggle-content {
+    flex-direction: column;
+    gap: var(--space-md);
+    align-items: stretch;
+  }
+
+  .pj-toggle-left {
+    justify-content: center;
+  }
+}
+
+/* ═══ TRIBUNE PRIVATE JET TOGGLE ═══ */
+
+.private-jet-toggle-bar {
+  max-width: 1200px;
+  margin: 0 auto var(--space-xl);
+  background: var(--m-surface);
+  border: 1px solid var(--m-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-lg);
+  transition: all 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+  position: relative;
+  overflow: hidden;
+}
+
+.private-jet-toggle-bar::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgba(201, 169, 110, 0.03) 0%, transparent 50%, rgba(201, 169, 110, 0.02) 100%);
+  pointer-events: none;
+}
+
+.private-jet-toggle-bar.active {
+  border-color: var(--m-gold);
+  background: linear-gradient(135deg, rgba(201, 169, 110, 0.08) 0%, var(--m-surface) 40%, rgba(201, 169, 110, 0.04) 100%);
+  box-shadow: 0 0 40px rgba(201, 169, 110, 0.08), inset 0 1px 0 rgba(201, 169, 110, 0.15);
+}
+
+.pj-toggle-content {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: relative;
+  z-index: 1;
+}
+
+.pj-toggle-left {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+}
+
+.pj-diamond-icon {
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--m-gold);
+  opacity: 0.7;
+  transition: opacity 0.3s ease;
+}
+
+.private-jet-toggle-bar.active .pj-diamond-icon {
+  opacity: 1;
+}
+
+.pj-toggle-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+
+.pj-toggle-title {
+  font-family: var(--font-display);
+  font-size: 1.05rem;
+  font-weight: 500;
+  color: var(--m-cream);
+  letter-spacing: 0.02em;
+}
+
+.pj-toggle-subtitle {
+  font-size: 0.75rem;
+  color: var(--m-text-muted);
+  letter-spacing: 0.03em;
+}
+
+.private-jet-toggle-bar.active .pj-toggle-title {
+  color: var(--m-gold);
+}
+
+/* Toggle Switch */
+.pj-toggle-switch {
+  width: 52px;
+  height: 28px;
+  border-radius: 14px;
+  border: 1px solid var(--m-border-strong);
+  background: var(--m-surface-raised);
+  cursor: pointer;
+  position: relative;
+  transition: all 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+  padding: 0;
+  flex-shrink: 0;
+}
+
+.pj-toggle-switch:hover {
+  border-color: var(--m-gold-dim);
+}
+
+.pj-toggle-switch.on {
+  background: var(--m-gold);
+  border-color: var(--m-gold);
+}
+
+.pj-toggle-knob {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--m-text-muted);
+  transition: all 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+}
+
+.pj-toggle-switch.on .pj-toggle-knob {
+  left: 27px;
+  background: var(--m-black);
+}
+
+/* Active Banner */
+.pj-active-banner {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  margin-top: var(--space-md);
+  padding-top: var(--space-md);
+  border-top: 1px solid rgba(201, 169, 110, 0.15);
+  position: relative;
+  z-index: 1;
+}
+
+.pj-banner-line {
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--m-gold-dim), transparent);
+}
+
+.pj-banner-text {
+  font-size: 0.7rem;
+  color: var(--m-gold);
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* ═══ PRIVATE JET FLIGHT CARD ═══ */
+
+.flight-card.private-jet-card {
+  border-color: var(--m-gold);
+  background: linear-gradient(160deg, rgba(201, 169, 110, 0.06) 0%, var(--m-surface) 30%, rgba(201, 169, 110, 0.03) 100%);
+  position: relative;
+}
+
+.flight-card.private-jet-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--m-gold), transparent);
+}
+
+.flight-card.private-jet-card:hover {
+  border-color: var(--m-gold-light);
+  box-shadow: 0 12px 40px rgba(201, 169, 110, 0.15), 0 0 0 1px rgba(201, 169, 110, 0.1);
+}
+
+.flight-class-badge.private-jet {
+  background: linear-gradient(135deg, #1a1a1a, #2a2a2a);
+  color: var(--m-gold);
+  border: 1px solid var(--m-gold);
+  font-weight: 800;
+  letter-spacing: 0.08em;
+}
+
+.modal-class-badge.private-jet {
+  background: linear-gradient(135deg, #1a1a1a, #2a2a2a);
+  color: var(--m-gold);
+  border: 1px solid var(--m-gold);
 }

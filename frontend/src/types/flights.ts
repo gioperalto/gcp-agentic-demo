@@ -6,7 +6,7 @@ export interface Flight {
   departureDate: string; // ISO 8601
   arrivalDate: string; // ISO 8601
   flightNumber: string;
-  class: 'economy' | 'premium-economy' | 'business' | 'first';
+  class: 'economy' | 'premium-economy' | 'business' | 'first' | 'private-jet';
   price: number;
   duration: string;
   stops: number;

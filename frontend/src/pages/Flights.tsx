@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getCachedUser, fetchCurrentUser } from '../utils/auth';
+import { getCachedUser, fetchCurrentUser, getUserCardType } from '../utils/auth';
 import { getFlights, bookFlight } from '../utils/api';
 import type { Flight, FlightFilters } from '../types/flights';
 import './Flights.css';
@@ -16,7 +16,7 @@ const DESTINATION_COUNTRIES: { [key: string]: string } = {
   'Italy': 'ITA'
 };
 
-const FLIGHT_CLASSES = ['economy', 'premium-economy', 'business', 'first'];
+const FLIGHT_CLASSES = ['economy', 'premium-economy', 'business', 'first', 'private-jet'];
 
 const AIRPORT_NAMES: { [key: string]: string } = {
   'EZE': 'Buenos Aires, Argentina',
@@ -56,11 +56,14 @@ export function Flights() {
   const [passengers, setPassengers] = useState(1);
   const [paymentMethod, setPaymentMethod] = useState<'card' | 'points'>('card');
 
+  const [privateJetOnly, setPrivateJetOnly] = useState(false);
+  const isTribune = getUserCardType() === 'tribune';
+
   const [filters, setFilters] = useState<FlightFilters>({
     destinationCountry: '',
     flightClass: '',
     minPrice: 0,
-    maxPrice: 15000,
+    maxPrice: 100000,
   });
 
   useEffect(() => {
@@ -86,12 +89,18 @@ export function Flights() {
   useEffect(() => {
     let filtered = [...flights];
 
+    if (privateJetOnly) {
+      filtered = filtered.filter(flight => flight.airline === 'Tribune Private Jet');
+    } else {
+      filtered = filtered.filter(flight => flight.airline !== 'Tribune Private Jet');
+    }
+
     if (filters.destinationCountry) {
       const countryCode = DESTINATION_COUNTRIES[filters.destinationCountry];
       filtered = filtered.filter(flight => flight.id.includes(`-${countryCode.toLowerCase()}-`));
     }
 
-    if (filters.flightClass) {
+    if (filters.flightClass && !privateJetOnly) {
       filtered = filtered.filter(flight => flight.class === filters.flightClass);
     }
 
@@ -100,7 +109,7 @@ export function Flights() {
     );
 
     setFilteredFlights(filtered);
-  }, [filters, flights]);
+  }, [filters, flights, privateJetOnly]);
 
   const handleBookFlight = async () => {
     if (!selectedFlight || !user) return;
@@ -236,6 +245,38 @@ export function Flights() {
         )}
       </div>
 
+      {isTribune && (
+        <div className={`private-jet-toggle-bar ${privateJetOnly ? 'active' : ''}`}>
+          <div className="pj-toggle-content">
+            <div className="pj-toggle-left">
+              <div className="pj-diamond-icon">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                  <path d="M12 2L2 12l10 10 10-10L12 2z" />
+                </svg>
+              </div>
+              <div className="pj-toggle-text">
+                <span className="pj-toggle-title">Tribune Private Jet</span>
+                <span className="pj-toggle-subtitle">Exclusive charter flights for Tribune members</span>
+              </div>
+            </div>
+            <button
+              className={`pj-toggle-switch ${privateJetOnly ? 'on' : ''}`}
+              onClick={() => setPrivateJetOnly(!privateJetOnly)}
+              aria-label="Toggle Tribune Private Jet flights"
+            >
+              <span className="pj-toggle-knob" />
+            </button>
+          </div>
+          {privateJetOnly && (
+            <div className="pj-active-banner">
+              <span className="pj-banner-line" />
+              <span className="pj-banner-text">Showing private jet charters only</span>
+              <span className="pj-banner-line" />
+            </div>
+          )}
+        </div>
+      )}
+
       <div className="flights-filters">
         <div className="filter-group">
           <label>Destination Country</label>
@@ -292,7 +333,7 @@ export function Flights() {
             destinationCountry: '',
             flightClass: '',
             minPrice: 0,
-            maxPrice: 15000,
+            maxPrice: 100000,
           })}
         >
           Reset Filters
@@ -305,7 +346,7 @@ export function Flights() {
 
       <div className="flights-grid">
         {filteredFlights.map(flight => (
-          <div key={flight.id} className="flight-card" onClick={() => setSelectedFlight(flight)}>
+          <div key={flight.id} className={`flight-card ${flight.class === 'private-jet' ? 'private-jet-card' : ''}`} onClick={() => setSelectedFlight(flight)}>
             <div className="flight-card-header">
               <div className="airline-info">
                 <div className="airline-logo-placeholder">

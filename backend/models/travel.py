@@ -43,7 +43,7 @@ class Flight(BaseModel):
     departureDate: str  # ISO 8601
     arrivalDate: str  # ISO 8601
     flightNumber: str
-    class_: Literal["economy", "premium-economy", "business", "first"] = Field(alias="class")
+    class_: Literal["economy", "premium-economy", "business", "first", "private-jet"] = Field(alias="class")
     price: float
     duration: str
     stops: int

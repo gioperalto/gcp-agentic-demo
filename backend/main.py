@@ -399,24 +399,80 @@ async def voice_websocket(websocket: WebSocket, session_id: str = "default"):
 
     last_author = None
 
+    # Transcription accumulators for LLMObs spans
+    user_transcript_parts: list[str] = []
+    agent_transcript_parts: list[str] = []
+    current_agent_name: str = "Sam"
+
+    live_model_name = os.getenv("GOOGLE_GENAI_LIVE_MODEL", "gemini-live-2.5-flash-native-audio")
+
+    def _flush_voice_turn_span(*, interrupted: bool = False) -> None:
+        """Create an LLMObs span for the completed voice turn and reset accumulators."""
+        nonlocal user_transcript_parts, agent_transcript_parts
+        user_text = "".join(user_transcript_parts).strip()
+        agent_text = "".join(agent_transcript_parts).strip()
+        if not user_text and not agent_text:
+            return
+        span_name = f"voice_llm.{current_agent_name}"
+        if interrupted:
+            span_name += ".interrupted"
+        with LLMObs.llm(
+            model_name=live_model_name,
+            model_provider="google",
+            name=span_name,
+        ) as span:
+            LLMObs.annotate(
+                span=span,
+                input_data=[{"content": user_text or "(audio-only)", "role": "user"}],
+                output_data=[{"content": agent_text or "(audio-only)", "role": "assistant"}],
+            )
+        user_transcript_parts = []
+        agent_transcript_parts = []
+
     async def forward_events():
         """Stream events from runner.run_live() back to the browser."""
-        nonlocal last_author
+        nonlocal last_author, user_transcript_parts, agent_transcript_parts, current_agent_name
         try:
-            async for event in live_runner.run_live(
-                user_id=session_id,
-                session_id=session_id,
-                live_request_queue=live_request_queue,
-                run_config=run_config,
-            ):
-                # Log agent transfers for debugging
-                author = getattr(event, 'author', None)
-                if author and author != last_author:
-                    logger.info("Agent transfer: %s → %s (session %s)", last_author, author, session_id)
-                    last_author = author
-                await websocket.send_text(
-                    event.model_dump_json(exclude_none=True, by_alias=True)
-                )
+            with LLMObs.workflow(name="voice_session") as _workflow_span:
+                async for event in live_runner.run_live(
+                    user_id=session_id,
+                    session_id=session_id,
+                    live_request_queue=live_request_queue,
+                    run_config=run_config,
+                ):
+                    # Serialize once as dict so we can inspect transcription fields
+                    event_dict = event.model_dump(exclude_none=True, by_alias=True)
+
+                    # Log agent transfers for debugging
+                    author = event_dict.get("author")
+                    if author and author != last_author:
+                        logger.info("Agent transfer: %s → %s (session %s)", last_author, author, session_id)
+                        last_author = author
+                        current_agent_name = author
+
+                    # Accumulate output transcription (agent speaking)
+                    out_t = event_dict.get("outputTranscription")
+                    if out_t and out_t.get("text"):
+                        if out_t.get("finished"):
+                            agent_transcript_parts = [out_t["text"]]
+                        else:
+                            agent_transcript_parts.append(out_t["text"])
+
+                    # Accumulate input transcription (user speaking)
+                    in_t = event_dict.get("inputTranscription")
+                    if in_t and in_t.get("text"):
+                        if in_t.get("finished"):
+                            user_transcript_parts = [in_t["text"]]
+                        else:
+                            user_transcript_parts.append(in_t["text"])
+
+                    # Flush span on turn boundaries
+                    if event_dict.get("interrupted"):
+                        _flush_voice_turn_span(interrupted=True)
+                    elif event_dict.get("turnComplete"):
+                        _flush_voice_turn_span(interrupted=False)
+
+                    await websocket.send_text(json.dumps(event_dict))
         except Exception:
             logger.exception("forward_events error for session %s", session_id)
             raise

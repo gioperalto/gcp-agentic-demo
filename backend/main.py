@@ -30,6 +30,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from tribune_concierge.agent import root_agent, live_root_agent
 from legionnaire_concierge.agent import legionnaire_agent
 
+
 # Datadog LLM Observability setup
 LLMObs.enable(
   ml_app=os.getenv("DD_LLMOBS_ML_APP", "travel-planner"),
@@ -472,7 +473,9 @@ async def voice_websocket(websocket: WebSocket, session_id: str = "default"):
                     elif event_dict.get("turnComplete"):
                         _flush_voice_turn_span(interrupted=False)
 
-                    await websocket.send_text(json.dumps(event_dict))
+                    await websocket.send_text(
+                        event.model_dump_json(exclude_none=True, by_alias=True)
+                    )
         except Exception:
             logger.exception("forward_events error for session %s", session_id)
             raise
@@ -493,7 +496,10 @@ async def voice_websocket(websocket: WebSocket, session_id: str = "default"):
         try:
             while True:
                 data = await websocket.receive_text()
-                live_request_queue.send(LiveRequest.model_validate_json(data))
+                try:
+                    live_request_queue.send(LiveRequest.model_validate_json(data))
+                except Exception as e:
+                    logger.warning("Invalid LiveRequest frame (session %s): %s", session_id, e)
         except WebSocketDisconnect:
             logger.info("Client disconnected, closing queue for session %s", session_id)
             live_request_queue.close()

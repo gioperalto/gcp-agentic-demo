@@ -46,6 +46,7 @@ interface VoiceModeCallbacks {
   onAgentTranscript?: (text: string, isFinal: boolean) => void;
   onUserTranscript?: (text: string, isFinal: boolean) => void;
   onAgentTransfer?: (agentName: string) => void;
+  onConversationEnd?: () => void;
   onError?: (error: string) => void;
 }
 
@@ -247,14 +248,39 @@ export function useVoiceMode(sessionId: string, callbacks?: VoiceModeCallbacks) 
           // Backend keepalive ping — just feed the watchdog timer, skip processing
           if (data.ping) return;
 
-          // Agent transfer detection — run BEFORE audio/transcript processing
-          // so the transfer message appears in chat before the new agent's content.
+          // Backend-driven agent transfer (voice switching)
+          if (data.agentTransfer) {
+            const { from, to, message } = data.agentTransfer;
+            console.log(`[voice] Agent transfer: ${from} → ${to}`);
+            currentAuthorRef.current = to;
+
+            // Play transfer announcement via browser speechSynthesis (zero server load)
+            if ('speechSynthesis' in window && message) {
+              const utterance = new SpeechSynthesisUtterance(message);
+              utterance.rate = 1.1;
+              utterance.volume = 0.8;
+              window.speechSynthesis.speak(utterance);
+            }
+
+            callbacks?.onAgentTransfer?.(to);
+            return;
+          }
+
+          // Backend signals conversation is complete
+          if (data.conversationEnded) {
+            console.log('[voice] Conversation ended by agent');
+            callbacks?.onConversationEnd?.();
+            cleanup();
+            return;
+          }
+
+          // Agent transfer detection from author field (ADK sub-agent transfers)
           if (data.author && data.author !== currentAuthorRef.current) {
             const prevAuthor = currentAuthorRef.current;
             currentAuthorRef.current = data.author;
             // Only surface transfers TO sub-agents, not back to Sam
             if (data.author !== 'Sam') {
-              console.log(`[voice] Agent transfer: ${prevAuthor} → ${data.author}`);
+              console.log(`[voice] Agent author change: ${prevAuthor} → ${data.author}`);
               callbacks?.onAgentTransfer?.(data.author);
             }
           }

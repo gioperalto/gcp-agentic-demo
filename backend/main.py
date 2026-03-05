@@ -27,7 +27,7 @@ from google.genai import types
 # Add parent directory to path to import tribune_concierge
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from tribune_concierge.agent import root_agent, live_root_agent
+from tribune_concierge.agent import root_agent, live_root_agent, AGENT_VOICE_MAP, LIVE_AGENT_MAP
 from legionnaire_concierge.agent import legionnaire_agent
 
 
@@ -356,15 +356,34 @@ async def health_check():
     return {"status": "healthy", "service": "travel-planner"}
 
 
+def _make_voice_run_config(agent_name: str) -> RunConfig:
+    """Build a RunConfig with the correct voice for the given agent."""
+    voice_info = AGENT_VOICE_MAP.get(agent_name, AGENT_VOICE_MAP["Sam"])
+    return RunConfig(
+        response_modalities=["AUDIO"],
+        speech_config=types.SpeechConfig(
+            voice_config=types.VoiceConfig(
+                prebuilt_voice_config=types.PrebuiltVoiceConfig(voice_name=voice_info["voice"]),
+            ),
+        ),
+        output_audio_transcription=types.AudioTranscriptionConfig(),
+        input_audio_transcription=types.AudioTranscriptionConfig(),
+        streaming_mode=StreamingMode.BIDI,
+    )
+
+
 @app.websocket("/ws/voice")
 async def voice_websocket(websocket: WebSocket, session_id: str = "default"):
     """
     Real-time bidirectional voice conversation via Gemini Live API.
     Browser sends JSON LiveRequest frames (audio as base64 blob).
     Server streams back JSON Event frames (audio, transcripts, tool calls).
+
+    Supports per-agent voice switching: when an agent calls transfer_to(),
+    the current run_live() connection is closed and a new one is opened with
+    the target agent's voice configuration.
     """
     # Voice model requires the us-central1 regional endpoint.
-    # Set this before the live Gemini client is lazily initialised.
     os.environ['GOOGLE_CLOUD_LOCATION'] = 'us-central1'
 
     await websocket.accept()
@@ -382,30 +401,19 @@ async def voice_websocket(websocket: WebSocket, session_id: str = "default"):
             session_id=session_id,
         )
 
-    live_request_queue = LiveRequestQueue()
-
-    run_config = RunConfig(
-        response_modalities=["AUDIO"],
-        speech_config=types.SpeechConfig(
-            voice_config=types.VoiceConfig(
-                prebuilt_voice_config=types.PrebuiltVoiceConfig(voice_name="Zephyr"),
-            ),
-        ),
-        output_audio_transcription=types.AudioTranscriptionConfig(),
-        input_audio_transcription=types.AudioTranscriptionConfig(),
-        streaming_mode=StreamingMode.BIDI,
-    )
-
     logger = logging.getLogger("voice_ws")
 
     last_author = None
+    current_agent_name: str = "Sam"
 
     # Transcription accumulators for LLMObs spans
     user_transcript_parts: list[str] = []
     agent_transcript_parts: list[str] = []
-    current_agent_name: str = "Sam"
 
     live_model_name = os.getenv("GOOGLE_GENAI_LIVE_MODEL", "gemini-live-2.5-flash-native-audio")
+
+    # Shared flag for the message receiver task
+    client_disconnected = False
 
     def _flush_voice_turn_span(*, interrupted: bool = False) -> None:
         """Create an LLMObs span for the completed voice turn and reset accumulators."""
@@ -430,69 +438,112 @@ async def voice_websocket(websocket: WebSocket, session_id: str = "default"):
         user_transcript_parts = []
         agent_transcript_parts = []
 
-    async def forward_events():
-        """Stream events from runner.run_live() back to the browser."""
+    async def forward_events(live_request_queue: LiveRequestQueue, run_config: RunConfig) -> str | None:
+        """Stream events from runner.run_live() back to the browser.
+
+        Returns the name of the agent to transfer to, or None if the
+        conversation ended normally / client disconnected.
+        """
         nonlocal last_author, user_transcript_parts, agent_transcript_parts, current_agent_name
+        pending_transfer_target: str | None = None
+        conversation_ended = False
+
         try:
-            with LLMObs.workflow(name="voice_session") as _workflow_span:
-                async for event in live_runner.run_live(
-                    user_id=session_id,
-                    session_id=session_id,
-                    live_request_queue=live_request_queue,
-                    run_config=run_config,
-                ):
-                    # Serialize once as dict so we can inspect transcription fields
-                    event_dict = event.model_dump(exclude_none=True, by_alias=True)
+            async for event in live_runner.run_live(
+                user_id=session_id,
+                session_id=session_id,
+                live_request_queue=live_request_queue,
+                run_config=run_config,
+            ):
+                event_dict = event.model_dump(exclude_none=True, by_alias=True)
 
-                    # Log agent transfers for debugging
-                    author = event_dict.get("author")
-                    if author and author != last_author:
-                        logger.info("Agent transfer: %s → %s (session %s)", last_author, author, session_id)
-                        last_author = author
-                        current_agent_name = author
+                # Log agent author changes
+                author = event_dict.get("author")
+                if author and author != last_author:
+                    logger.info("Agent author: %s → %s (session %s)", last_author, author, session_id)
+                    last_author = author
+                    current_agent_name = author
 
-                    # Accumulate output transcription (agent speaking)
-                    out_t = event_dict.get("outputTranscription")
-                    if out_t and out_t.get("text"):
-                        if out_t.get("finished"):
-                            agent_transcript_parts = [out_t["text"]]
-                        else:
-                            agent_transcript_parts.append(out_t["text"])
+                # Detect transfer_to / end_conversation function calls
+                content_parts = event_dict.get("content", {}).get("parts", [])
+                for part in content_parts:
+                    fc = part.get("functionCall")
+                    if fc:
+                        if fc.get("name") == "transfer_to":
+                            pending_transfer_target = fc.get("args", {}).get("agent_name")
+                            logger.info("Transfer requested: %s → %s (session %s)",
+                                        current_agent_name, pending_transfer_target, session_id)
+                        elif fc.get("name") == "end_conversation":
+                            conversation_ended = True
+                            logger.info("Conversation ended by agent (session %s)", session_id)
 
-                    # Accumulate input transcription (user speaking)
-                    in_t = event_dict.get("inputTranscription")
-                    if in_t and in_t.get("text"):
-                        if in_t.get("finished"):
-                            user_transcript_parts = [in_t["text"]]
-                        else:
-                            user_transcript_parts.append(in_t["text"])
+                # Accumulate output transcription (agent speaking)
+                out_t = event_dict.get("outputTranscription")
+                if out_t and out_t.get("text"):
+                    if out_t.get("finished"):
+                        agent_transcript_parts = [out_t["text"]]
+                    else:
+                        agent_transcript_parts.append(out_t["text"])
 
-                    # Flush span on turn boundaries
-                    if event_dict.get("interrupted"):
-                        _flush_voice_turn_span(interrupted=True)
-                    elif event_dict.get("turnComplete"):
-                        _flush_voice_turn_span(interrupted=False)
+                # Accumulate input transcription (user speaking)
+                in_t = event_dict.get("inputTranscription")
+                if in_t and in_t.get("text"):
+                    if in_t.get("finished"):
+                        user_transcript_parts = [in_t["text"]]
+                    else:
+                        user_transcript_parts.append(in_t["text"])
 
-                    await websocket.send_text(
-                        event.model_dump_json(exclude_none=True, by_alias=True)
-                    )
+                # Flush span on turn boundaries
+                if event_dict.get("interrupted"):
+                    _flush_voice_turn_span(interrupted=True)
+                elif event_dict.get("turnComplete"):
+                    _flush_voice_turn_span(interrupted=False)
+
+                    # After turn completes, act on pending transfer or end
+                    if pending_transfer_target:
+                        await websocket.send_text(
+                            event.model_dump_json(exclude_none=True, by_alias=True)
+                        )
+                        await websocket.send_text(json.dumps({
+                            "agentTransfer": {
+                                "from": current_agent_name,
+                                "to": pending_transfer_target,
+                                "message": f"Transferring you to {pending_transfer_target}..."
+                            }
+                        }))
+                        return pending_transfer_target
+
+                    if conversation_ended:
+                        await websocket.send_text(
+                            event.model_dump_json(exclude_none=True, by_alias=True)
+                        )
+                        await websocket.send_text(json.dumps({"conversationEnded": True}))
+                        return None
+
+                # Forward event to browser
+                await websocket.send_text(
+                    event.model_dump_json(exclude_none=True, by_alias=True)
+                )
+
         except Exception:
             logger.exception("forward_events error for session %s", session_id)
             raise
 
+        return None  # run_live ended (queue closed / client disconnected)
+
     async def keepalive():
-        """Send periodic pings so the frontend watchdog stays alive during
-        long operations like agent-transfer tool calls."""
+        """Send periodic pings so the frontend watchdog stays alive."""
         try:
             while True:
                 await asyncio.sleep(20)
                 if websocket.client_state.name == "CONNECTED":
                     await websocket.send_text('{"ping":true}')
         except Exception:
-            pass  # connection closed — let the other tasks handle it
+            pass
 
-    async def process_messages():
+    async def process_messages(live_request_queue: LiveRequestQueue):
         """Receive JSON LiveRequest frames from browser and feed to queue."""
+        nonlocal client_disconnected
         try:
             while True:
                 data = await websocket.receive_text()
@@ -502,17 +553,67 @@ async def voice_websocket(websocket: WebSocket, session_id: str = "default"):
                     logger.warning("Invalid LiveRequest frame (session %s): %s", session_id, e)
         except WebSocketDisconnect:
             logger.info("Client disconnected, closing queue for session %s", session_id)
+            client_disconnected = True
             live_request_queue.close()
 
-    tasks = [
-        asyncio.create_task(forward_events()),
-        asyncio.create_task(process_messages()),
-        asyncio.create_task(keepalive()),
-    ]
-    done, pending = await asyncio.wait(tasks, return_when=asyncio.FIRST_EXCEPTION)
+    # Outer loop: each iteration runs one agent until transfer or end
+    keepalive_task = asyncio.create_task(keepalive())
+
     try:
-        for task in done:
-            task.result()
+        with LLMObs.workflow(name="voice_session") as _workflow_span:
+            priming_message: str | None = None
+
+            while not client_disconnected:
+                # Swap the agent on the shared runner
+                live_runner.agent = LIVE_AGENT_MAP[current_agent_name]
+                run_config = _make_voice_run_config(current_agent_name)
+                live_request_queue = LiveRequestQueue()
+
+                # Send priming message for transferred agents
+                if priming_message:
+                    live_request_queue.send(LiveRequest(content=types.Content(
+                        role="user",
+                        parts=[types.Part(text=priming_message)],
+                    )))
+                    priming_message = None
+
+                msg_task = asyncio.create_task(process_messages(live_request_queue))
+                fwd_task = asyncio.create_task(forward_events(live_request_queue, run_config))
+
+                tasks = [fwd_task, msg_task]
+                done, pending = await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
+
+                # Get the transfer target (if any) from forward_events
+                transfer_target: str | None = None
+                for task in done:
+                    try:
+                        result = task.result()
+                        if task is fwd_task and isinstance(result, str):
+                            transfer_target = result
+                    except WebSocketDisconnect:
+                        client_disconnected = True
+                    except Exception as e:
+                        logger.exception("Voice task error for session %s", session_id)
+                        client_disconnected = True
+
+                # Clean up pending tasks from this iteration
+                live_request_queue.close()
+                for task in pending:
+                    task.cancel()
+                await asyncio.gather(*pending, return_exceptions=True)
+
+                if transfer_target and not client_disconnected:
+                    old_agent = current_agent_name
+                    current_agent_name = transfer_target
+                    priming_message = (
+                        f"The customer was just transferred from {old_agent}. "
+                        f"Introduce yourself and help them."
+                    )
+                    logger.info("Agent switch: %s → %s (session %s)", old_agent, current_agent_name, session_id)
+                    continue
+                else:
+                    break  # conversation ended or client disconnected
+
     except WebSocketDisconnect:
         logger.info("Voice WebSocket client disconnected: %s", session_id)
     except Exception as e:
@@ -522,10 +623,8 @@ async def voice_websocket(websocket: WebSocket, session_id: str = "default"):
         except Exception:
             pass
     finally:
-        live_request_queue.close()
-        for task in pending:
-            task.cancel()
-        await asyncio.gather(*pending, return_exceptions=True)
+        keepalive_task.cancel()
+        await asyncio.gather(keepalive_task, return_exceptions=True)
 
 
 

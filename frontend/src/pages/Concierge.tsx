@@ -140,7 +140,7 @@ export function Concierge() {
       voiceMode.stopVoiceMode();
     } else {
       // On first activation, send the welcome message as a text prompt so the
-      // Live API (Sam) speaks it aloud in the Zephyr voice.  The mic stays
+      // Live API (Sam) speaks it aloud in the Puck voice.  The mic stays
       // muted until Sam's greeting finishes (turnComplete).
       let greeting: string | undefined;
       if (!hasUsedVoiceRef.current) {

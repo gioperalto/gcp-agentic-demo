@@ -205,27 +205,16 @@
   gap: var(--space-md);
 }
 
-.airline-logo-placeholder {
+.airline-logo {
   width: 44px;
   height: 44px;
-  background: var(--m-surface-raised);
-  border: 1px solid var(--m-border);
   border-radius: var(--radius-sm);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 0.65rem;
-  color: var(--m-text-secondary);
-  font-weight: 700;
-  text-align: center;
-  padding: 0.25rem;
-  letter-spacing: -0.02em;
+  object-fit: cover;
 }
 
-.airline-logo-placeholder.large {
+.airline-logo.large {
   width: 64px;
   height: 64px;
-  font-size: 0.8rem;
 }
 
 .flight-number {

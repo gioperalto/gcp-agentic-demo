@@ -3,22 +3,9 @@ Jenny's Flight Search Tools
 This module contains tool functions for flight search and comparison.
 """
 
-import json
-import os
 from typing import Dict, List, Any
 
-
-def _load_flights_data() -> List[Dict[str, Any]]:
-    """Load flights data from JSON file."""
-    data_path = os.path.join(
-        os.path.dirname(os.path.dirname(os.path.dirname(__file__))),
-        'backend', 'data', 'flights.json'
-    )
-    try:
-        with open(data_path, 'r') as f:
-            return json.load(f)
-    except Exception:
-        return []
+from .api_client import api_get
 
 
 def search_flights(
@@ -48,15 +35,20 @@ def search_flights(
     Returns:
         Dictionary with premium flight options and clickable links.
     """
-    # Load flights from local data
-    all_flights = _load_flights_data()
+    # Fetch flights from the backend API
+    try:
+        all_flights = api_get("/api/travel/flights", params={
+            "origin": origin.upper(),
+            "destination": destination.upper(),
+        })
+    except Exception:
+        return {
+            'status': 'error',
+            'message': 'Unable to retrieve flight data. Please try again later.'
+        }
 
-    # Filter by origin and destination
-    matching_flights = [
-        flight for flight in all_flights
-        if flight.get('origin', '').upper() == origin.upper()
-        and flight.get('destination', '').upper() == destination.upper()
-    ]
+    # The API filters by origin/destination; now apply client-side filters
+    matching_flights = all_flights
 
     # If include_premium, prioritize business and first class
     if include_premium:
@@ -146,14 +138,14 @@ def compare_flight_prices(flight_ids: List[str]) -> Dict[str, Any]:
             'message': 'No flight identifiers provided to compare'
         }
 
-    # Load flights from local data
-    all_flights = _load_flights_data()
-
-    # Find the specific flights
-    flights_to_compare = [
-        flight for flight in all_flights
-        if flight.get('id') in flight_ids
-    ]
+    # Fetch each flight by ID from the backend API
+    flights_to_compare = []
+    for fid in flight_ids:
+        try:
+            flight = api_get(f"/api/travel/flights/{fid}")
+            flights_to_compare.append(flight)
+        except Exception:
+            pass
 
     if not flights_to_compare:
         return {
@@ -198,13 +190,10 @@ def get_flight_details(flight_id: str) -> Dict[str, Any]:
     Returns:
         Detailed flight information with link
     """
-    # Load flights from local data
-    all_flights = _load_flights_data()
-
-    # Find the specific flight
-    flight = next((f for f in all_flights if f.get('id') == flight_id), None)
-
-    if not flight:
+    # Fetch flight by ID from the backend API
+    try:
+        flight = api_get(f"/api/travel/flights/{flight_id}")
+    except Exception:
         return {
             'status': 'not_found',
             'message': f'Flight with ID {flight_id} not found.',

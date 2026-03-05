@@ -3,24 +3,9 @@ Luca's Restaurant Tools
 This module contains tool functions for restaurant recommendations and dining reservations.
 """
 
-import json
-import os
 from typing import Dict, List, Any, Optional
 from .restaurants import normalize_cuisine_type
-
-
-def _load_restaurants_data() -> List[Dict[str, Any]]:
-    """Load restaurants data from JSON file."""
-    data_path = os.path.join(
-        os.path.dirname(os.path.dirname(os.path.dirname(__file__))),
-        'backend', 'data', 'restaurants.json'
-    )
-    try:
-        with open(data_path, 'r') as f:
-            data = json.load(f)
-            return data.get('restaurants', [])
-    except Exception:
-        return []
+from .api_client import api_get
 
 
 def get_restaurant_recommendations(
@@ -44,10 +29,16 @@ def get_restaurant_recommendations(
     Returns:
         Dictionary with luxury restaurant options and clickable links.
     """
-    # Load restaurants from local data
-    all_restaurants = _load_restaurants_data()
+    # Fetch restaurants from the backend API with server-side filters
+    try:
+        all_restaurants = api_get("/api/travel/restaurants")
+    except Exception:
+        return {
+            'status': 'error',
+            'message': 'Unable to retrieve restaurant data. Please try again later.'
+        }
 
-    # Filter by destination (city or country)
+    # Client-side filter: destination (city or country)
     city_matches = [rest for rest in all_restaurants
                    if destination.lower() in rest.get('city', '').lower()
                    or destination.lower() in rest.get('country', '').lower()]
@@ -130,13 +121,10 @@ def get_restaurant_details(restaurant_id: str) -> Dict[str, Any]:
     Returns:
         Detailed restaurant information with link
     """
-    # Load restaurants from local data
-    all_restaurants = _load_restaurants_data()
-
-    # Find the specific restaurant
-    restaurant = next((rest for rest in all_restaurants if rest.get('id') == restaurant_id), None)
-
-    if not restaurant:
+    # Fetch restaurant by ID from the backend API
+    try:
+        restaurant = api_get(f"/api/travel/restaurants/{restaurant_id}")
+    except Exception:
         return {
             'status': 'not_found',
             'message': f'Restaurant with ID {restaurant_id} not found.',

@@ -3,23 +3,9 @@ Marcus's Accommodation Tools
 This module contains tool functions for accommodation search and reviews.
 """
 
-import json
-import os
 from typing import Dict, List, Any, Optional
 from .accommodations import normalize_accommodation_type
-
-
-def _load_accommodations_data() -> List[Dict[str, Any]]:
-    """Load accommodations data from JSON file."""
-    data_path = os.path.join(
-        os.path.dirname(os.path.dirname(os.path.dirname(__file__))),
-        'backend', 'data', 'accommodations.json'
-    )
-    try:
-        with open(data_path, 'r') as f:
-            return json.load(f)
-    except Exception:
-        return []
+from .api_client import api_get
 
 
 def search_accommodations(
@@ -49,19 +35,27 @@ def search_accommodations(
     Returns:
         Dictionary with luxury accommodation options and clickable links.
     """
-    # Load accommodations from local data
-    all_accommodations = _load_accommodations_data()
+    # Fetch accommodations from the backend API with server-side filters
+    try:
+        all_accommodations = api_get("/api/travel/accommodations", params={
+            "affordabilityTier": "luxury",
+            "maxPrice": max_price_per_night,
+        })
+    except Exception:
+        return {
+            'status': 'error',
+            'message': 'Unable to retrieve accommodation data. Please try again later.'
+        }
 
-    # Filter by destination (city)
+    # Client-side filter: destination (city or country)
     city_matches = [acc for acc in all_accommodations
                    if destination.lower() in acc.get('city', '').lower()
                    or destination.lower() in acc.get('country', '').lower()]
 
-    # Focus on LUXURY accommodations: 5-star hotels and villas
+    # Focus on LUXURY accommodations: 5-star hotels and villas with high ratings
     luxury_accommodations = [
         acc for acc in city_matches
-        if acc.get('affordabilityTier') == 'luxury' and
-        (acc.get('rating', 0) >= min_rating) and
+        if (acc.get('rating', 0) >= min_rating) and
         (acc.get('type') in ['hotel', 'villa'])
     ]
 
@@ -71,9 +65,6 @@ def search_accommodations(
     if accommodation_type and accommodation_type.lower() != 'any':
         normalized_type = normalize_accommodation_type(accommodation_type).lower()
         filtered = [acc for acc in filtered if acc.get('type', '').lower() == normalized_type]
-
-    if max_price_per_night:
-        filtered = [acc for acc in filtered if acc.get('pricePerNight', 0) <= max_price_per_night]
 
     if guests:
         filtered = [acc for acc in filtered if acc.get('capacity', 0) >= guests]
@@ -134,13 +125,10 @@ def get_accommodation_reviews(accommodation_id: str) -> Dict[str, Any]:
     Returns:
         Detailed accommodation information with link
     """
-    # Load accommodations from local data
-    all_accommodations = _load_accommodations_data()
-
-    # Find the specific accommodation
-    accommodation = next((acc for acc in all_accommodations if acc.get('id') == accommodation_id), None)
-
-    if not accommodation:
+    # Fetch accommodation by ID from the backend API
+    try:
+        accommodation = api_get(f"/api/travel/accommodations/{accommodation_id}")
+    except Exception:
         return {
             'status': 'not_found',
             'message': f'Accommodation with ID {accommodation_id} not found.',

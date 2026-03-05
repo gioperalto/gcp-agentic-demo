@@ -3,22 +3,9 @@ Sofia's Itinerary Tools
 This module contains tool functions for itinerary building and experiences.
 """
 
-import json
-import os
 from typing import Dict, List, Any, Optional
 
-
-def _load_experiences_data() -> List[Dict[str, Any]]:
-    """Load experiences data from JSON file."""
-    data_path = os.path.join(
-        os.path.dirname(os.path.dirname(os.path.dirname(__file__))),
-        'backend', 'data', 'experiences.json'
-    )
-    try:
-        with open(data_path, 'r') as f:
-            return json.load(f)
-    except Exception:
-        return []
+from .api_client import api_get
 
 
 def search_attractions(
@@ -40,10 +27,16 @@ def search_attractions(
     Returns:
         Dictionary with premium experience options and clickable links.
     """
-    # Load experiences from local data
-    all_experiences = _load_experiences_data()
+    # Fetch experiences from the backend API
+    try:
+        all_experiences = api_get("/api/travel/experiences")
+    except Exception:
+        return {
+            'status': 'error',
+            'message': 'Unable to retrieve experience data. Please try again later.'
+        }
 
-    # Filter by destination (city or country)
+    # Client-side filter: destination (city or country)
     city_matches = [exp for exp in all_experiences
                    if destination.lower() in exp.get('city', '').lower()
                    or destination.lower() in exp.get('country', '').lower()]
@@ -122,27 +115,34 @@ def create_daily_itinerary(
     Returns:
         Detailed itinerary with links to experiences
     """
-    # Load experiences from local data
-    all_experiences = _load_experiences_data()
-
-    # If specific experiences provided, get them
-    if experience_ids:
-        selected_experiences = [
-            exp for exp in all_experiences
-            if exp.get('id') in experience_ids
-        ]
-    else:
-        # Otherwise get premium experiences for the destination
-        city_matches = [exp for exp in all_experiences
-                       if destination.lower() in exp.get('city', '').lower()
-                       or destination.lower() in exp.get('country', '').lower()]
-        premium_experiences = [
-            exp for exp in city_matches
-            if exp.get('affordabilityTier') in ['mid-range', 'luxury']
-        ]
-        # Sort by rating
-        premium_experiences.sort(key=lambda x: x.get('rating', 0), reverse=True)
-        selected_experiences = premium_experiences[:3]  # Top 3
+    try:
+        if experience_ids:
+            # Fetch each experience by ID from the backend API
+            selected_experiences = []
+            for eid in experience_ids:
+                try:
+                    exp = api_get(f"/api/travel/experiences/{eid}")
+                    selected_experiences.append(exp)
+                except Exception:
+                    pass
+        else:
+            # Fetch all experiences and filter by destination
+            all_experiences = api_get("/api/travel/experiences")
+            city_matches = [exp for exp in all_experiences
+                           if destination.lower() in exp.get('city', '').lower()
+                           or destination.lower() in exp.get('country', '').lower()]
+            premium_experiences = [
+                exp for exp in city_matches
+                if exp.get('affordabilityTier') in ['mid-range', 'luxury']
+            ]
+            # Sort by rating
+            premium_experiences.sort(key=lambda x: x.get('rating', 0), reverse=True)
+            selected_experiences = premium_experiences[:3]  # Top 3
+    except Exception:
+        return {
+            'status': 'error',
+            'message': 'Unable to retrieve experience data. Please try again later.'
+        }
 
     if not selected_experiences:
         return {
@@ -185,13 +185,10 @@ def check_operating_hours(experience_id: str, date: str) -> Dict[str, Any]:
     Returns:
         Detailed experience information with link
     """
-    # Load experiences from local data
-    all_experiences = _load_experiences_data()
-
-    # Find the specific experience
-    experience = next((exp for exp in all_experiences if exp.get('id') == experience_id), None)
-
-    if not experience:
+    # Fetch experience by ID from the backend API
+    try:
+        experience = api_get(f"/api/travel/experiences/{experience_id}")
+    except Exception:
         return {
             'status': 'not_found',
             'message': f'Experience with ID {experience_id} not found.',

@@ -349,9 +349,7 @@ export function Flights() {
           <div key={flight.id} className={`flight-card ${flight.class === 'private-jet' ? 'private-jet-card' : ''}`} onClick={() => setSelectedFlight(flight)}>
             <div className="flight-card-header">
               <div className="airline-info">
-                <div className="airline-logo-placeholder">
-                  <span>{flight.airline}</span>
-                </div>
+                <img className="airline-logo" src={flight.imageUrl} alt={flight.airline} />
                 <div className="flight-number">{flight.flightNumber}</div>
               </div>
               <div className={`flight-class-badge ${flight.class}`}>
@@ -410,9 +408,7 @@ export function Flights() {
 
             <div className="modal-flight-details">
               <div className="modal-airline">
-                <div className="airline-logo-placeholder large">
-                  <span>{selectedFlight.airline}</span>
-                </div>
+                <img className="airline-logo large" src={selectedFlight.imageUrl} alt={selectedFlight.airline} />
                 <div>
                   <div className="modal-airline-name">{selectedFlight.airline}</div>
                   <div className="modal-flight-number">{selectedFlight.flightNumber}</div>

@@ -1,3 +1,12 @@
 PROMPT.md
+claude.md
 *.env
-*__pycache__
+.claude
+.venv
+__pycache__
+
+# images
+*images.py
+frontend/public/img/experiences/*.jpg
+frontend/public/img/restaurants/*.jpg
+frontend/public/img/accommodations/*.jpg

@@ -5,6 +5,8 @@ import { getCachedUser, fetchCurrentUser } from '../utils/auth';
 import type { Accommodation, AccommodationFilters, AccommodationType, BookingRequest } from '../types/accommodation';
 import './Accommodations.css';
 
+const POINTS_TO_DOLLAR_RATE = 100; // 100 points = $1
+
 export const Accommodations = () => {
   const navigate = useNavigate();
   const [accommodations, setAccommodations] = useState<Accommodation[]>([]);
@@ -27,6 +29,7 @@ export const Accommodations = () => {
   const [bookingLoading, setBookingLoading] = useState(false);
   const [bookingSuccess, setBookingSuccess] = useState<string | null>(null);
   const [bookingError, setBookingError] = useState<string | null>(null);
+  const [paymentMethod, setPaymentMethod] = useState<'card' | 'points'>('card');
 
   const [user, setUser] = useState(getCachedUser());
 
@@ -79,6 +82,7 @@ export const Accommodations = () => {
     checkOut.setDate(checkOut.getDate() + 2);
     setCheckOutDate(checkOut.toISOString().split('T')[0]);
     setGuests(1);
+    setPaymentMethod('card');
   };
 
   const handleCloseModal = () => {
@@ -127,9 +131,18 @@ export const Accommodations = () => {
     }
 
     const total = calculateTotal();
-    if (user.availableCredit !== null && user.availableCredit < total) {
-      setBookingError(`Insufficient credit. Available: $${user.availableCredit.toFixed(2)}, Required: $${total.toFixed(2)}`);
-      return;
+    const pointsCost = total * POINTS_TO_DOLLAR_RATE;
+
+    if (paymentMethod === 'card') {
+      if (user.availableCredit !== null && user.availableCredit < total) {
+        setBookingError(`Insufficient credit. Available: $${user.availableCredit.toFixed(2)}, Required: $${total.toFixed(2)}`);
+        return;
+      }
+    } else {
+      if (user.rewardPoints < pointsCost) {
+        setBookingError(`Insufficient points. Available: ${user.rewardPoints.toFixed(0)}, Required: ${pointsCost.toFixed(0)}`);
+        return;
+      }
     }
 
     try {
@@ -138,6 +151,7 @@ export const Accommodations = () => {
 
       const request: BookingRequest = {
         accommodationId: selectedAccommodation.id,
+        paymentMethod,
         checkInDate,
         checkOutDate,
         guests,
@@ -145,11 +159,18 @@ export const Accommodations = () => {
 
       const response = await bookAccommodation(request);
 
-      // Refresh user data to update available credit and reservations
-      await fetchCurrentUser();
+      // Update local user state
+      setUser({
+        ...user,
+        availableCredit: response.updatedUser.availableCredit,
+        rewardPoints: response.updatedUser.rewardPoints,
+      });
 
+      const paymentNote = paymentMethod === 'points'
+        ? `Paid with ${pointsCost.toFixed(0)} points.`
+        : `Total: $${total.toFixed(2)}.`;
       setBookingSuccess(
-        `Booking confirmed! Total: $${response.reservation.totalAmount.toFixed(2)} for ${response.reservation.nights} night(s). You earned ${response.reservation.rewardPointsEarned.toFixed(0)} reward points!`
+        `Booking confirmed! ${paymentNote}`
       );
 
       // Close modal after 3 seconds
@@ -206,6 +227,21 @@ export const Accommodations = () => {
       <div className="accommodations-header">
         <h1>Accommodations</h1>
         <p>Find your perfect stay across the world</p>
+        {user.availableCredit !== null && (
+          <div className="user-credits">
+            <div className="credit-item">
+              <span className="credit-label">Available Credit:</span>
+              <span className="credit-value">${user.availableCredit.toFixed(0)}</span>
+            </div>
+            <div className="credit-item">
+              <span className="credit-label">Reward Points:</span>
+              <span className="credit-value">{user.rewardPoints.toFixed(0)} pts</span>
+            </div>
+            <div className="credit-item conversion">
+              <span className="conversion-note">{POINTS_TO_DOLLAR_RATE} points = $1</span>
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="filters-section">
@@ -276,6 +312,10 @@ export const Accommodations = () => {
             onClick={() => handleCardClick(accommodation)}
           >
             <div className="accommodation-image" style={{ backgroundImage: `url(${accommodation.imageUrl})` }}>
+              <div className="image-credit">
+                Generated with Nano Banana
+                <span className="credit-icon">🍌</span>
+              </div>
               <div className="accommodation-type-badge">
                 {accommodation.type.charAt(0).toUpperCase() + accommodation.type.slice(1)}
               </div>
@@ -422,6 +462,34 @@ export const Accommodations = () => {
                         />
                       </div>
 
+                      <div className="booking-option-group">
+                        <label>Payment Method</label>
+                        <div className="payment-methods">
+                          <button
+                            className={`payment-method-button ${paymentMethod === 'card' ? 'active' : ''}`}
+                            onClick={() => setPaymentMethod('card')}
+                          >
+                            <div className="payment-method-icon">💳</div>
+                            <div className="payment-method-label">Card Credit</div>
+                            <div className="payment-method-note">
+                              {user.availableCredit !== null
+                                ? `Available: $${user.availableCredit.toFixed(0)}`
+                                : 'N/A'}
+                            </div>
+                          </button>
+                          <button
+                            className={`payment-method-button ${paymentMethod === 'points' ? 'active' : ''}`}
+                            onClick={() => setPaymentMethod('points')}
+                          >
+                            <div className="payment-method-icon">⭐</div>
+                            <div className="payment-method-label">Reward Points</div>
+                            <div className="payment-method-note">
+                              Available: {user.rewardPoints.toFixed(0)} pts
+                            </div>
+                          </button>
+                        </div>
+                      </div>
+
                       <div className="booking-summary">
                         <div className="summary-row">
                           <span>Nights:</span>
@@ -433,12 +501,17 @@ export const Accommodations = () => {
                         </div>
                         <div className="summary-row total">
                           <span>Total:</span>
-                          <span>${calculateTotal().toFixed(2)}</span>
+                          <span>
+                            {paymentMethod === 'card'
+                              ? `$${calculateTotal().toFixed(2)}`
+                              : `${(calculateTotal() * POINTS_TO_DOLLAR_RATE).toFixed(0)} points`
+                            }
+                          </span>
                         </div>
-                        {user.availableCredit !== null && (
-                          <div className="summary-row">
-                            <span>Available Credit:</span>
-                            <span>${user.availableCredit.toFixed(2)}</span>
+                        {paymentMethod === 'card' && user.rewardPointsMultiplier && (
+                          <div className="summary-row points-earned">
+                            <span>Points to be earned:</span>
+                            <span>+{(calculateTotal() * user.rewardPointsMultiplier).toFixed(0)} pts</span>
                           </div>
                         )}
                       </div>

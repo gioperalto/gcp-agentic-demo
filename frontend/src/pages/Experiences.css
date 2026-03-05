@@ -54,6 +54,53 @@
 .experiences-header p {
   font-size: 1.05rem;
   color: var(--m-text-secondary);
+  margin-bottom: var(--space-lg);
+}
+
+.experiences-page .user-credits {
+  display: flex;
+  justify-content: center;
+  gap: var(--space-xl);
+  margin-top: var(--space-lg);
+  padding: var(--space-md) var(--space-lg);
+  background: var(--m-surface);
+  border: 1px solid var(--m-border);
+  border-radius: var(--radius-md);
+  max-width: 700px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.experiences-page .credit-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.15rem;
+}
+
+.experiences-page .credit-item.conversion {
+  justify-content: center;
+}
+
+.experiences-page .credit-label {
+  font-size: 0.72rem;
+  color: var(--m-gold-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 600;
+}
+
+.experiences-page .credit-value {
+  font-family: var(--font-display);
+  font-size: 1.4rem;
+  font-weight: 500;
+  color: var(--m-gold);
+}
+
+.experiences-page .conversion-note {
+  font-size: 0.8rem;
+  color: var(--m-text-muted);
+  font-style: italic;
 }
 
 .experiences-container {
@@ -492,6 +539,63 @@
   color: var(--m-text-muted);
 }
 
+/* Payment Methods */
+.experiences-page .booking-option-group {
+  margin-bottom: var(--space-lg);
+}
+
+.experiences-page .booking-option-group > label {
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--m-gold-dim);
+  margin-bottom: var(--space-sm);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.experiences-page .payment-methods {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--space-md);
+}
+
+.experiences-page .payment-method-button {
+  padding: var(--space-md);
+  background: var(--m-surface-raised);
+  border: 1px solid var(--m-border);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all var(--duration-normal) var(--ease-out);
+  text-align: center;
+}
+
+.experiences-page .payment-method-button:hover {
+  border-color: var(--m-gold-dim);
+}
+
+.experiences-page .payment-method-button.active {
+  border-color: var(--m-gold);
+  background: var(--m-gold-glow);
+}
+
+.experiences-page .payment-method-icon {
+  font-size: 1.5rem;
+  margin-bottom: var(--space-xs);
+}
+
+.experiences-page .payment-method-label {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--m-text-primary);
+  margin-bottom: 0.15rem;
+}
+
+.experiences-page .payment-method-note {
+  font-size: 0.78rem;
+  color: var(--m-text-muted);
+}
+
 /* ═══ Booking Modal ═══ */
 .booking-modal-overlay {
   position: fixed;
@@ -763,6 +867,15 @@
 @media (max-width: 768px) {
   .experiences-page {
     padding: var(--space-md);
+  }
+
+  .experiences-page .user-credits {
+    flex-direction: column;
+    gap: var(--space-md);
+  }
+
+  .experiences-page .payment-methods {
+    grid-template-columns: 1fr;
   }
 
   .experiences-header h1 {

@@ -249,10 +249,21 @@ export async function getAccommodationById(id: string): Promise<Accommodation> {
 }
 
 export async function bookAccommodation(request: BookingRequest): Promise<BookingResponse> {
+  // Calculate nights from check-in and check-out dates
+  const checkIn = new Date(request.checkInDate);
+  const checkOut = new Date(request.checkOutDate);
+  const nights = Math.max(1, Math.ceil((checkOut.getTime() - checkIn.getTime()) / (1000 * 60 * 60 * 24)));
+
   const response = await fetch(`${API_BASE_URL}/api/accommodations/book`, {
     method: 'POST',
     headers: getHeaders(),
-    body: JSON.stringify(request),
+    body: JSON.stringify({
+      accommodationId: request.accommodationId,
+      paymentMethod: request.paymentMethod,
+      nights,
+      checkInDate: request.checkInDate,
+      guests: request.guests,
+    }),
   });
 
   if (!response.ok) {
@@ -325,7 +336,7 @@ export async function bookExperience(request: ExperienceBookingRequest): Promise
     type: 'experience' as const,
     itemId: request.itemId,
     participants: request.participants,
-    usePoints: false,
+    usePoints: request.paymentMethod === 'points',
     nights: null
   };
 

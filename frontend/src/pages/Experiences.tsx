@@ -5,6 +5,8 @@ import { getExperiences, bookExperience } from '../utils/api';
 import type { Experience, ExperienceType } from '../types/experience';
 import './Experiences.css';
 
+const POINTS_TO_DOLLAR_RATE = 100; // 100 points = $1
+
 export const Experiences = () => {
   const navigate = useNavigate();
   const [experiences, setExperiences] = useState<Experience[]>([]);
@@ -24,6 +26,7 @@ export const Experiences = () => {
   const [bookingLoading, setBookingLoading] = useState(false);
   const [bookingError, setBookingError] = useState<string | null>(null);
   const [bookingSuccess, setBookingSuccess] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState<'card' | 'points'>('card');
 
   const [user, setUser] = useState(getCachedUser());
 
@@ -117,6 +120,7 @@ export const Experiences = () => {
     setBookingDate('');
     setBookingError(null);
     setBookingSuccess(false);
+    setPaymentMethod('card');
   };
 
   const closeBookingModal = () => {
@@ -141,10 +145,18 @@ export const Experiences = () => {
     }
 
     const totalCost = selectedExperience.price * participants;
+    const pointsCost = totalCost * POINTS_TO_DOLLAR_RATE;
 
-    if (!user.availableCredit || user.availableCredit < totalCost) {
-      setBookingError(`Insufficient credit. You need $${totalCost.toFixed(2)} but only have $${(user.availableCredit || 0).toFixed(2)} available.`);
-      return;
+    if (paymentMethod === 'card') {
+      if (!user.availableCredit || user.availableCredit < totalCost) {
+        setBookingError(`Insufficient credit. You need $${totalCost.toFixed(2)} but only have $${(user.availableCredit || 0).toFixed(2)} available.`);
+        return;
+      }
+    } else {
+      if (user.rewardPoints < pointsCost) {
+        setBookingError(`Insufficient points. Available: ${user.rewardPoints.toFixed(0)}, Required: ${pointsCost.toFixed(0)}`);
+        return;
+      }
     }
 
     try {
@@ -156,12 +168,21 @@ export const Experiences = () => {
         itemId: selectedExperience.id,
         participants,
         date: bookingDate,
+        paymentMethod,
       });
 
       if (response.success) {
         setBookingSuccess(true);
-        // Refresh user data to update available credit and reservations
-        await fetchCurrentUser();
+        // Update local user state if response includes updated user data
+        if (response.updatedUser) {
+          setUser({
+            ...user,
+            availableCredit: response.updatedUser.availableCredit,
+            rewardPoints: response.updatedUser.rewardPoints,
+          });
+        } else {
+          await fetchCurrentUser();
+        }
 
         setTimeout(() => {
           closeBookingModal();
@@ -239,6 +260,21 @@ export const Experiences = () => {
       <div className="experiences-header">
         <h1>Experiences & Adventures</h1>
         <p>Create unforgettable memories with our curated selection of unique experiences</p>
+        {user.availableCredit !== null && (
+          <div className="user-credits">
+            <div className="credit-item">
+              <span className="credit-label">Available Credit:</span>
+              <span className="credit-value">${user.availableCredit.toFixed(0)}</span>
+            </div>
+            <div className="credit-item">
+              <span className="credit-label">Reward Points:</span>
+              <span className="credit-value">{user.rewardPoints.toFixed(0)} pts</span>
+            </div>
+            <div className="credit-item conversion">
+              <span className="conversion-note">{POINTS_TO_DOLLAR_RATE} points = $1</span>
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="experiences-container">
@@ -317,6 +353,10 @@ export const Experiences = () => {
                     className="experience-image"
                     style={{ backgroundImage: `url(${experience.imageUrl})` }}
                   >
+                    <div className="image-credit">
+                      Generated with Nano Banana
+                      <span className="credit-icon">🍌</span>
+                    </div>
                     <div className="experience-type-badge">
                       {formatType(experience.type)}
                     </div>
@@ -446,6 +486,34 @@ export const Experiences = () => {
                     </div>
                   </div>
 
+                  <div className="booking-option-group">
+                    <label>Payment Method</label>
+                    <div className="payment-methods">
+                      <button
+                        className={`payment-method-button ${paymentMethod === 'card' ? 'active' : ''}`}
+                        onClick={() => setPaymentMethod('card')}
+                      >
+                        <div className="payment-method-icon">💳</div>
+                        <div className="payment-method-label">Card Credit</div>
+                        <div className="payment-method-note">
+                          {user?.availableCredit !== null
+                            ? `Available: $${(user?.availableCredit || 0).toFixed(0)}`
+                            : 'N/A'}
+                        </div>
+                      </button>
+                      <button
+                        className={`payment-method-button ${paymentMethod === 'points' ? 'active' : ''}`}
+                        onClick={() => setPaymentMethod('points')}
+                      >
+                        <div className="payment-method-icon">⭐</div>
+                        <div className="payment-method-label">Reward Points</div>
+                        <div className="payment-method-note">
+                          Available: {(user?.rewardPoints || 0).toFixed(0)} pts
+                        </div>
+                      </button>
+                    </div>
+                  </div>
+
                   <div className="booking-summary">
                     <div className="summary-row">
                       <span>Price per person:</span>
@@ -457,18 +525,17 @@ export const Experiences = () => {
                     </div>
                     <div className="summary-row total">
                       <span>Total:</span>
-                      <span>${getTotalCost().toFixed(2)}</span>
+                      <span>
+                        {paymentMethod === 'card'
+                          ? `$${getTotalCost().toFixed(2)}`
+                          : `${(getTotalCost() * POINTS_TO_DOLLAR_RATE).toFixed(0)} points`
+                        }
+                      </span>
                     </div>
-                    {user?.rewardPointsMultiplier && (
+                    {paymentMethod === 'card' && user?.rewardPointsMultiplier && (
                       <div className="summary-row rewards">
-                        <span>Reward Points:</span>
-                        <span>+{getRewardPoints().toFixed(0)} points</span>
-                      </div>
-                    )}
-                    {user?.availableCredit && (
-                      <div className="summary-row">
-                        <span>Available Credit:</span>
-                        <span>${user.availableCredit.toFixed(2)}</span>
+                        <span>Points to be earned:</span>
+                        <span>+{getRewardPoints().toFixed(0)} pts</span>
                       </div>
                     )}
                   </div>

@@ -29,6 +29,7 @@ export interface AccommodationFilters {
 
 export interface BookingRequest {
   accommodationId: string;
+  paymentMethod: 'card' | 'points';
   checkInDate: string; // ISO 8601
   checkOutDate: string; // ISO 8601
   guests: number;
@@ -39,10 +40,13 @@ export interface BookingResponse {
   reservation: {
     id: string;
     accommodationName: string;
-    totalAmount: number;
+    amount: number;
     nights: number;
-    rewardPointsEarned: number;
+    guests: number;
+    status: string;
   };
-  updatedAvailableCredit: number;
-  message: string;
+  updatedUser: {
+    availableCredit: number;
+    rewardPoints: number;
+  };
 }

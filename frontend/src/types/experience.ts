@@ -33,6 +33,7 @@ export interface ExperienceBookingRequest {
   itemId: string;
   participants: number;
   date: string;
+  paymentMethod: 'card' | 'points';
 }
 
 export interface ExperienceBookingResponse {

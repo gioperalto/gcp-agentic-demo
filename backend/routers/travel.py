@@ -236,6 +236,17 @@ async def create_booking(request: BookingRequest):
 
         total_cost = item.price * request.participants
 
+        # Handle points redemption for experiences
+        if request.usePoints:
+            points_needed = total_cost * 100  # 100 points = $1
+            if user.rewardPoints < points_needed:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Insufficient reward points. Need {points_needed}, have {user.rewardPoints}"
+                )
+            user.rewardPoints -= points_needed
+            total_cost = 0.0
+
     else:
         raise HTTPException(status_code=400, detail="Invalid booking type")
 

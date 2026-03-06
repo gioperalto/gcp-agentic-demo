@@ -237,8 +237,8 @@ AGENT_VOICE_MAP = {
     "Sam": {"voice": "Puck", "accent": "British accent.", "style": "Warm and friendly tone."},
     "Jenny": {"voice": "Leda", "accent": "", "style": "Warm and friendly tone."},
     "Marcus": {"voice": "Charon", "accent": "", "style": "Warm and friendly tone."},
-    "Sofia": {"voice": "Despina", "accent": "Spanish accent.", "style": "Warm and friendly tone."},
-    "Luca": {"voice": "Rasalgethi", "accent": "Italian accent.", "style": "Warm and friendly tone."},
+    "Sofia": {"voice": "Despina", "accent": "", "style": "Warm and friendly tone."},
+    "Luca": {"voice": "Rasalgethi", "accent": "", "style": "Warm and friendly tone."},
 }
 
 

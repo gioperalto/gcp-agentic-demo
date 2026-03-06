@@ -116,7 +116,6 @@ export const Benefits = () => {
               <ul className="tier-features">
                 <li>24/7 chat-based concierge support</li>
                 <li>Restaurant reservations and recommendations</li>
-                <li>Event and entertainment booking</li>
                 <li>Travel planning assistance</li>
                 <li>Gift recommendations and ordering</li>
               </ul>
@@ -137,7 +136,6 @@ export const Benefits = () => {
                 <li>Exclusive access to sold-out events</li>
                 <li>Complex multi-destination travel planning</li>
                 <li>Private event coordination and planning</li>
-                <li>Personal shopping and styling services</li>
                 <li>VIP experiences and behind-the-scenes access</li>
               </ul>
               <p className="tribune-exclusive">Exclusive to Tribune cardholders</p>

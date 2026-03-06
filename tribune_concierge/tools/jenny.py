@@ -54,7 +54,7 @@ def search_flights(
     if include_premium:
         premium_flights = [
             flight for flight in matching_flights
-            if flight.get('class') in ['business', 'first', 'premium-economy']
+            if flight.get('class') in ['private-jet', 'first', 'business', 'premium-economy']
         ]
         # If premium flights exist, show them; otherwise show all
         if premium_flights:
@@ -79,7 +79,7 @@ def search_flights(
         filtered = [f for f in filtered if f.get('price', 0) <= max_price]
 
     # Sort by class (first, business, premium-economy, economy) then by price
-    class_priority = {'first': 0, 'business': 1, 'premium-economy': 2, 'economy': 3}
+    class_priority = {'private-jet': 0, 'first': 1, 'business': 2, 'premium-economy': 3, 'economy': 4}
     filtered.sort(key=lambda x: (class_priority.get(x.get('class', 'economy'), 3), x.get('price', 0)))
 
     # Build response with clickable links

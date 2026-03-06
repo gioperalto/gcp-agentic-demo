@@ -82,6 +82,8 @@ export function useVoiceMode(sessionId: string, callbacks?: VoiceModeCallbacks) 
   const suppressGreetingRef = useRef(false);
   // Track whether a transfer TTS is playing (prevents turnComplete from unmuting mic)
   const transferTTSPlayingRef = useRef(false);
+  // Track whether we're waiting for the NEW agent's first turnComplete after transfer
+  const awaitingTransferTurnRef = useRef(false);
   // Track the current speaking agent to detect actual transfers (not per-event noise)
   const currentAuthorRef = useRef<string>('Sam');
 
@@ -161,6 +163,7 @@ export function useVoiceMode(sessionId: string, callbacks?: VoiceModeCallbacks) 
     micMutedRef.current = false;
     suppressGreetingRef.current = false;
     transferTTSPlayingRef.current = false;
+    awaitingTransferTurnRef.current = false;
     currentAuthorRef.current = 'Sam';
     isActiveRef.current = false;
 
@@ -260,6 +263,7 @@ export function useVoiceMode(sessionId: string, callbacks?: VoiceModeCallbacks) 
             // Mute mic immediately to prevent echo feedback
             micMutedRef.current = true;
             transferTTSPlayingRef.current = true;
+            awaitingTransferTurnRef.current = true;
 
             // Wait for any queued agent audio to finish playing before
             // starting the TTS announcement so we don't talk over Sam's goodbye.
@@ -269,15 +273,23 @@ export function useVoiceMode(sessionId: string, callbacks?: VoiceModeCallbacks) 
               : 0;
             const delayMs = Math.ceil(remainingAudio * 1000) + 150; // +150ms buffer
 
-            // Wait until both the TTS announcement AND all queued agent audio
-            // have finished playing before unmuting the mic. This prevents the
-            // mic from picking up the new agent's greeting through speakers.
+            // Wait until ALL three conditions are met before unmuting:
+            // 1. TTS announcement has finished (we're in onend)
+            // 2. All queued agent audio has finished playing
+            // 3. The new agent's first turnComplete has been received
+            // This prevents the mic from picking up the new agent's greeting.
+            const safeUnmuteStartTime = Date.now();
             const safeUnmute = () => {
               const ctx = playbackCtxRef.current;
               const audioStillPlaying = ctx && nextPlayTimeRef.current > ctx.currentTime;
-              if (audioStillPlaying) {
-                setTimeout(safeUnmute, 200);
-                return;
+              if (audioStillPlaying || awaitingTransferTurnRef.current) {
+                // Fail-safe: force unmute after 15s to avoid permanent mute
+                if (Date.now() - safeUnmuteStartTime > 15000) {
+                  console.warn('[voice] Transfer safe-unmute timeout — forcing unmute');
+                } else {
+                  setTimeout(safeUnmute, 200);
+                  return;
+                }
               }
               transferTTSPlayingRef.current = false;
               micMutedRef.current = false;
@@ -349,6 +361,12 @@ export function useVoiceMode(sessionId: string, callbacks?: VoiceModeCallbacks) 
             suppressGreetingRef.current = false;
             setState(prev => ({ ...prev, isSpeaking: false, currentTranscript: '' }));
           } else if (data.turnComplete) {
+            // Signal that the new agent's greeting turn has completed.
+            // safeUnmute() polls on this flag before unmuting the mic.
+            if (awaitingTransferTurnRef.current) {
+              console.log('[voice] New agent greeting turn complete — allowing unmute');
+              awaitingTransferTurnRef.current = false;
+            }
             // Unmute mic after the initial greeting finishes, but NOT during
             // a transfer TTS — the TTS onend callback handles unmuting then.
             if (micMutedRef.current && !transferTTSPlayingRef.current) {

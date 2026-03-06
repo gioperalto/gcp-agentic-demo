@@ -13,7 +13,6 @@ load_dotenv()
 os.environ['GOOGLE_CLOUD_LOCATION'] = 'global'
 
 from ddtrace.llmobs import LLMObs
-from ddtrace.appsec.track_user_sdk import track_custom_event
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
@@ -31,15 +30,11 @@ from tribune_concierge.agent import root_agent, live_root_agent, AGENT_VOICE_MAP
 from legionnaire_concierge.agent import legionnaire_agent
 
 
-# Datadog LLM Observability setup
-LLMObs.enable(
-  ml_app=os.getenv("DD_LLMOBS_ML_APP", "travel-planner"),
-  api_key=os.getenv("DATADOG_API_KEY"),
-  site=os.getenv("DD_SITE", "datadoghq.com"),
-  agentless_enabled=True,
-  env=os.getenv("DD_ENV", "dev"),
-  service=os.getenv("DD_SERVICE", "travel-planner-api"),
-)
+# Datadog LLM Observability is initialised by ddtrace-run (see Dockerfile CMD).
+# Do NOT call LLMObs.enable() here — combining it with ddtrace-run is unsupported
+# and causes spans to be silently dropped.  Configuration lives in env vars:
+#   DD_LLMOBS_ENABLED=1, DD_LLMOBS_ML_APP, DD_LLMOBS_AGENTLESS_ENABLED, etc.
+# Manual spans (LLMObs.llm(), LLMObs.workflow()) still work without enable().
 
 # Create runner instances
 runner = InMemoryRunner(agent=root_agent, app_name="travel-planner")

@@ -1,4 +1,4 @@
-ddtrace
+ddtrace>=3.15.0
 google-adk
 fastapi
 uvicorn[standard]

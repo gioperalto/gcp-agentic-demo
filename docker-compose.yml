@@ -47,6 +47,8 @@ services:
       DD_RUNTIME_METRICS_ENABLED: "true"
       DD_LLMOBS_ENABLED: 1
       DD_LLMOBS_ML_APP: travel-planner
+      DD_LLMOBS_AGENTLESS_ENABLED: 0
+      DD_API_KEY: ${DATADOG_API_KEY}
       DD_TRACE_PROPAGATION_STYLE: "datadog,tracecontext"
       GOOGLE_APPLICATION_CREDENTIALS: /app/credentials/sa.json
       GOOGLE_GENAI_USE_VERTEXAI: ${GOOGLE_GENAI_USE_VERTEXAI}

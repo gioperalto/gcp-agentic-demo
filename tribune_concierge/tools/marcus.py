@@ -5,7 +5,9 @@ This module contains tool functions for accommodation search and reviews.
 
 from typing import Dict, List, Any, Optional
 from .accommodations import normalize_accommodation_type
-from .api_client import api_get
+import sys, os
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', 'backend'))
+from services.travel_service import get_all_accommodations, get_accommodation_by_id
 
 
 def search_accommodations(
@@ -35,12 +37,10 @@ def search_accommodations(
     Returns:
         Dictionary with luxury accommodation options and clickable links.
     """
-    # Fetch accommodations from the backend API with server-side filters
+    # Fetch accommodations directly from the travel service layer
     try:
-        all_accommodations = api_get("/api/travel/accommodations", params={
-            "affordabilityTier": "luxury",
-            "maxPrice": max_price_per_night,
-        })
+        accommodation_models = get_all_accommodations(affordability_tier="luxury", max_price=max_price_per_night)
+        all_accommodations = [a.model_dump() for a in accommodation_models]
     except Exception:
         return {
             'status': 'error',
@@ -125,15 +125,15 @@ def get_accommodation_reviews(accommodation_id: str) -> Dict[str, Any]:
     Returns:
         Detailed accommodation information with link
     """
-    # Fetch accommodation by ID from the backend API
-    try:
-        accommodation = api_get(f"/api/travel/accommodations/{accommodation_id}")
-    except Exception:
+    # Fetch accommodation directly from the travel service layer
+    accommodation_model = get_accommodation_by_id(accommodation_id)
+    if not accommodation_model:
         return {
             'status': 'not_found',
             'message': f'Accommodation with ID {accommodation_id} not found.',
             'accommodation_id': accommodation_id
         }
+    accommodation = accommodation_model.model_dump()
 
     # Build detailed response
     name = accommodation.get('name')

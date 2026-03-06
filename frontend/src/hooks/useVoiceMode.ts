@@ -46,6 +46,7 @@ interface VoiceModeCallbacks {
   onAgentTranscript?: (text: string, isFinal: boolean) => void;
   onUserTranscript?: (text: string, isFinal: boolean) => void;
   onAgentTransfer?: (agentName: string) => void;
+  onConversationEnd?: () => void;
   onError?: (error: string) => void;
 }
 
@@ -79,6 +80,10 @@ export function useVoiceMode(sessionId: string, callbacks?: VoiceModeCallbacks) 
 
   // Track whether to suppress the first agent transcript (initial greeting)
   const suppressGreetingRef = useRef(false);
+  // Track whether a transfer TTS is playing (prevents turnComplete from unmuting mic)
+  const transferTTSPlayingRef = useRef(false);
+  // Track whether we're waiting for the NEW agent's first turnComplete after transfer
+  const awaitingTransferTurnRef = useRef(false);
   // Track the current speaking agent to detect actual transfers (not per-event noise)
   const currentAuthorRef = useRef<string>('Sam');
 
@@ -157,6 +162,8 @@ export function useVoiceMode(sessionId: string, callbacks?: VoiceModeCallbacks) 
     userTranscriptRef.current = '';
     micMutedRef.current = false;
     suppressGreetingRef.current = false;
+    transferTTSPlayingRef.current = false;
+    awaitingTransferTurnRef.current = false;
     currentAuthorRef.current = 'Sam';
     isActiveRef.current = false;
 
@@ -247,16 +254,84 @@ export function useVoiceMode(sessionId: string, callbacks?: VoiceModeCallbacks) 
           // Backend keepalive ping — just feed the watchdog timer, skip processing
           if (data.ping) return;
 
-          // Agent transfer detection — run BEFORE audio/transcript processing
-          // so the transfer message appears in chat before the new agent's content.
-          if (data.author && data.author !== currentAuthorRef.current) {
-            const prevAuthor = currentAuthorRef.current;
-            currentAuthorRef.current = data.author;
-            // Only surface transfers TO sub-agents, not back to Sam
-            if (data.author !== 'Sam') {
-              console.log(`[voice] Agent transfer: ${prevAuthor} → ${data.author}`);
-              callbacks?.onAgentTransfer?.(data.author);
+          // Backend-driven agent transfer (voice switching)
+          if (data.agentTransfer) {
+            const { from, to, message } = data.agentTransfer;
+            console.log(`[voice] Agent transfer: ${from} → ${to}`);
+            currentAuthorRef.current = to;
+
+            // Mute mic immediately to prevent echo feedback
+            micMutedRef.current = true;
+            transferTTSPlayingRef.current = true;
+            awaitingTransferTurnRef.current = true;
+
+            // Wait for any queued agent audio to finish playing before
+            // starting the TTS announcement so we don't talk over Sam's goodbye.
+            const ctx = playbackCtxRef.current;
+            const remainingAudio = ctx
+              ? Math.max(0, nextPlayTimeRef.current - ctx.currentTime)
+              : 0;
+            const delayMs = Math.ceil(remainingAudio * 1000) + 150; // +150ms buffer
+
+            // Wait until ALL three conditions are met before unmuting:
+            // 1. TTS announcement has finished (we're in onend)
+            // 2. All queued agent audio has finished playing
+            // 3. The new agent's first turnComplete has been received
+            // This prevents the mic from picking up the new agent's greeting.
+            const safeUnmuteStartTime = Date.now();
+            const safeUnmute = () => {
+              const ctx = playbackCtxRef.current;
+              const audioStillPlaying = ctx && nextPlayTimeRef.current > ctx.currentTime + 0.5;
+              if (audioStillPlaying || awaitingTransferTurnRef.current) {
+                // Fail-safe: force unmute after 15s to avoid permanent mute
+                if (Date.now() - safeUnmuteStartTime > 15000) {
+                  console.warn('[voice] Transfer safe-unmute timeout — forcing unmute');
+                } else {
+                  setTimeout(safeUnmute, 200);
+                  return;
+                }
+              }
+              transferTTSPlayingRef.current = false;
+              micMutedRef.current = false;
+              console.log('[voice] Transfer complete — mic unmuted');
+            };
+
+            const playAnnouncement = () => {
+              if ('speechSynthesis' in window && message) {
+                const utterance = new SpeechSynthesisUtterance(message);
+                utterance.rate = 1.1;
+                utterance.volume = 0.8;
+                utterance.onend = () => safeUnmute();
+                utterance.onerror = () => safeUnmute();
+                window.speechSynthesis.speak(utterance);
+              } else {
+                safeUnmute();
+              }
+            };
+
+            if (delayMs > 150) {
+              console.log(`[voice] Waiting ${delayMs}ms for agent audio to finish before transfer TTS`);
+              setTimeout(playAnnouncement, delayMs);
+            } else {
+              playAnnouncement();
             }
+
+            callbacks?.onAgentTransfer?.(to);
+            return;
+          }
+
+          // Backend signals conversation is complete
+          if (data.conversationEnded) {
+            console.log('[voice] Conversation ended by agent');
+            callbacks?.onConversationEnd?.();
+            cleanup();
+            return;
+          }
+
+          // Track author changes for transcript labeling (transfers handled by agentTransfer event)
+          if (data.author && data.author !== currentAuthorRef.current) {
+            console.log(`[voice] Agent author change: ${currentAuthorRef.current} → ${data.author}`);
+            currentAuthorRef.current = data.author;
           }
 
           // Extract and play audio from inlineData
@@ -286,8 +361,15 @@ export function useVoiceMode(sessionId: string, callbacks?: VoiceModeCallbacks) 
             suppressGreetingRef.current = false;
             setState(prev => ({ ...prev, isSpeaking: false, currentTranscript: '' }));
           } else if (data.turnComplete) {
-            // Unmute mic after the initial greeting finishes
-            if (micMutedRef.current) {
+            // Signal that the new agent's greeting turn has completed.
+            // safeUnmute() polls on this flag before unmuting the mic.
+            if (awaitingTransferTurnRef.current) {
+              console.log('[voice] New agent greeting turn complete — allowing unmute');
+              awaitingTransferTurnRef.current = false;
+            }
+            // Unmute mic after the initial greeting finishes, but NOT during
+            // a transfer TTS — the TTS onend callback handles unmuting then.
+            if (micMutedRef.current && !transferTTSPlayingRef.current) {
               console.log('[voice] Initial greeting done — unmuting mic');
               micMutedRef.current = false;
             }

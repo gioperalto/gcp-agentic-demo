@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { getCachedUser, fetchCurrentUser, getUserCardType } from '../utils/auth';
 import { getFlights, bookFlight } from '../utils/api';
 import type { Flight, FlightFilters } from '../types/flights';
@@ -45,6 +45,7 @@ const AIRPORT_NAMES: { [key: string]: string } = {
 
 export function Flights() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [user, setUser] = useState(getCachedUser());
   const [flights, setFlights] = useState<Flight[]>([]);
   const [filteredFlights, setFilteredFlights] = useState<Flight[]>([]);
@@ -85,6 +86,17 @@ export function Flights() {
 
     loadData();
   }, [user]);
+
+  // Auto-select flight from query param
+  useEffect(() => {
+    const id = searchParams.get('id');
+    if (id && flights.length > 0) {
+      const flight = flights.find(f => f.id === id);
+      if (flight) {
+        setSelectedFlight(flight);
+      }
+    }
+  }, [flights, searchParams]);
 
   useEffect(() => {
     let filtered = [...flights];

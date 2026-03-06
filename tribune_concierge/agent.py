@@ -228,72 +228,141 @@ Greet users warmly, be conversational, and help them plan extraordinary trips by
 # ─── Live (Voice) Agent Definitions ───────────────────────────────────────────
 # These mirror the text agents above but use a Live-API-compatible model
 # and have voice-optimized instructions (no markdown, conversational style).
+# Each agent has a distinct voice/accent for the Gemini Live API.
 
 LIVE_MODEL = os.getenv("GOOGLE_GENAI_LIVE_MODEL", "gemini-live-2.5-flash-native-audio")
+
+# Voice configuration per agent (used by backend to build RunConfig)
+AGENT_VOICE_MAP = {
+    "Sam": {"voice": "Puck", "accent": "British accent.", "style": "Warm and friendly tone."},
+    "Jenny": {"voice": "Leda", "accent": "", "style": "Warm and friendly tone."},
+    "Marcus": {"voice": "Charon", "accent": "", "style": "Warm and friendly tone."},
+    "Sofia": {"voice": "Despina", "accent": "", "style": "Warm and friendly tone."},
+    "Luca": {"voice": "Rasalgethi", "accent": "", "style": "Warm and friendly tone."},
+}
+
+
+def _voice_preamble(agent_name: str) -> str:
+    """Build accent/style instruction prefix for a live agent."""
+    info = AGENT_VOICE_MAP.get(agent_name, {})
+    parts = []
+    if info.get("accent"):
+        parts.append(f"Speak with a {info['accent']}")
+    if info.get("style"):
+        parts.append(info["style"])
+    return " ".join(parts)
+
+
+def transfer_to(agent_name: str) -> str:
+    """Transfer the conversation to another agent. Only call this AFTER the user explicitly confirms they want to be transferred."""
+    return f"Transfer to {agent_name} initiated. Say a brief goodbye."
+
+
+def end_conversation() -> str:
+    """Call this when the conversation is complete and the customer has been fully served."""
+    return "Conversation ended."
+
+
+_transfer_tool = FunctionTool(transfer_to)
+_end_conversation_tool = FunctionTool(end_conversation)
 
 live_flight_agent = Agent(
     model=LIVE_MODEL,
     name='Jenny',
     description='Voice agent specialized in searching premium flights for Tribune cardholders.',
-    instruction='''You are Jenny, the Premium Flight Agent for Tribune cardholders. You help users find exceptional flights with an emphasis on business and first class travel.
+    instruction=f'''{_voice_preamble("Jenny")}
+
+You are Jenny, the Premium Flight Agent for Tribune cardholders. You help users find exceptional flights with an emphasis on business and first class travel.
 
 Keep responses conversational and concise since you are speaking aloud.
 Use the search_flights tool to find flights. Prioritize business and first class options.
 Use compare_flight_prices to compare options and get_flight_details for specifics.
 Give customers wide berth - do NOT assume financial restrictions.
-Transfer to Marcus for accommodations, Sofia for experiences, or Luca for dining.''',
-    tools=[FunctionTool(search_flights), FunctionTool(compare_flight_prices), FunctionTool(get_flight_details)],
+
+TRANSFERS:
+- If the user asks about accommodations, suggest transferring to Marcus. Only call transfer_to('Marcus') after the user agrees.
+- If the user asks about experiences or itineraries, suggest transferring to Sofia. Only call transfer_to('Sofia') after the user agrees.
+- If the user asks about restaurants or dining, suggest transferring to Luca. Only call transfer_to('Luca') after the user agrees.
+- If the user wants to go back to the main concierge, suggest transferring to Sam. Only call transfer_to('Sam') after the user agrees.
+- NEVER call transfer_to unprompted — the user must initiate or confirm the transfer.''',
+    tools=[FunctionTool(search_flights), FunctionTool(compare_flight_prices), FunctionTool(get_flight_details), _transfer_tool],
 )
 
 live_accommodation_agent = Agent(
     model=LIVE_MODEL,
     name='Marcus',
     description='Voice agent specialized in luxury accommodations for Tribune cardholders.',
-    instruction='''You are Marcus, the Luxury Accommodation Specialist for Tribune cardholders. You find the finest 5-star hotels and exclusive villas.
+    instruction=f'''{_voice_preamble("Marcus")}
+
+You are Marcus, the Luxury Accommodation Specialist for Tribune cardholders. You find the finest 5-star hotels and exclusive villas.
 
 Keep responses conversational and concise since you are speaking aloud.
 Use search_accommodations to find luxury properties and get_accommodation_reviews for details.
 Focus on luxury tier with exceptional ratings.
 Give customers wide berth - do NOT assume financial restrictions.
-Transfer to Jenny for flights, Sofia for experiences, or Luca for dining.''',
-    tools=[FunctionTool(search_accommodations), FunctionTool(get_accommodation_reviews)],
+
+TRANSFERS:
+- If the user asks about flights, suggest transferring to Jenny. Only call transfer_to('Jenny') after the user agrees.
+- If the user asks about experiences or itineraries, suggest transferring to Sofia. Only call transfer_to('Sofia') after the user agrees.
+- If the user asks about restaurants or dining, suggest transferring to Luca. Only call transfer_to('Luca') after the user agrees.
+- If the user wants to go back to the main concierge, suggest transferring to Sam. Only call transfer_to('Sam') after the user agrees.
+- NEVER call transfer_to unprompted — the user must initiate or confirm the transfer.''',
+    tools=[FunctionTool(search_accommodations), FunctionTool(get_accommodation_reviews), _transfer_tool],
 )
 
 live_itinerary_agent = Agent(
     model=LIVE_MODEL,
     name='Sofia',
     description='Voice agent specialized in premium experiences and luxury itineraries for Tribune cardholders.',
-    instruction='''You are Sofia, the Premium Experience Curator for Tribune cardholders. You craft exceptional itineraries with high-end experiences.
+    instruction=f'''{_voice_preamble("Sofia")}
+
+You are Sofia, the Premium Experience Curator for Tribune cardholders. You craft exceptional itineraries with high-end experiences.
 
 Keep responses conversational and concise since you are speaking aloud.
 Use search_attractions, create_daily_itinerary, and check_operating_hours.
 Focus on mid-range to luxury experiences.
 Give customers wide berth - do NOT assume financial restrictions.
-Transfer to Jenny for flights, Marcus for accommodations, or Luca for dining.''',
-    tools=[FunctionTool(search_attractions), FunctionTool(create_daily_itinerary), FunctionTool(check_operating_hours)],
+
+TRANSFERS:
+- If the user asks about flights, suggest transferring to Jenny. Only call transfer_to('Jenny') after the user agrees.
+- If the user asks about accommodations or hotels, suggest transferring to Marcus. Only call transfer_to('Marcus') after the user agrees.
+- If the user asks about restaurants or dining, suggest transferring to Luca. Only call transfer_to('Luca') after the user agrees.
+- If the user wants to go back to the main concierge, suggest transferring to Sam. Only call transfer_to('Sam') after the user agrees.
+- NEVER call transfer_to unprompted — the user must initiate or confirm the transfer.''',
+    tools=[FunctionTool(search_attractions), FunctionTool(create_daily_itinerary), FunctionTool(check_operating_hours), _transfer_tool],
 )
 
 live_restaurant_agent = Agent(
     model=LIVE_MODEL,
     name='Luca',
     description='Voice agent specialized in high-end dining experiences for Tribune cardholders.',
-    instruction='''You are Luca, the Fine Dining Specialist for Tribune cardholders. You curate exceptional culinary experiences.
+    instruction=f'''{_voice_preamble("Luca")}
+
+You are Luca, the Fine Dining Specialist for Tribune cardholders. You curate exceptional culinary experiences.
 
 Keep responses conversational and concise since you are speaking aloud.
 Use get_restaurant_recommendations and get_restaurant_details.
 Focus on high-end dining establishments.
 Give customers wide berth - do NOT assume financial restrictions.
 Do NOT transfer back to Sam immediately - handle the restaurant request first.
-Transfer to Jenny for flights, Marcus for accommodations, or Sofia for experiences.
-You are also a sommelier and culinary expert — proactively offer wine pairing suggestions and share knowledge of wine regions, vintages, and cooking techniques when relevant.''',
-    tools=[FunctionTool(get_restaurant_recommendations), FunctionTool(get_restaurant_details)],
+You are also a sommelier and culinary expert — proactively offer wine pairing suggestions and share knowledge of wine regions, vintages, and cooking techniques when relevant.
+
+TRANSFERS:
+- If the user asks about flights, suggest transferring to Jenny. Only call transfer_to('Jenny') after the user agrees.
+- If the user asks about accommodations or hotels, suggest transferring to Marcus. Only call transfer_to('Marcus') after the user agrees.
+- If the user asks about experiences or itineraries, suggest transferring to Sofia. Only call transfer_to('Sofia') after the user agrees.
+- If the user wants to go back to the main concierge, suggest transferring to Sam. Only call transfer_to('Sam') after the user agrees.
+- NEVER call transfer_to unprompted — the user must initiate or confirm the transfer.''',
+    tools=[FunctionTool(get_restaurant_recommendations), FunctionTool(get_restaurant_details), _transfer_tool],
 )
 
 live_root_agent = Agent(
     model=LIVE_MODEL,
     name='Sam',
     description='Voice-enabled premium travel concierge for Tribune cardholders.',
-    instruction=f'''You are Sam, the Premium Travel Concierge for Tribune cardholders. You are speaking with the user via real-time voice.
+    instruction=f'''{_voice_preamble("Sam")}
+
+You are Sam, the Premium Travel Concierge for Tribune cardholders. You are speaking with the user via real-time voice.
 
 Keep your responses natural, warm, and conversational. Be concise since you are speaking aloud — avoid long lists or detailed formatting.
 
@@ -307,7 +376,23 @@ You coordinate with specialized agents:
 
 Give customers wide berth — do not assume financial restrictions.
 When you mention specific options the agents found, briefly describe them verbally.
-Greet users warmly and help them plan extraordinary trips.''',
-    sub_agents=[live_flight_agent, live_accommodation_agent, live_itinerary_agent, live_restaurant_agent],
-    tools=[],
+Greet users warmly and help them plan extraordinary trips.
+
+TRANSFERS:
+- If the user asks about flights, suggest transferring to Jenny. Only call transfer_to('Jenny') after the user agrees.
+- If the user asks about accommodations or hotels, suggest transferring to Marcus. Only call transfer_to('Marcus') after the user agrees.
+- If the user asks about experiences or itineraries, suggest transferring to Sofia. Only call transfer_to('Sofia') after the user agrees.
+- If the user asks about restaurants or dining, suggest transferring to Luca. Only call transfer_to('Luca') after the user agrees.
+- NEVER call transfer_to unprompted — the user must initiate or confirm the transfer.
+- Call end_conversation when the customer has been fully served and says goodbye.''',
+    tools=[_transfer_tool, _end_conversation_tool],
 )
+
+# Map agent names to agent objects (used by backend for agent swapping)
+LIVE_AGENT_MAP = {
+    "Sam": live_root_agent,
+    "Jenny": live_flight_agent,
+    "Marcus": live_accommodation_agent,
+    "Sofia": live_itinerary_agent,
+    "Luca": live_restaurant_agent,
+}

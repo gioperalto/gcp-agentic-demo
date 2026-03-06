@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { getCachedUser, fetchCurrentUser } from '../utils/auth';
 import { getExperiences, bookExperience } from '../utils/api';
 import type { Experience, ExperienceType } from '../types/experience';
@@ -9,6 +9,7 @@ const POINTS_TO_DOLLAR_RATE = 100; // 100 points = $1
 
 export const Experiences = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [experiences, setExperiences] = useState<Experience[]>([]);
   const [filteredExperiences, setFilteredExperiences] = useState<Experience[]>([]);
   const [loading, setLoading] = useState(true);
@@ -43,6 +44,17 @@ export const Experiences = () => {
   useEffect(() => {
     loadExperiences();
   }, []);
+
+  // Auto-select experience from query param
+  useEffect(() => {
+    const id = searchParams.get('id');
+    if (id && experiences.length > 0) {
+      const experience = experiences.find(e => e.id === id);
+      if (experience) {
+        openBookingModal(experience);
+      }
+    }
+  }, [experiences, searchParams]);
 
   useEffect(() => {
     applyFilters();

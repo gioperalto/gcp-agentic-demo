@@ -1,7 +1,7 @@
 """
 FastAPI backend for Travel Planner with streaming support
 """
-import os, json, asyncio, sys, logging
+import os, json, asyncio, sys, logging, time
 from dotenv import load_dotenv
 
 # Load env BEFORE any ADK imports so GOOGLE_GENAI_MODEL etc. are available
@@ -444,12 +444,9 @@ async def voice_websocket(websocket: WebSocket, session_id: str = "default"):
         Returns the name of the agent to transfer to, or None if the
         conversation ended normally / client disconnected.
         """
-        nonlocal last_author, user_transcript_parts, agent_transcript_parts, current_agent_name, drop_incoming_audio
+        nonlocal last_author, user_transcript_parts, agent_transcript_parts, current_agent_name, audio_drop_until
         pending_transfer_target: str | None = None
         conversation_ended = False
-        # If audio was being dropped (transfer in progress), re-enable after
-        # the first turnComplete so the user can speak to the new agent.
-        reenable_audio_on_turn = drop_incoming_audio
 
         try:
             async for event in live_runner.run_live(
@@ -505,18 +502,12 @@ async def voice_websocket(websocket: WebSocket, session_id: str = "default"):
                 elif event_dict.get("turnComplete"):
                     _flush_voice_turn_span(interrupted=False)
 
-                    # Re-enable incoming audio after the new agent's priming
-                    # response completes (first turnComplete post-transfer)
-                    if reenable_audio_on_turn:
-                        drop_incoming_audio = False
-                        reenable_audio_on_turn = False
-                        logger.info("Audio re-enabled after priming turn (session %s)", session_id)
-
                     # After turn completes, act on pending transfer or end
                     if pending_transfer_target:
-                        # Drop incoming audio during transfer to prevent residual
-                        # mic frames from reaching the new agent
-                        drop_incoming_audio = True
+                        # Drop incoming audio for 3 seconds after transfer to
+                        # prevent residual mic frames (including echo of the new
+                        # agent's greeting) from reaching the new agent.
+                        audio_drop_until = time.monotonic() + 3.0
                         await websocket.send_text(
                             event.model_dump_json(exclude_none=True, by_alias=True)
                         )
@@ -557,9 +548,10 @@ async def voice_websocket(websocket: WebSocket, session_id: str = "default"):
         except Exception:
             pass
 
-    # When True, incoming audio frames are silently dropped (used during transfers
-    # to discard in-flight mic data that was captured before the frontend muted).
-    drop_incoming_audio = False
+    # Timestamp until which incoming audio frames are silently dropped (used during
+    # transfers to discard in-flight mic data and prevent echo of the new agent's
+    # greeting).  0 = not dropping.
+    audio_drop_until: float = 0
 
     async def process_messages(live_request_queue: LiveRequestQueue):
         """Receive JSON LiveRequest frames from browser and feed to queue."""
@@ -570,7 +562,7 @@ async def voice_websocket(websocket: WebSocket, session_id: str = "default"):
                 try:
                     # During transfers, drop audio-only frames to prevent residual
                     # mic data from triggering a second greeting on the new agent.
-                    if drop_incoming_audio:
+                    if time.monotonic() < audio_drop_until:
                         parsed = json.loads(data)
                         if "blob" in parsed:
                             continue

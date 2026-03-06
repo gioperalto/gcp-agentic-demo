@@ -269,23 +269,31 @@ export function useVoiceMode(sessionId: string, callbacks?: VoiceModeCallbacks) 
               : 0;
             const delayMs = Math.ceil(remainingAudio * 1000) + 150; // +150ms buffer
 
+            // Wait until both the TTS announcement AND all queued agent audio
+            // have finished playing before unmuting the mic. This prevents the
+            // mic from picking up the new agent's greeting through speakers.
+            const safeUnmute = () => {
+              const ctx = playbackCtxRef.current;
+              const audioStillPlaying = ctx && nextPlayTimeRef.current > ctx.currentTime;
+              if (audioStillPlaying) {
+                setTimeout(safeUnmute, 200);
+                return;
+              }
+              transferTTSPlayingRef.current = false;
+              micMutedRef.current = false;
+              console.log('[voice] Transfer complete — mic unmuted');
+            };
+
             const playAnnouncement = () => {
               if ('speechSynthesis' in window && message) {
                 const utterance = new SpeechSynthesisUtterance(message);
                 utterance.rate = 1.1;
                 utterance.volume = 0.8;
-                utterance.onend = () => {
-                  transferTTSPlayingRef.current = false;
-                  micMutedRef.current = false;
-                };
-                utterance.onerror = () => {
-                  transferTTSPlayingRef.current = false;
-                  micMutedRef.current = false;
-                };
+                utterance.onend = () => safeUnmute();
+                utterance.onerror = () => safeUnmute();
                 window.speechSynthesis.speak(utterance);
               } else {
-                transferTTSPlayingRef.current = false;
-                micMutedRef.current = false;
+                safeUnmute();
               }
             };
 

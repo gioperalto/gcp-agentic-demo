@@ -281,7 +281,7 @@ export function useVoiceMode(sessionId: string, callbacks?: VoiceModeCallbacks) 
             const safeUnmuteStartTime = Date.now();
             const safeUnmute = () => {
               const ctx = playbackCtxRef.current;
-              const audioStillPlaying = ctx && nextPlayTimeRef.current > ctx.currentTime;
+              const audioStillPlaying = ctx && nextPlayTimeRef.current > ctx.currentTime + 0.5;
               if (audioStillPlaying || awaitingTransferTurnRef.current) {
                 // Fail-safe: force unmute after 15s to avoid permanent mute
                 if (Date.now() - safeUnmuteStartTime > 15000) {

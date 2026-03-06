@@ -364,6 +364,7 @@ def _make_voice_run_config(agent_name: str) -> RunConfig:
                 prebuilt_voice_config=types.PrebuiltVoiceConfig(voice_name=voice_info["voice"]),
             ),
         ),
+        proactivity=types.ProactivityConfig(proactive_audio=True),
         output_audio_transcription=types.AudioTranscriptionConfig(),
         input_audio_transcription=types.AudioTranscriptionConfig(),
         streaming_mode=StreamingMode.BIDI,
@@ -632,7 +633,8 @@ async def voice_websocket(websocket: WebSocket, session_id: str = "default"):
                     current_agent_name = transfer_target
                     priming_message = (
                         f"The customer was just transferred to you from {old_agent}. "
-                        f"Greet them briefly and help them with their request."
+                        f"Greet them briefly, then STOP and wait silently for the user to speak. "
+                        f"Do NOT continue talking or ask follow-up questions until the user responds."
                     )
                     logger.info("Agent switch: %s → %s (session %s)", old_agent, current_agent_name, session_id)
                     continue

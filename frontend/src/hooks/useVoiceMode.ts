@@ -257,28 +257,43 @@ export function useVoiceMode(sessionId: string, callbacks?: VoiceModeCallbacks) 
             console.log(`[voice] Agent transfer: ${from} → ${to}`);
             currentAuthorRef.current = to;
 
-            // Mute mic during TTS to prevent echo feedback causing duplicate responses.
-            // transferTTSPlayingRef prevents turnComplete from unmuting prematurely.
+            // Mute mic immediately to prevent echo feedback
             micMutedRef.current = true;
             transferTTSPlayingRef.current = true;
 
-            // Play transfer announcement via browser speechSynthesis (zero server load)
-            if ('speechSynthesis' in window && message) {
-              const utterance = new SpeechSynthesisUtterance(message);
-              utterance.rate = 1.1;
-              utterance.volume = 0.8;
-              utterance.onend = () => {
+            // Wait for any queued agent audio to finish playing before
+            // starting the TTS announcement so we don't talk over Sam's goodbye.
+            const ctx = playbackCtxRef.current;
+            const remainingAudio = ctx
+              ? Math.max(0, nextPlayTimeRef.current - ctx.currentTime)
+              : 0;
+            const delayMs = Math.ceil(remainingAudio * 1000) + 150; // +150ms buffer
+
+            const playAnnouncement = () => {
+              if ('speechSynthesis' in window && message) {
+                const utterance = new SpeechSynthesisUtterance(message);
+                utterance.rate = 1.1;
+                utterance.volume = 0.8;
+                utterance.onend = () => {
+                  transferTTSPlayingRef.current = false;
+                  micMutedRef.current = false;
+                };
+                utterance.onerror = () => {
+                  transferTTSPlayingRef.current = false;
+                  micMutedRef.current = false;
+                };
+                window.speechSynthesis.speak(utterance);
+              } else {
                 transferTTSPlayingRef.current = false;
                 micMutedRef.current = false;
-              };
-              utterance.onerror = () => {
-                transferTTSPlayingRef.current = false;
-                micMutedRef.current = false;
-              };
-              window.speechSynthesis.speak(utterance);
+              }
+            };
+
+            if (delayMs > 150) {
+              console.log(`[voice] Waiting ${delayMs}ms for agent audio to finish before transfer TTS`);
+              setTimeout(playAnnouncement, delayMs);
             } else {
-              transferTTSPlayingRef.current = false;
-              micMutedRef.current = false;
+              playAnnouncement();
             }
 
             callbacks?.onAgentTransfer?.(to);

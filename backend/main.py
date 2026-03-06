@@ -7,9 +7,8 @@ from dotenv import load_dotenv
 # Load env BEFORE any ADK imports so GOOGLE_GENAI_MODEL etc. are available
 load_dotenv()
 
-# Text agents need the Vertex AI global endpoint (gemini-3-flash-preview is only
-# available there). Voice agents need us-central1, but their Gemini client is
-# lazily initialised later — see the /ws/voice handler.
+# Default to global endpoint at startup. Text agents reset to 'global' before
+# each request since the voice handler temporarily switches to 'us-central1'.
 os.environ['GOOGLE_CLOUD_LOCATION'] = 'global'
 
 from ddtrace.llmobs import LLMObs
@@ -100,6 +99,8 @@ async def stream_legionnaire_response(message: str, session_id: str) -> AsyncGen
     """
     Stream legionnaire agent responses (basic concierge without subagents)
     """
+    # Ensure text requests always use the global endpoint (voice may have switched to us-central1)
+    os.environ['GOOGLE_CLOUD_LOCATION'] = 'global'
     async def run_legionnaire_agent(message: str, session_id: str) -> AsyncGenerator[str, None]:
         """
         Run the legionnaire agent and stream events
@@ -186,6 +187,8 @@ async def stream_agent_response(message: str, session_id: str) -> AsyncGenerator
     """
     Stream agent responses with agent transfer notifications
     """
+    # Ensure text requests always use the global endpoint (voice may have switched to us-central1)
+    os.environ['GOOGLE_CLOUD_LOCATION'] = 'global'
     async def run_agent(message: str, session_id: str, current_agent: str, sub_agents: set) -> AsyncGenerator[str, None]:
         """
         Run the agent and stream events with agent transfer notifications

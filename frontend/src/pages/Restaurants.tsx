@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { getCachedUser, fetchCurrentUser } from '../utils/auth';
 import { getRestaurants, makeRestaurantReservation } from '../utils/api';
 import type { Restaurant, RestaurantFilters, RestaurantReservation } from '../types/restaurant';
@@ -7,6 +7,7 @@ import './Restaurants.css';
 
 export function Restaurants() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [user, setUser] = useState(getCachedUser());
   const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
   const [filteredRestaurants, setFilteredRestaurants] = useState<Restaurant[]>([]);
@@ -46,6 +47,17 @@ export function Restaurants() {
   useEffect(() => {
     loadRestaurants();
   }, []);
+
+  // Auto-select restaurant from query param
+  useEffect(() => {
+    const id = searchParams.get('id');
+    if (id && restaurants.length > 0) {
+      const restaurant = restaurants.find(r => r.id === id);
+      if (restaurant) {
+        openReservationModal(restaurant);
+      }
+    }
+  }, [restaurants, searchParams]);
 
   // Apply filters
   useEffect(() => {

@@ -80,6 +80,8 @@ export function useVoiceMode(sessionId: string, callbacks?: VoiceModeCallbacks) 
 
   // Track whether to suppress the first agent transcript (initial greeting)
   const suppressGreetingRef = useRef(false);
+  // Track whether a transfer TTS is playing (prevents turnComplete from unmuting mic)
+  const transferTTSPlayingRef = useRef(false);
   // Track the current speaking agent to detect actual transfers (not per-event noise)
   const currentAuthorRef = useRef<string>('Sam');
 
@@ -158,6 +160,7 @@ export function useVoiceMode(sessionId: string, callbacks?: VoiceModeCallbacks) 
     userTranscriptRef.current = '';
     micMutedRef.current = false;
     suppressGreetingRef.current = false;
+    transferTTSPlayingRef.current = false;
     currentAuthorRef.current = 'Sam';
     isActiveRef.current = false;
 
@@ -254,12 +257,28 @@ export function useVoiceMode(sessionId: string, callbacks?: VoiceModeCallbacks) 
             console.log(`[voice] Agent transfer: ${from} → ${to}`);
             currentAuthorRef.current = to;
 
+            // Mute mic during TTS to prevent echo feedback causing duplicate responses.
+            // transferTTSPlayingRef prevents turnComplete from unmuting prematurely.
+            micMutedRef.current = true;
+            transferTTSPlayingRef.current = true;
+
             // Play transfer announcement via browser speechSynthesis (zero server load)
             if ('speechSynthesis' in window && message) {
               const utterance = new SpeechSynthesisUtterance(message);
               utterance.rate = 1.1;
               utterance.volume = 0.8;
+              utterance.onend = () => {
+                transferTTSPlayingRef.current = false;
+                micMutedRef.current = false;
+              };
+              utterance.onerror = () => {
+                transferTTSPlayingRef.current = false;
+                micMutedRef.current = false;
+              };
               window.speechSynthesis.speak(utterance);
+            } else {
+              transferTTSPlayingRef.current = false;
+              micMutedRef.current = false;
             }
 
             callbacks?.onAgentTransfer?.(to);
@@ -274,15 +293,10 @@ export function useVoiceMode(sessionId: string, callbacks?: VoiceModeCallbacks) 
             return;
           }
 
-          // Agent transfer detection from author field (ADK sub-agent transfers)
+          // Track author changes for transcript labeling (transfers handled by agentTransfer event)
           if (data.author && data.author !== currentAuthorRef.current) {
-            const prevAuthor = currentAuthorRef.current;
+            console.log(`[voice] Agent author change: ${currentAuthorRef.current} → ${data.author}`);
             currentAuthorRef.current = data.author;
-            // Only surface transfers TO sub-agents, not back to Sam
-            if (data.author !== 'Sam') {
-              console.log(`[voice] Agent author change: ${prevAuthor} → ${data.author}`);
-              callbacks?.onAgentTransfer?.(data.author);
-            }
           }
 
           // Extract and play audio from inlineData
@@ -312,8 +326,9 @@ export function useVoiceMode(sessionId: string, callbacks?: VoiceModeCallbacks) 
             suppressGreetingRef.current = false;
             setState(prev => ({ ...prev, isSpeaking: false, currentTranscript: '' }));
           } else if (data.turnComplete) {
-            // Unmute mic after the initial greeting finishes
-            if (micMutedRef.current) {
+            // Unmute mic after the initial greeting finishes, but NOT during
+            // a transfer TTS — the TTS onend callback handles unmuting then.
+            if (micMutedRef.current && !transferTTSPlayingRef.current) {
               console.log('[voice] Initial greeting done — unmuting mic');
               micMutedRef.current = false;
             }

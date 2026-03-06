@@ -496,6 +496,9 @@ async def voice_websocket(websocket: WebSocket, session_id: str = "default"):
                 # Flush span on turn boundaries
                 if event_dict.get("interrupted"):
                     _flush_voice_turn_span(interrupted=True)
+                    # Clear stale transfer intent on interruption so it doesn't
+                    # fire later when the user was mid-sentence
+                    pending_transfer_target = None
                 elif event_dict.get("turnComplete"):
                     _flush_voice_turn_span(interrupted=False)
 
@@ -606,8 +609,8 @@ async def voice_websocket(websocket: WebSocket, session_id: str = "default"):
                     old_agent = current_agent_name
                     current_agent_name = transfer_target
                     priming_message = (
-                        f"The customer was just transferred from {old_agent}. "
-                        f"Introduce yourself and help them."
+                        f"The customer was just transferred to you from {old_agent}. "
+                        f"Greet them briefly and help them with their request."
                     )
                     logger.info("Agent switch: %s → %s (session %s)", old_agent, current_agent_name, session_id)
                     continue

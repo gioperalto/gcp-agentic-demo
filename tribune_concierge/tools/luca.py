@@ -5,7 +5,9 @@ This module contains tool functions for restaurant recommendations and dining re
 
 from typing import Dict, List, Any, Optional
 from .restaurants import normalize_cuisine_type
-from .api_client import api_get
+import sys, os
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', 'backend'))
+from services.travel_service import get_all_restaurants, get_restaurant_by_id
 
 
 def get_restaurant_recommendations(
@@ -29,14 +31,9 @@ def get_restaurant_recommendations(
     Returns:
         Dictionary with luxury restaurant options and clickable links.
     """
-    # Fetch restaurants from the backend API with server-side filters
-    try:
-        all_restaurants = api_get("/api/travel/restaurants")
-    except Exception:
-        return {
-            'status': 'error',
-            'message': 'Unable to retrieve restaurant data. Please try again later.'
-        }
+    # Fetch restaurants directly from the travel service layer
+    restaurant_models = get_all_restaurants()
+    all_restaurants = [r.model_dump() for r in restaurant_models]
 
     # Client-side filter: destination (city or country)
     city_matches = [rest for rest in all_restaurants
@@ -121,15 +118,15 @@ def get_restaurant_details(restaurant_id: str) -> Dict[str, Any]:
     Returns:
         Detailed restaurant information with link
     """
-    # Fetch restaurant by ID from the backend API
-    try:
-        restaurant = api_get(f"/api/travel/restaurants/{restaurant_id}")
-    except Exception:
+    # Fetch restaurant directly from the travel service layer
+    restaurant_model = get_restaurant_by_id(restaurant_id)
+    if not restaurant_model:
         return {
             'status': 'not_found',
             'message': f'Restaurant with ID {restaurant_id} not found.',
             'restaurant_id': restaurant_id
         }
+    restaurant = restaurant_model.model_dump()
 
     # Build detailed response
     name = restaurant.get('name')

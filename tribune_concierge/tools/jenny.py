@@ -5,7 +5,9 @@ This module contains tool functions for flight search and comparison.
 
 from typing import Dict, List, Any
 
-from .api_client import api_get
+import sys, os
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', 'backend'))
+from services.travel_service import get_all_flights, get_flight_by_id
 
 
 def search_flights(
@@ -35,12 +37,10 @@ def search_flights(
     Returns:
         Dictionary with premium flight options and clickable links.
     """
-    # Fetch flights from the backend API
+    # Fetch flights from the travel service directly
     try:
-        all_flights = api_get("/api/travel/flights", params={
-            "origin": origin.upper(),
-            "destination": destination.upper(),
-        })
+        flight_models = get_all_flights(origin=origin.upper(), destination=destination.upper())
+        all_flights = [f.model_dump(by_alias=True) for f in flight_models]
     except Exception:
         return {
             'status': 'error',
@@ -138,14 +138,12 @@ def compare_flight_prices(flight_ids: List[str]) -> Dict[str, Any]:
             'message': 'No flight identifiers provided to compare'
         }
 
-    # Fetch each flight by ID from the backend API
+    # Fetch each flight by ID from the travel service directly
     flights_to_compare = []
     for fid in flight_ids:
-        try:
-            flight = api_get(f"/api/travel/flights/{fid}")
-            flights_to_compare.append(flight)
-        except Exception:
-            pass
+        flight_model = get_flight_by_id(fid)
+        if flight_model:
+            flights_to_compare.append(flight_model.model_dump(by_alias=True))
 
     if not flights_to_compare:
         return {
@@ -190,15 +188,15 @@ def get_flight_details(flight_id: str) -> Dict[str, Any]:
     Returns:
         Detailed flight information with link
     """
-    # Fetch flight by ID from the backend API
-    try:
-        flight = api_get(f"/api/travel/flights/{flight_id}")
-    except Exception:
+    # Fetch flight by ID from the travel service directly
+    flight_model = get_flight_by_id(flight_id)
+    if not flight_model:
         return {
             'status': 'not_found',
             'message': f'Flight with ID {flight_id} not found.',
             'flight_id': flight_id
         }
+    flight = flight_model.model_dump(by_alias=True)
 
     # Build detailed response
     airline = flight.get('airline')

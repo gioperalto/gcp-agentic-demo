@@ -5,7 +5,9 @@ This module contains tool functions for itinerary building and experiences.
 
 from typing import Dict, List, Any, Optional
 
-from .api_client import api_get
+import sys, os
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', 'backend'))
+from services.travel_service import get_all_experiences, get_experience_by_id
 
 
 def search_attractions(
@@ -27,9 +29,10 @@ def search_attractions(
     Returns:
         Dictionary with premium experience options and clickable links.
     """
-    # Fetch experiences from the backend API
+    # Fetch experiences from the travel service layer
     try:
-        all_experiences = api_get("/api/travel/experiences")
+        experience_models = get_all_experiences()
+        all_experiences = [e.model_dump() for e in experience_models]
     except Exception:
         return {
             'status': 'error',
@@ -117,17 +120,16 @@ def create_daily_itinerary(
     """
     try:
         if experience_ids:
-            # Fetch each experience by ID from the backend API
+            # Fetch each experience by ID from the travel service layer
             selected_experiences = []
             for eid in experience_ids:
-                try:
-                    exp = api_get(f"/api/travel/experiences/{eid}")
-                    selected_experiences.append(exp)
-                except Exception:
-                    pass
+                exp_model = get_experience_by_id(eid)
+                if exp_model is not None:
+                    selected_experiences.append(exp_model.model_dump())
         else:
             # Fetch all experiences and filter by destination
-            all_experiences = api_get("/api/travel/experiences")
+            experience_models = get_all_experiences()
+            all_experiences = [e.model_dump() for e in experience_models]
             city_matches = [exp for exp in all_experiences
                            if destination.lower() in exp.get('city', '').lower()
                            or destination.lower() in exp.get('country', '').lower()]
@@ -185,15 +187,15 @@ def check_operating_hours(experience_id: str, date: str) -> Dict[str, Any]:
     Returns:
         Detailed experience information with link
     """
-    # Fetch experience by ID from the backend API
-    try:
-        experience = api_get(f"/api/travel/experiences/{experience_id}")
-    except Exception:
+    # Fetch experience by ID from the travel service layer
+    experience_model = get_experience_by_id(experience_id)
+    if not experience_model:
         return {
             'status': 'not_found',
             'message': f'Experience with ID {experience_id} not found.',
             'experience_id': experience_id
         }
+    experience = experience_model.model_dump()
 
     # Build detailed response
     name = experience.get('name')

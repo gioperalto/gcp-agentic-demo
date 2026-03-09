@@ -50,12 +50,53 @@
     "rejectionDate": null,
     "interestRate": 5.48,
     "creditLimit": 100000.0,
-    "availableCredit": 100000.0,
-    "rewardPoints": 0.0,
+    "availableCredit": 95980.0,
+    "rewardPoints": 10050.0,
     "rewardPointsMultiplier": 2.5,
-    "reservations": [],
+    "reservations": [
+      {
+        "id": "a3b3cdbb-676b-4fc0-84d3-8f2c5230315b",
+        "type": "accommodation",
+        "itemId": "acc-jpn-001",
+        "itemName": "The Ritz-Carlton Tokyo (Tokyo, Japan)",
+        "amount": 1700.0,
+        "date": "2026-03-10",
+        "participants": 1,
+        "status": "confirmed"
+      },
+      {
+        "id": "fc8c236e-307d-43b3-a67f-7f76dc0fa84c",
+        "type": "accommodation",
+        "itemId": "acc-arg-001",
+        "itemName": "Alvear Palace Hotel (Buenos Aires, Argentina)",
+        "amount": 1300.0,
+        "date": "2026-03-10",
+        "participants": 1,
+        "status": "confirmed"
+      },
+      {
+        "id": "0608b1a4-cfac-4c18-ac28-5ee79fec9d86",
+        "type": "flight",
+        "itemId": "flt-arg-001",
+        "itemName": "Delta DL1025 (JFK \u2192 EZE)",
+        "amount": 850.0,
+        "date": "2026-03-15T22:00:00Z",
+        "participants": 1,
+        "status": "confirmed"
+      },
+      {
+        "id": "79cf6506-8843-4ec3-a987-13a1a2eadfed",
+        "type": "experience",
+        "itemId": "exp-arg-001",
+        "itemName": "Iguazu Falls Hiking Adventure",
+        "amount": 170.0,
+        "date": "2026-03-09T20:42:59.637026",
+        "participants": 2,
+        "status": "confirmed"
+      }
+    ],
     "createdAt": "2026-01-01T00:00:00Z",
-    "updatedAt": "2026-01-06T20:30:02.208566"
+    "updatedAt": "2026-03-09T20:42:59.637967"
   },
   {
     "id": "770e8400-e29b-41d4-a716-446655440002",

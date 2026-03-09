@@ -6,7 +6,7 @@ import type { Accommodation, AccommodationFilters, BookingRequest, BookingRespon
 import type { Experience, ExperienceBookingRequest, ExperienceBookingResponse } from '../types/experience';
 import type { Restaurant, RestaurantReservation } from '../types/restaurant';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
 
 // Token storage
 let authToken: string | null = localStorage.getItem('auth_token');

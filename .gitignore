@@ -10,3 +10,4 @@ __pycache__
 frontend/public/img/experiences/*.jpg
 frontend/public/img/restaurants/*.jpg
 frontend/public/img/accommodations/*.jpg
+frontend/public/img/flights/*.jpg

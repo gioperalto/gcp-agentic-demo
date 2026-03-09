@@ -180,20 +180,21 @@ export function Restaurants() {
 
   if (!user) {
     return (
-      <div className="restaurants-page">
-        <div className="auth-gate">
-          <div className="gate-icon">🍽️</div>
-          <h1 className="gate-title">Restaurants</h1>
-          <p className="gate-subtitle">
-            Sign in to discover and reserve tables at exceptional dining destinations
-          </p>
-          <div className="gate-actions">
-            <button className="gate-button premium" onClick={() => navigate('/login')}>
-              Sign In to Continue
-            </button>
-            <button className="gate-button secondary" onClick={() => navigate('/cards')}>
-              Learn About Our Cards
-            </button>
+      <div className="restaurants-page restaurants-hero-bg">
+        <div className="restaurants-hero-overlay">
+          <div className="auth-gate">
+            <h1 className="gate-title">Restaurants</h1>
+            <p className="gate-subtitle">
+              Sign in to discover and reserve tables at exceptional dining destinations
+            </p>
+            <div className="gate-actions">
+              <button className="gate-button premium" onClick={() => navigate('/login')}>
+                Sign In to Continue
+              </button>
+              <button className="gate-button secondary" onClick={() => navigate('/cards')}>
+                Learn About Our Cards
+              </button>
+            </div>
           </div>
         </div>
       </div>

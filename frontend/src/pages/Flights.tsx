@@ -204,20 +204,21 @@ export function Flights() {
 
   if (!user) {
     return (
-      <div className="flights-page">
-        <div className="auth-gate">
-          <div className="gate-icon">✈️</div>
-          <h1 className="gate-title">Flight Bookings</h1>
-          <p className="gate-subtitle">
-            Sign in to browse and book flights with your Meridian card
-          </p>
-          <div className="gate-actions">
-            <button className="gate-button premium" onClick={() => navigate('/login')}>
-              Sign In to Continue
-            </button>
-            <button className="gate-button secondary" onClick={() => navigate('/cards')}>
-              Learn About Our Cards
-            </button>
+      <div className="flights-page flights-hero-bg">
+        <div className="flights-hero-overlay">
+          <div className="auth-gate">
+            <h1 className="gate-title">Flight Bookings</h1>
+            <p className="gate-subtitle">
+              Sign in to browse and book flights with your Meridian card
+            </p>
+            <div className="gate-actions">
+              <button className="gate-button premium" onClick={() => navigate('/login')}>
+                Sign In to Continue
+              </button>
+              <button className="gate-button secondary" onClick={() => navigate('/cards')}>
+                Learn About Our Cards
+              </button>
+            </div>
           </div>
         </div>
       </div>

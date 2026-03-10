@@ -1,22 +1,22 @@
-# Meridian Credit Card Platform - GCP Agentic Demo
+# Meridian — Travel & Hospitality
 
-A full-stack credit card platform featuring AI-powered concierge services using Google ADK (Agent Development Kit). The platform offers two tiers of concierge services: Legionnaire (basic chat) and Tribune (premium AI team with specialized agents).
+A full-stack travel platform featuring AI-powered concierge services built with Google ADK (Agent Development Kit). Meridian helps travelers discover flights, accommodations, restaurants, and experiences through two tiers of AI concierge: Legionnaire (personal chat assistant) and Tribune (premium multi-agent travel team).
 
 ## Features
 
-- **Two-Tier Concierge System**
-  - **Legionnaire Concierge**: 24/7 AI chat support for basic concierge services
-  - **Tribune AI Concierge Team**: Premium multi-agent system with specialized travel planning agents
+- **AI Concierge Services**
+  - **Legionnaire Concierge**: 24/7 AI chat assistant for travel recommendations and support
+  - **Tribune AI Travel Team**: Premium multi-agent system with specialized travel planning agents
 
-- **Voice Integration**: Real-time bidirectional voice via Gemini Live API (Tribune only)
+- **Voice Integration**: Real-time bidirectional voice via Gemini Live API (Tribune members only)
 
-- **Travel Services**: Browse and book flights, accommodations, restaurants, and experiences
+- **Travel Discovery**: Browse and book flights, accommodations, restaurants, and local experiences
 
 - **User Authentication**: JWT-based authentication system
 
-- **Card Applications**: Apply for Legionnaire or Tribune credit cards
+- **Membership Tiers**: Apply for Legionnaire or Tribune membership cards with tiered benefits
 
-- **Benefits Portal**: Comprehensive benefits information for cardholders
+- **Benefits Portal**: Comprehensive benefits and rewards information for members
 
 - **Observability**: Datadog LLM Observability, APM, logs, and CSPM via Docker Compose
 
@@ -198,8 +198,8 @@ The frontend starts on http://localhost:5173
 
 For testing purposes, the following mock users are available:
 
-| Username | Password | Card Type | Credit Limit | Reward Multiplier |
-|----------|----------|-----------|-------------|-------------------|
+| Username | Password | Membership | Credit Limit | Reward Multiplier |
+|----------|----------|------------|-------------|-------------------|
 | `demo_user` | `password123` | Legionnaire | $15,000 | 1.0x |
 | `wealthy_user` | `password123` | Tribune | $50,000 | 2.5x |
 | `young_user` | `password123` | None | — | — |
@@ -225,21 +225,21 @@ All environment variables are consolidated in a single root `.env` file. See `.e
 
 ---
 
-## Agent System
+## AI Concierge System
 
-### Tribune Premium (Multi-Agent System)
+### Tribune Premium (Multi-Agent Travel Team)
 Located in `tribune_concierge/agent.py`
 
-- **Sam** — Main coordinator who understands your needs
+- **Sam** — Lead travel coordinator who understands your needs and delegates to specialists
 - **Jenny** — Flight search specialist
 - **Marcus** — Accommodation booking expert
-- **Sofia** — Itinerary planning & attractions specialist
-- **Luca** — Restaurant recommendations specialist
+- **Sofia** — Itinerary planning and local attractions specialist
+- **Luca** — Restaurant and dining recommendations specialist
 
-### Legionnaire Basic (Single Agent)
+### Legionnaire (Personal Travel Assistant)
 Located in `legionnaire_concierge/agent.py`
 
-- **Concierge** — General-purpose AI assistant for basic concierge services
+- **Concierge** — AI travel assistant for general recommendations and support
 
 ---
 
@@ -252,7 +252,7 @@ Located in `legionnaire_concierge/agent.py`
 | `GET` | `/api/health` | Health check |
 | `POST` | `/api/auth/login` | User login (returns JWT) |
 | `GET` | `/api/auth/me` | Current user info |
-| `POST` | `/api/cards/apply` | Apply for a card |
+| `POST` | `/api/cards/apply` | Apply for a membership card |
 | `POST` | `/api/chat/stream` | Tribune chat (SSE, multi-agent) |
 | `POST` | `/api/chat/legionnaire/stream` | Legionnaire chat (SSE, single agent) |
 | `WS` | `/ws/voice` | Voice conversation (Gemini Live API) |
@@ -273,7 +273,7 @@ Interactive API docs available at http://localhost:8000/docs when the backend is
 ## Project Structure
 
 ```
-gcp-agentic-demo/
+meridian/
 ├── backend/
 │   ├── main.py                 # FastAPI application
 │   ├── Dockerfile              # Backend container image
@@ -316,7 +316,7 @@ gcp-agentic-demo/
 │   │   └── types/
 │   ├── package.json
 │   └── vite.config.ts
-├── tribune_concierge/          # Tribune multi-agent system
+├── tribune_concierge/          # Tribune multi-agent travel team
 │   ├── agent.py
 │   └── tools/
 │       ├── jenny.py            # Flight tools
@@ -324,7 +324,7 @@ gcp-agentic-demo/
 │       ├── sofia.py            # Itinerary tools
 │       ├── luca.py             # Restaurant tools
 │       └── ...
-├── legionnaire_concierge/      # Legionnaire single agent
+├── legionnaire_concierge/      # Legionnaire personal assistant
 │   └── agent.py
 ├── docker-compose.yml          # Full stack orchestration
 ├── .dockerignore
@@ -379,7 +379,7 @@ Unified service tagging is applied via env vars, Docker labels, and autodiscover
 - Ensure `GOOGLE_GENAI_MODEL` is set correctly
 
 ### Voice input not working
-- Voice is available to Tribune cardholders only
+- Voice is available to Tribune members only
 - Ensure microphone permissions are granted in the browser
 - Check that `GOOGLE_GENAI_LIVE_MODEL` is set in your `.env`
 
@@ -406,4 +406,4 @@ To add a new agent to the Tribune system:
 
 ## License
 
-Proprietary - Meridian Financial Services
+Proprietary — Meridian Travel & Hospitality

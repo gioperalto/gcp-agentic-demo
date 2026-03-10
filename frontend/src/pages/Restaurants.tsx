@@ -397,11 +397,48 @@ export function Restaurants() {
                 </div>
 
                 <div className="modal-body">
-                  <div className="restaurant-summary">
-                    <p><strong>Location:</strong> {selectedRestaurant.city}, {selectedRestaurant.country}</p>
-                    <p><strong>Cuisine:</strong> {selectedRestaurant.cuisine}</p>
-                    <p><strong>Price Range:</strong> {selectedRestaurant.priceRange}</p>
+                  <div className="modal-image" style={{ backgroundImage: `url(${selectedRestaurant.imageUrl})` }} />
+
+                  <div className="modal-details">
+                    <div className="detail-row">
+                      <span className="detail-label">Rating</span>
+                      <span className="detail-value">
+                        <span className="rating-star">★</span> {selectedRestaurant.rating.toFixed(1)}
+                      </span>
+                    </div>
+                    <div className="detail-row">
+                      <span className="detail-label">Cuisine</span>
+                      <span className="detail-value">{selectedRestaurant.cuisine}</span>
+                    </div>
+                    <div className="detail-row">
+                      <span className="detail-label">Location</span>
+                      <span className="detail-value">{selectedRestaurant.city}, {selectedRestaurant.country}</span>
+                    </div>
+                    <div className="detail-row">
+                      <span className="detail-label">Price Range</span>
+                      <span className="detail-value">{selectedRestaurant.priceRange}</span>
+                    </div>
+                    <div className="detail-row">
+                      <span className="detail-label">Avg per Person</span>
+                      <span className="detail-value price-highlight">${selectedRestaurant.avgPricePerPerson}</span>
+                    </div>
                   </div>
+
+                  <div className="description">
+                    <h3>About</h3>
+                    <p>{selectedRestaurant.description}</p>
+                  </div>
+
+                  {selectedRestaurant.specialties.length > 0 && (
+                    <div className="modal-specialties">
+                      <h3>Specialties</h3>
+                      <div className="specialties-tags">
+                        {selectedRestaurant.specialties.map((specialty, idx) => (
+                          <span key={idx} className="specialty-tag">{specialty}</span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
 
                   <form onSubmit={handleReservation} className="reservation-form">
                     <div className="form-group">

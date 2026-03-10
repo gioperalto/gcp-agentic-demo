@@ -454,17 +454,52 @@ export const Experiences = () => {
             ) : (
               <>
                 <div className="booking-details">
-                  <div className="booking-info">
-                    <p>
-                      <strong>Location:</strong> {selectedExperience.city}, {selectedExperience.country}
-                    </p>
-                    <p>
-                      <strong>Duration:</strong> {selectedExperience.duration}
-                    </p>
-                    <p>
-                      <strong>Group Size:</strong> {selectedExperience.minParticipants}-{selectedExperience.maxParticipants} participants
-                    </p>
+                  <div className="modal-image" style={{ backgroundImage: `url(${selectedExperience.imageUrl})` }} />
+
+                  <div className="modal-details">
+                    <div className="detail-row">
+                      <span className="detail-label">Rating</span>
+                      <span className="detail-value">
+                        {'⭐'.repeat(Math.round(selectedExperience.rating))} {selectedExperience.rating.toFixed(1)}
+                      </span>
+                    </div>
+                    <div className="detail-row">
+                      <span className="detail-label">Type</span>
+                      <span className="detail-value">{formatType(selectedExperience.type)}</span>
+                    </div>
+                    <div className="detail-row">
+                      <span className="detail-label">Location</span>
+                      <span className="detail-value">{selectedExperience.city}, {selectedExperience.country}</span>
+                    </div>
+                    <div className="detail-row">
+                      <span className="detail-label">Duration</span>
+                      <span className="detail-value">{selectedExperience.duration}</span>
+                    </div>
+                    <div className="detail-row">
+                      <span className="detail-label">Group Size</span>
+                      <span className="detail-value">{selectedExperience.minParticipants}-{selectedExperience.maxParticipants} participants</span>
+                    </div>
+                    <div className="detail-row">
+                      <span className="detail-label">Price per Person</span>
+                      <span className="detail-value price-highlight">${selectedExperience.price.toFixed(2)}</span>
+                    </div>
                   </div>
+
+                  <div className="description">
+                    <h3>About This Experience</h3>
+                    <p>{selectedExperience.description}</p>
+                  </div>
+
+                  {selectedExperience.includedItems.length > 0 && (
+                    <div className="modal-included">
+                      <h3>What's Included</h3>
+                      <ul>
+                        {selectedExperience.includedItems.map((item, index) => (
+                          <li key={index}>{item}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
 
                   <div className="booking-form">
                     <div className="form-group">

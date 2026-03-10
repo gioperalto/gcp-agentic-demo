@@ -1,7 +1,8 @@
 """
 FastAPI backend for Travel Planner with streaming support
 """
-import os, json, asyncio, sys, logging
+import os, json, asyncio, sys, logging, logging.config
+from datetime import datetime, timezone
 from dotenv import load_dotenv
 
 # Load env BEFORE any ADK imports so GOOGLE_GENAI_MODEL etc. are available
@@ -12,6 +13,72 @@ load_dotenv()
 os.environ['GOOGLE_CLOUD_LOCATION'] = 'global'
 
 from ddtrace.llmobs import LLMObs
+
+
+# ---------------------------------------------------------------------------
+# JSON log formatter with Datadog trace correlation
+# ---------------------------------------------------------------------------
+# ddtrace-run (with DD_LOGS_INJECTION=true) patches every LogRecord to carry
+# dd.trace_id, dd.span_id, dd.service, dd.env, and dd.version.  Outputting
+# them as top-level JSON fields lets the Datadog agent parse and correlate
+# logs with APM traces automatically — no custom log pipeline needed.
+#
+# We also override uvicorn's loggers so its access/error lines go through the
+# same JSON formatter (uvicorn normally uses its own plain-text formatters).
+# ---------------------------------------------------------------------------
+
+_DD_LOG_ATTRS = ("dd.trace_id", "dd.span_id", "dd.service", "dd.env", "dd.version")
+
+
+class _JSONFormatter(logging.Formatter):
+    """Minimal JSON formatter that includes ddtrace correlation fields."""
+
+    def format(self, record: logging.LogRecord) -> str:
+        msg = {
+            "timestamp": datetime.fromtimestamp(record.created, tz=timezone.utc).isoformat(),
+            "level": record.levelname,
+            "logger": record.name,
+            "message": record.getMessage(),
+            "filename": record.filename,
+            "lineno": record.lineno,
+        }
+        # Append ddtrace correlation attributes (injected by ddtrace-run)
+        for attr in _DD_LOG_ATTRS:
+            val = getattr(record, attr, "")
+            if val:
+                msg[attr] = str(val)
+        # Include exception info if present
+        if record.exc_info and record.exc_info[0] is not None:
+            msg["error"] = self.formatException(record.exc_info)
+        return json.dumps(msg, default=str)
+
+
+LOGGING_CONFIG: dict = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "json": {"()": _JSONFormatter},
+    },
+    "handlers": {
+        "stdout": {
+            "class": "logging.StreamHandler",
+            "formatter": "json",
+            "stream": "ext://sys.stdout",
+        },
+    },
+    "root": {
+        "handlers": ["stdout"],
+        "level": "INFO",
+    },
+    "loggers": {
+        # Override uvicorn loggers so they also emit JSON with DD fields
+        "uvicorn": {"handlers": ["stdout"], "level": "INFO", "propagate": False},
+        "uvicorn.error": {"handlers": ["stdout"], "level": "INFO", "propagate": False},
+        "uvicorn.access": {"handlers": ["stdout"], "level": "INFO", "propagate": False},
+    },
+}
+
+logging.config.dictConfig(LOGGING_CONFIG)
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
@@ -28,6 +95,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from tribune_concierge.agent import root_agent, live_root_agent, AGENT_VOICE_MAP, LIVE_AGENT_MAP
 from legionnaire_concierge.agent import legionnaire_agent
 
+logger = logging.getLogger("travel_planner")
 
 # Datadog LLM Observability is initialised by ddtrace-run (see Dockerfile CMD).
 # Do NOT call LLMObs.enable() here — combining it with ddtrace-run is unsupported
@@ -169,7 +237,7 @@ async def stream_legionnaire_response(message: str, session_id: str) -> AsyncGen
     except Exception as e:
         import traceback
         error_detail = traceback.format_exc()
-        print(f"Error in stream_legionnaire_response: {error_detail}")
+        logger.exception("Error in stream_legionnaire_response")
 
         error_msg = ChatMessage(
             type="error",
@@ -307,7 +375,7 @@ async def stream_agent_response(message: str, session_id: str) -> AsyncGenerator
     except Exception as e:
         import traceback
         error_detail = traceback.format_exc()
-        print(f"Error in stream_agent_response: {error_detail}")
+        logger.exception("Error in stream_agent_response")
 
         error_msg = ChatMessage(
             type="error",
@@ -400,7 +468,7 @@ async def voice_websocket(websocket: WebSocket, session_id: str = "default"):
             session_id=session_id,
         )
 
-    logger = logging.getLogger("voice_ws")
+    voice_logger = logging.getLogger("voice_ws")
 
     last_author = None
     current_agent_name: str = "Sam"
@@ -462,7 +530,7 @@ async def voice_websocket(websocket: WebSocket, session_id: str = "default"):
                 # Log agent author changes
                 author = event_dict.get("author")
                 if author and author != last_author:
-                    logger.info("Agent author: %s → %s (session %s)", last_author, author, session_id)
+                    voice_logger.info("Agent author: %s → %s (session %s)", last_author, author, session_id)
                     last_author = author
                     current_agent_name = author
 
@@ -473,11 +541,11 @@ async def voice_websocket(websocket: WebSocket, session_id: str = "default"):
                     if fc:
                         if fc.get("name") == "transfer_to":
                             pending_transfer_target = fc.get("args", {}).get("agent_name")
-                            logger.info("Transfer requested: %s → %s (session %s)",
-                                        current_agent_name, pending_transfer_target, session_id)
+                            voice_logger.info("Transfer requested: %s → %s (session %s)",
+                                              current_agent_name, pending_transfer_target, session_id)
                         elif fc.get("name") == "end_conversation":
                             conversation_ended = True
-                            logger.info("Conversation ended by agent (session %s)", session_id)
+                            voice_logger.info("Conversation ended by agent (session %s)", session_id)
 
                 # Accumulate output transcription (agent speaking)
                 out_t = event_dict.get("outputTranscription")
@@ -509,7 +577,7 @@ async def voice_websocket(websocket: WebSocket, session_id: str = "default"):
                     if reenable_audio_on_turn:
                         transfer_audio_muted = False
                         reenable_audio_on_turn = False
-                        logger.info("Audio re-enabled after new agent greeting turn (session %s)", session_id)
+                        voice_logger.info("Audio re-enabled after new agent greeting turn (session %s)", session_id)
 
                     # After turn completes, act on pending transfer or end
                     if pending_transfer_target:
@@ -541,7 +609,7 @@ async def voice_websocket(websocket: WebSocket, session_id: str = "default"):
                 )
 
         except Exception:
-            logger.exception("forward_events error for session %s", session_id)
+            voice_logger.exception("forward_events error for session %s", session_id)
             raise
 
         return None  # run_live ended (queue closed / client disconnected)
@@ -576,9 +644,9 @@ async def voice_websocket(websocket: WebSocket, session_id: str = "default"):
                             continue
                     live_request_queue.send(LiveRequest.model_validate_json(data))
                 except Exception as e:
-                    logger.warning("Invalid LiveRequest frame (session %s): %s", session_id, e)
+                    voice_logger.warning("Invalid LiveRequest frame (session %s): %s", session_id, e)
         except WebSocketDisconnect:
-            logger.info("Client disconnected, closing queue for session %s", session_id)
+            voice_logger.info("Client disconnected, closing queue for session %s", session_id)
             client_disconnected = True
             live_request_queue.close()
 
@@ -619,7 +687,7 @@ async def voice_websocket(websocket: WebSocket, session_id: str = "default"):
                     except WebSocketDisconnect:
                         client_disconnected = True
                     except Exception as e:
-                        logger.exception("Voice task error for session %s", session_id)
+                        voice_logger.exception("Voice task error for session %s", session_id)
                         client_disconnected = True
 
                 # Clean up pending tasks from this iteration
@@ -636,15 +704,15 @@ async def voice_websocket(websocket: WebSocket, session_id: str = "default"):
                         f"Greet them briefly, then STOP and wait silently for the user to speak. "
                         f"Do NOT continue talking or ask follow-up questions until the user responds."
                     )
-                    logger.info("Agent switch: %s → %s (session %s)", old_agent, current_agent_name, session_id)
+                    voice_logger.info("Agent switch: %s → %s (session %s)", old_agent, current_agent_name, session_id)
                     continue
                 else:
                     break  # conversation ended or client disconnected
 
     except WebSocketDisconnect:
-        logger.info("Voice WebSocket client disconnected: %s", session_id)
+        voice_logger.info("Voice WebSocket client disconnected: %s", session_id)
     except Exception as e:
-        logger.exception("Voice WebSocket error for session %s", session_id)
+        voice_logger.exception("Voice WebSocket error for session %s", session_id)
         try:
             await websocket.close(code=1011, reason=str(e)[:123])
         except Exception:
@@ -673,4 +741,5 @@ if __name__ == "__main__":
         port=8000,
         reload=True,
         reload_dirs=["/app/backend", "/app/tribune_concierge", "/app/legionnaire_concierge"],
+        log_config=None,  # preserve our JSON formatter with DD trace correlation
     )

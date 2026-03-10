@@ -1,13 +1,27 @@
-import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { getCachedUser, logout } from '../utils/auth';
+import { useState, useEffect } from 'react';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { getCachedUser, fetchCurrentUser, logout } from '../utils/auth';
 import './Header.css';
 
 export const Header = () => {
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [benefitsDropdownOpen, setBenefitsDropdownOpen] = useState(false);
-  const user = getCachedUser();
+  const [user, setUser] = useState(getCachedUser());
   const navigate = useNavigate();
+  const location = useLocation();
+
+  // Sync user state with the module-level cache on every route change
+  useEffect(() => {
+    const cached = getCachedUser();
+    if (cached) {
+      setUser(cached);
+    } else {
+      // Cache is empty — try fetching from API (e.g. page refresh with token in localStorage)
+      fetchCurrentUser().then((fetched) => {
+        if (fetched) setUser(fetched);
+      });
+    }
+  }, [location.pathname]);
 
   const handleLogout = async () => {
     await logout();

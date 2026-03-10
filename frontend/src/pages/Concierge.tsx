@@ -177,9 +177,10 @@ export function Concierge() {
     if (!isCheckingAuth && !selectedTier) {
       if (tierParam === 'tribune' || tierParam === 'legionnaire') {
         setSelectedTier(tierParam);
-      } else if (cardType) {
+      } else if (cardType === 'tribune' || cardType === 'legionnaire') {
         setSelectedTier(cardType);
       }
+      // When cardType is 'none', don't auto-select — show tier selection or gate
     }
   }, [isCheckingAuth, tierParam, cardType, selectedTier]);
 
@@ -383,7 +384,7 @@ export function Concierge() {
                 </button>
               </>
             )}
-            {!cardType && (
+            {cardType === 'none' && (
               <>
                 <button className="gate-button premium" onClick={() => navigate('/apply?card=tribune')}>
                   Apply for Tribune Card
@@ -399,8 +400,34 @@ export function Concierge() {
     );
   }
 
+  // Gate users with no card — they need a card to access any concierge
+  if (!selectedTier && cardType === 'none') {
+    return (
+      <div className="concierge-page">
+        <div className="concierge-gate">
+          <div className="gate-icon">💳</div>
+          <h1 className="gate-title">Concierge Services</h1>
+          <p className="gate-subtitle">
+            Concierge services are available exclusively to Meridian cardholders.
+            Apply for a card to unlock AI-powered travel assistance.
+          </p>
+
+          <div className="gate-actions">
+            <button className="gate-button premium" onClick={() => navigate('/apply')}>
+              Apply for a Card
+            </button>
+            <button className="gate-button secondary" onClick={() => navigate('/cards')}>
+              Compare Cards
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   // Show tier selection if no tier is selected
   if (!selectedTier) {
+    const hasLegionnaire = cardType === 'legionnaire' || cardType === 'tribune';
     return (
       <div className="concierge-page">
         <div className="tier-selection">
@@ -410,7 +437,10 @@ export function Concierge() {
           </p>
 
           <div className="tier-cards">
-            <div className="tier-card legionnaire-card" onClick={() => handleTierSelect('legionnaire')}>
+            <div
+              className={`tier-card legionnaire-card ${!hasLegionnaire ? 'disabled' : ''}`}
+              onClick={() => hasLegionnaire && handleTierSelect('legionnaire')}
+            >
               <h2>Legionnaire Concierge</h2>
               <div className="tier-badge">Chat Services</div>
               <p className="tier-description">
@@ -421,7 +451,9 @@ export function Concierge() {
                 <li>Restaurant & event bookings</li>
                 <li>Travel recommendations</li>
               </ul>
-              <button className="tier-select-button">Start Chat</button>
+              <button className="tier-select-button" disabled={!hasLegionnaire}>
+                {hasLegionnaire ? 'Start Chat' : 'Card Required'}
+              </button>
             </div>
 
             <div

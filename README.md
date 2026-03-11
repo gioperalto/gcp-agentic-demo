@@ -406,4 +406,4 @@ To add a new agent to the Tribune system:
 
 ## License
 
-Proprietary — Meridian Travel & Hospitality
+This project is licensed under the [MIT License](LICENSE).

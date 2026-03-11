@@ -168,6 +168,143 @@ docker compose down
 
 ---
 
+## Production Deployment (GCP with Terraform)
+
+Deploy the full stack to Google Cloud Platform using the included Terraform configuration.
+
+### Architecture
+
+```
+                    [Google-Managed SSL Cert]
+                              |
+                 [Global HTTPS Load Balancer]
+                    /                    \
+        [Cloud CDN]                [Serverless NEG]
+            |                            |
+[GCS Bucket: SPA + images]     [Cloud Run: Backend]
+                                 (FastAPI + ADK Agents)
+                                        |
+                                [Vertex AI Models]
+                                [Secret Manager]
+```
+
+- `/*` (default) → Cloud Storage bucket (frontend SPA via CDN)
+- `/api/*`, `/ws/*` → Cloud Run backend (FastAPI with ADK agents)
+
+### Prerequisites
+
+- [Terraform](https://developer.hashicorp.com/terraform/install) >= 1.5
+- [Google Cloud SDK](https://cloud.google.com/sdk/docs/install) (`gcloud`)
+- A GCP project with billing enabled
+- A domain name you control (for DNS + SSL)
+- (Optional) GitHub App installation ID for CI/CD triggers
+
+### 1. Configure Variables
+
+```bash
+cd terraform
+cp terraform.tfvars.example terraform.tfvars
+```
+
+Edit `terraform.tfvars`:
+
+```hcl
+project_id  = "your-gcp-project-id"
+region      = "us-central1"
+domain      = "travel.example.com"
+environment = "prod"
+```
+
+Set secret values via environment variables (never commit these):
+
+```bash
+export TF_VAR_jwt_secret_key="your-jwt-secret"
+export TF_VAR_datadog_api_key="your-dd-api-key"
+export TF_VAR_dd_application_key="your-dd-app-key"
+export TF_VAR_vite_dd_client_token="your-dd-client-token"
+```
+
+### 2. Deploy Infrastructure
+
+```bash
+cd terraform
+terraform init
+terraform plan    # Review the changes
+terraform apply   # Create all resources
+```
+
+Terraform creates: Cloud Run service, GCS bucket, HTTPS Load Balancer with CDN, DNS zone, Artifact Registry, Secret Manager secrets, service accounts, and (optionally) Cloud Build CI/CD triggers.
+
+### 3. Configure DNS
+
+After `terraform apply`, point your domain to the load balancer IP:
+
+```bash
+terraform output dns_name_servers
+# Add these NS records at your domain registrar
+```
+
+Or if using an existing DNS zone, create an A record pointing to:
+
+```bash
+terraform output load_balancer_ip
+```
+
+### 4. Initial Deployment
+
+**Backend** — build and push the Docker image, then deploy to Cloud Run:
+
+```bash
+export AR_REPO=$(terraform -chdir=terraform output -raw artifact_registry_repo)
+./scripts/build-and-push.sh v1.0.0
+gcloud run deploy $(terraform -chdir=terraform output -raw cloud_run_url | sed 's|https://||;s|\..*||') \
+  --image "$AR_REPO/travel-planner-api:v1.0.0" \
+  --region us-central1
+```
+
+**Frontend** — build the SPA and upload to GCS:
+
+```bash
+export DEPLOY_BUCKET=$(terraform -chdir=terraform output -raw frontend_bucket_name)
+export VITE_API_BASE_URL="https://your-domain.com"
+./scripts/deploy-frontend.sh
+```
+
+### 5. CI/CD (Automatic Deploys)
+
+If you configured the `github_*` variables in `terraform.tfvars`, Cloud Build triggers are created automatically:
+
+- **Push to `main` with `backend/**` changes** → builds Docker image, pushes to Artifact Registry, deploys new Cloud Run revision
+- **Push to `main` with `frontend/**` changes** → builds SPA, syncs to GCS, invalidates CDN cache
+
+### 6. Verify
+
+```bash
+# Health check
+curl https://your-domain.com/api/health
+# → {"status":"healthy","service":"travel-planner"}
+
+# Frontend
+open https://your-domain.com
+```
+
+### Terraform Modules
+
+| Module | Description |
+|--------|-------------|
+| `project_services` | Enables required GCP APIs |
+| `artifact_registry` | Docker image repository |
+| `service_accounts` | Cloud Run SA with Vertex AI + Secret Manager access |
+| `secrets` | Secret Manager for JWT, Datadog keys |
+| `cloud_run` | Backend service (3600s timeout, session affinity, internal LB ingress) |
+| `frontend_bucket` | GCS bucket with SPA routing + public read |
+| `load_balancer` | Global HTTPS LB + CDN + URL map + HTTP→HTTPS redirect |
+| `dns` | Cloud DNS zone + A record |
+| `datadog` | Agentless ddtrace env var configuration |
+| `cicd` | Cloud Build GitHub triggers (backend + frontend) |
+
+---
+
 ## Quick Start (Local — without Docker)
 
 ### 1. Install Dependencies
@@ -298,7 +435,8 @@ Interactive API docs: http://localhost:8000/docs
 meridian/
 ├── backend/                        # FastAPI application
 │   ├── main.py
-│   ├── Dockerfile
+│   ├── Dockerfile                  # Backend container image
+│   ├── cloudbuild.yaml             # Backend CI/CD pipeline
 │   ├── requirements.txt
 │   ├── data/                       # JSON seed data
 │   ├── feature_flags/              # Datadog feature flag registry
@@ -306,12 +444,33 @@ meridian/
 │   ├── routers/                    # API route handlers
 │   └── services/                   # Business logic
 ├── frontend/                       # React + TypeScript SPA
-│   ├── Dockerfile
+│   ├── Dockerfile                  # Multi-stage prod build (Node → nginx)
+│   ├── cloudbuild.yaml             # Frontend CI/CD pipeline
+│   ├── nginx.conf                  # SPA routing for production
 │   └── src/
 │       ├── components/
 │       ├── pages/
 │       ├── utils/
 │       └── types/
+├── terraform/
+│   ├── main.tf                     # Root module (wires all modules)
+│   ├── variables.tf                # Top-level variables
+│   ├── outputs.tf                  # LB IP, Cloud Run URL, bucket name
+│   ├── terraform.tfvars.example
+│   └── modules/
+│       ├── project_services/       # Enable required GCP APIs
+│       ├── artifact_registry/      # Docker image repo
+│       ├── service_accounts/       # Cloud Run SA + IAM bindings
+│       ├── secrets/                # Secret Manager secrets
+│       ├── cloud_run/              # Backend Cloud Run service
+│       ├── frontend_bucket/        # GCS bucket for SPA
+│       ├── load_balancer/          # Global HTTPS LB + CDN + URL map
+│       ├── dns/                    # Cloud DNS zone + A record
+│       ├── datadog/                # Agentless ddtrace config
+│       └── cicd/                   # Cloud Build GitHub triggers
+├── scripts/
+│   ├── build-and-push.sh           # Manual backend deploy
+│   └── deploy-frontend.sh          # Manual frontend deploy
 ├── tribune_concierge/              # Tribune multi-agent travel team
 │   ├── agent.py
 │   └── tools/
@@ -323,8 +482,8 @@ meridian/
 │   ├── users.json
 │   ├── Dockerfile
 │   └── entrypoint.sh
-├── docker-compose.yml
-├── .env.example
+├── docker-compose.yml              # Local dev orchestration
+├── .env.example                    # Environment variable template
 └── README.md
 ```
 

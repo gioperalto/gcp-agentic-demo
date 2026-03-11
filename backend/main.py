@@ -139,7 +139,7 @@ app = FastAPI(title="Travel Planner API")
 # Configure CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # In production, specify exact origins
+    allow_origins=os.environ.get("ALLOWED_ORIGINS", "*").split(","),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -1306,11 +1306,15 @@ async def root():
 
 if __name__ == "__main__":
     import uvicorn
+
+    port = int(os.environ.get("PORT", 8000))
+    is_dev = os.environ.get("DD_ENV", "dev") == "dev"
+
     uvicorn.run(
         "main:app",
         host="0.0.0.0",
-        port=8000,
-        reload=True,
-        reload_dirs=["/app/backend", "/app/tribune_concierge", "/app/legionnaire_concierge", "/app/insecure_concierge"],
+        port=port,
+        reload=is_dev,
+        reload_dirs=["/app/backend", "/app/tribune_concierge", "/app/legionnaire_concierge", "/app/insecure_concierge"] if is_dev else None,
         log_config=None,  # preserve our JSON formatter with DD trace correlation
     )

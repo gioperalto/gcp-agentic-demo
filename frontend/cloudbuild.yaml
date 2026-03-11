@@ -1,0 +1,39 @@
+steps:
+  # Install dependencies
+  - name: 'node:23.9-alpine'
+    dir: 'frontend'
+    entrypoint: 'npm'
+    args: ['ci']
+
+  # Build the frontend (VITE_* env vars are baked into the JS bundle)
+  - name: 'node:23.9-alpine'
+    dir: 'frontend'
+    entrypoint: 'npm'
+    args: ['run', 'build']
+    env:
+      - 'VITE_API_BASE_URL=${_VITE_API_BASE_URL}'
+
+  # Sync build output to GCS bucket
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: 'gsutil'
+    args:
+      - '-m'
+      - 'rsync'
+      - '-r'
+      - '-d'
+      - 'frontend/dist'
+      - 'gs://${_DEPLOY_BUCKET}'
+
+  # Invalidate CDN cache for index.html (hashed assets don't need it)
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: 'gcloud'
+    args:
+      - 'compute'
+      - 'url-maps'
+      - 'invalidate-cdn-cache'
+      - '${_URL_MAP_NAME}'
+      - '--path=/index.html'
+      - '--async'
+
+options:
+  logging: CLOUD_LOGGING_ONLY

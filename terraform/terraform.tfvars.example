@@ -1,0 +1,14 @@
+project_id  = "your-gcp-project-id"
+region      = "us-central1"
+domain      = "travel.example.com"
+environment = "prod"
+
+google_genai_model      = "gemini-3-flash-preview"
+google_genai_live_model = "gemini-live-2.5-flash-native-audio"
+
+cloud_run_max_instances = 10
+
+# CI/CD - Cloud Build GitHub connection
+github_app_installation_id = ""
+github_owner               = ""
+github_repo                = ""

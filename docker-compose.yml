@@ -60,6 +60,7 @@ services:
       - ./backend:/app/backend
       - ./tribune_concierge:/app/tribune_concierge
       - ./legionnaire_concierge:/app/legionnaire_concierge
+      - ./insecure_concierge:/app/insecure_concierge
       - ${GOOGLE_APPLICATION_CREDENTIALS}:/app/credentials/sa.json:ro
     labels:
       com.datadoghq.tags.env: ${DD_ENV:-development}

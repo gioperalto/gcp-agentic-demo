@@ -2,6 +2,7 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { datadogRum } from '@datadog/browser-rum'
 import { datadogLogs } from '@datadog/browser-logs'
+import { initFeatureFlags } from './utils/featureFlags'
 import './index.css'
 import App from './App.tsx'
 
@@ -42,6 +43,8 @@ if (ddAppId && ddClientToken) {
     ],
   })
 }
+
+initFeatureFlags().catch(console.error);
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

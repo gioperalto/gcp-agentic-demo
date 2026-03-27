@@ -1,32 +1,45 @@
-import { datadogRum } from '@datadog/browser-rum';
+import { DatadogProvider } from '@datadog/openfeature-browser';
+import { OpenFeature } from '@openfeature/react-sdk';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
-
-let flagCache: Record<string, boolean> = {};
+let initialized = false;
 
 export async function initFeatureFlags(): Promise<void> {
+  if (initialized) return;
+
+  const appId = import.meta.env.VITE_DD_APP_ID;
+  const clientToken = import.meta.env.VITE_DD_CLIENT_TOKEN;
+  const site = import.meta.env.VITE_DD_SITE || 'datadoghq.com';
+  const env = import.meta.env.VITE_DD_ENV || 'dev';
+
+  if (!appId || !clientToken) {
+    console.warn('Datadog Feature Flags: missing DD_APP_ID or DD_CLIENT_TOKEN');
+    return;
+  }
+
   try {
-    const response = await fetch(`${API_BASE_URL}/api/flags`);
-    if (!response.ok) return;
-    const flags = await response.json();
-    flagCache = Object.fromEntries(
-      Object.entries(flags).map(([key, val]: [string, any]) => [key, val.enabled ?? false])
-    );
+    const provider = new DatadogProvider({
+      applicationId: appId,
+      clientToken: clientToken,
+      site: site,
+      env: env,
+    });
+
+    await OpenFeature.setProviderAndWait(provider);
+    initialized = true;
+    console.log('Datadog Feature Flags initialized via OpenFeature SDK');
   } catch (e) {
-    console.warn('Failed to load feature flags:', e);
+    console.warn('Failed to initialize Datadog Feature Flags:', e);
   }
 }
 
-export function evaluateFlag(flagName: string, defaultValue: boolean = false): boolean {
-  const value = flagCache[flagName] ?? defaultValue;
+/**
+ * Update the OpenFeature evaluation context (e.g., after login).
+ * Context attributes must be flat primitives (string, number, boolean).
+ */
+export async function setFeatureFlagContext(context: Record<string, string | number | boolean>): Promise<void> {
   try {
-    datadogRum.addFeatureFlagEvaluation(flagName, value);
+    await OpenFeature.setContext(context);
   } catch (e) {
-    // RUM may not be initialized
+    console.warn('Failed to set feature flag context:', e);
   }
-  return value;
-}
-
-export async function refreshFlags(): Promise<void> {
-  await initFeatureFlags();
 }

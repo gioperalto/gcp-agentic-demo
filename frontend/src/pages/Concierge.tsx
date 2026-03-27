@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { ulid } from 'ulid';
 import type { Message } from '../types/chat';
 import { streamChatResponse, streamLegionnaireChatResponse, streamInsecureChatResponse } from '../utils/api';
-import { evaluateFlag, refreshFlags } from '../utils/featureFlags';
+import { useBooleanFlagValue } from '@openfeature/react-sdk';
 import { ChatMessage } from '../components/ChatMessage';
 import { ChatInput } from '../components/ChatInput';
 import { PreviewModal } from '../components/PreviewModal';
@@ -20,7 +20,7 @@ export function Concierge() {
   const [cardType, setCardType] = useState(getUserCardType());
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
   const [selectedTier, setSelectedTier] = useState<'tribune' | 'legionnaire' | 'debug' | null>(null);
-  const [debugAgentEnabled, setDebugAgentEnabled] = useState(false);
+  const debugAgentEnabled = useBooleanFlagValue('insecure_profile_agent', false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [currentAgent, setCurrentAgent] = useState<string>('Sam');
@@ -173,12 +173,6 @@ export function Concierge() {
 
     checkAuth();
   }, [user]);
-
-  useEffect(() => {
-    refreshFlags().then(() => {
-      setDebugAgentEnabled(evaluateFlag('insecure-profile-agent', false));
-    });
-  }, []);
 
   // Set tier from URL parameter or user's card type
   useEffect(() => {

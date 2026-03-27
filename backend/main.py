@@ -95,7 +95,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from tribune_concierge.agent import root_agent, live_root_agent, AGENT_VOICE_MAP, LIVE_AGENT_MAP
 from legionnaire_concierge.agent import legionnaire_agent
 from insecure_concierge.agent import insecure_agent
-from services.feature_flag_service import evaluate_flag
+from services.feature_flag_service import evaluate_flag, init_feature_flags
 
 logger = logging.getLogger("travel_planner")
 
@@ -129,6 +129,9 @@ app.add_middleware(
         "tracestate",
     ],
 )
+
+# Initialize Datadog Feature Flags (OpenFeature SDK)
+init_feature_flags()
 
 # Include routers
 from routers import auth, cards, travel, flights, accommodations, feature_flags
@@ -497,7 +500,7 @@ async def insecure_chat_stream(request: ChatRequest):
     """
     Stream chat responses for the insecure debug agent (gated by feature flag)
     """
-    flag_enabled = evaluate_flag("insecure-profile-agent", default=False)
+    flag_enabled = evaluate_flag("insecure_profile_agent", default=False)
     if not flag_enabled:
         raise HTTPException(status_code=403, detail="Feature not available")
     return StreamingResponse(

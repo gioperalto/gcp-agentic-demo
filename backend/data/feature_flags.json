@@ -1,6 +1,0 @@
-{
-  "insecure-profile-agent": {
-    "enabled": true,
-    "description": "Gates the insecure profile agent that can query any user's data without authorization"
-  }
-}

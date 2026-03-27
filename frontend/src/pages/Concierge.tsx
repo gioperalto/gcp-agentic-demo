@@ -183,7 +183,7 @@ export function Concierge() {
   // Set tier from URL parameter or user's card type
   useEffect(() => {
     if (!isCheckingAuth && !selectedTier) {
-      if (tierParam === 'tribune' || tierParam === 'legionnaire') {
+      if (tierParam === 'tribune' || tierParam === 'legionnaire' || tierParam === 'debug') {
         setSelectedTier(tierParam);
       } else if (cardType) {
         setSelectedTier(cardType);

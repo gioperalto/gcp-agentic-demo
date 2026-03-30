@@ -13,6 +13,7 @@ load_dotenv()
 os.environ['GOOGLE_CLOUD_LOCATION'] = 'global'
 
 from ddtrace.llmobs import LLMObs
+from ddtrace.trace import tracer
 
 
 # ---------------------------------------------------------------------------
@@ -79,7 +80,7 @@ LOGGING_CONFIG: dict = {
 }
 
 logging.config.dictConfig(LOGGING_CONFIG)
-from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from typing import AsyncGenerator
@@ -165,12 +166,64 @@ def get_agent_friendly_message(agent_name: str) -> str:
     return messages.get(agent_name, f"Transferring you to {agent_name}...")
 
 
+async def traced_sse_stream(
+    generator: AsyncGenerator[str, None],
+    *,
+    resource: str,
+    session_id: str,
+    http_request: Request | None = None,
+) -> AsyncGenerator[str, None]:
+    """Wrap an SSE generator with an explicit ddtrace span.
+
+    ddtrace's auto-instrumentation finishes the HTTP request span when the
+    endpoint function returns, but for ``StreamingResponse`` the actual work
+    happens *after* that — inside the async generator.  This helper creates a
+    child span that stays open for the full duration of the stream and
+    guarantees it closes in a ``finally`` block so the trace is never dropped.
+    """
+    from ddtrace.contrib.asgi import span_from_scope
+
+    # In ddtrace v4 tracer.trace() auto-parents to the active span.
+    # The SSE generator runs after the request handler returns, so the
+    # request span may no longer be active.  Re-activate it so the
+    # stream span becomes a proper child of the HTTP request trace.
+    parent_span = None
+    if http_request is not None:
+        parent_span = span_from_scope(http_request.scope)
+    if parent_span is not None:
+        tracer.context_provider.activate(parent_span)
+
+    with tracer.trace(
+        "chat.sse.stream",
+        resource=resource,
+    ) as span:
+        span.set_tag("sse.endpoint", resource)
+        span.set_tag("session.id", session_id)
+        try:
+            async for chunk in generator:
+                yield chunk
+        except asyncio.CancelledError:
+            span.set_tag("stream.cancelled", True)
+            raise
+        except Exception:
+            span.set_exc_info(*sys.exc_info())
+            raise
+        finally:
+            span.set_tag("stream.finished", True)
+
+
+_genai_model = os.getenv("GOOGLE_GENAI_MODEL", "gemini-2.0-flash")
+
+
 async def stream_legionnaire_response(message: str, session_id: str) -> AsyncGenerator[str, None]:
     """
     Stream legionnaire agent responses (basic concierge without subagents)
     """
     # Ensure text requests always use the global endpoint (voice may have switched to us-central1)
     os.environ['GOOGLE_CLOUD_LOCATION'] = 'global'
+
+    response_parts: list[str] = []
+
     async def run_legionnaire_agent(message: str, session_id: str) -> AsyncGenerator[str, None]:
         """
         Run the legionnaire agent and stream events
@@ -207,6 +260,7 @@ async def stream_legionnaire_response(message: str, session_id: str) -> AsyncGen
                     content_text = ''.join(text_parts)
 
             if content_text:
+                response_parts.append(content_text)
                 content_msg = ChatMessage(
                     type="content",
                     data={"text": content_text}
@@ -237,9 +291,23 @@ async def stream_legionnaire_response(message: str, session_id: str) -> AsyncGen
                 session_id=session_id
             )
 
-        # Run the agent and stream responses
-        async for event in run_legionnaire_agent(message, session_id):
-            yield event
+        with LLMObs.workflow(name="legionnaire_concierge") as workflow_span:
+            LLMObs.annotate(span=workflow_span, tags={"session.id": session_id})
+
+            # Run the agent and stream responses
+            async for event in run_legionnaire_agent(message, session_id):
+                yield event
+
+            # Flush an agent span with the full input/output for this turn
+            with LLMObs.agent(
+                name="text_agent.legionnaire",
+            ) as llm_span:
+                LLMObs.annotate(
+                    span=llm_span,
+                    input_data=[{"content": message, "role": "user"}],
+                    output_data=[{"content": "".join(response_parts), "role": "assistant"}],
+                    metadata={"model": _genai_model, "model_provider": "google"},
+                )
 
     except Exception as e:
         import traceback
@@ -259,6 +327,9 @@ async def stream_insecure_response(message: str, session_id: str) -> AsyncGenera
     """
     # Ensure text requests always use the global endpoint (voice may have switched to us-central1)
     os.environ['GOOGLE_CLOUD_LOCATION'] = 'global'
+
+    response_parts: list[str] = []
+
     async def run_insecure_agent(message: str, session_id: str) -> AsyncGenerator[str, None]:
         """
         Run the insecure agent and stream events
@@ -295,6 +366,7 @@ async def stream_insecure_response(message: str, session_id: str) -> AsyncGenera
                     content_text = ''.join(text_parts)
 
             if content_text:
+                response_parts.append(content_text)
                 content_msg = ChatMessage(
                     type="content",
                     data={"text": content_text}
@@ -325,9 +397,23 @@ async def stream_insecure_response(message: str, session_id: str) -> AsyncGenera
                 session_id=session_id
             )
 
-        # Run the agent and stream responses
-        async for event in run_insecure_agent(message, session_id):
-            yield event
+        with LLMObs.workflow(name="insecure_concierge") as workflow_span:
+            LLMObs.annotate(span=workflow_span, tags={"session.id": session_id})
+
+            # Run the agent and stream responses
+            async for event in run_insecure_agent(message, session_id):
+                yield event
+
+            # Flush an agent span with the full input/output for this turn
+            with LLMObs.agent(
+                name="text_agent.insecure",
+            ) as llm_span:
+                LLMObs.annotate(
+                    span=llm_span,
+                    input_data=[{"content": message, "role": "user"}],
+                    output_data=[{"content": "".join(response_parts), "role": "assistant"}],
+                    metadata={"model": _genai_model, "model_provider": "google"},
+                )
 
     except Exception as e:
         import traceback
@@ -347,10 +433,34 @@ async def stream_agent_response(message: str, session_id: str) -> AsyncGenerator
     """
     # Ensure text requests always use the global endpoint (voice may have switched to us-central1)
     os.environ['GOOGLE_CLOUD_LOCATION'] = 'global'
-    async def run_agent(message: str, session_id: str, current_agent: str, sub_agents: set) -> AsyncGenerator[str, None]:
+
+    # Per-agent response accumulators for LLMObs spans
+    agent_response_parts: list[str] = []
+    current_agent = "Sam"
+
+    def _flush_text_turn_span(agent_name: str) -> None:
+        """Create an LLMObs agent span for the text accumulated by the current agent."""
+        nonlocal agent_response_parts
+        agent_text = "".join(agent_response_parts).strip()
+        if not agent_text:
+            return
+        with LLMObs.agent(
+            name=f"text_agent.{agent_name}",
+        ) as span:
+            LLMObs.annotate(
+                span=span,
+                input_data=[{"content": message, "role": "user"}],
+                output_data=[{"content": agent_text, "role": "assistant"}],
+                metadata={"model": _genai_model, "model_provider": "google"},
+            )
+        agent_response_parts = []
+
+    async def run_agent(message: str, session_id: str, sub_agents: set) -> AsyncGenerator[str, None]:
         """
         Run the agent and stream events with agent transfer notifications
         """
+        nonlocal current_agent, agent_response_parts
+
         # Run the agent with async streaming
         async for event in runner.run_async(
             user_id=session_id,  # Use session_id as user_id for anonymous users
@@ -418,6 +528,8 @@ async def stream_agent_response(message: str, session_id: str) -> AsyncGenerator
 
             # Send transfer message if agent changed
             if event_agent and event_agent != current_agent:
+                # Flush LLMObs span for the outgoing agent before switching
+                _flush_text_turn_span(current_agent)
                 current_agent = event_agent
                 transfer_msg = ChatMessage(
                     type="agent_transfer",
@@ -430,12 +542,16 @@ async def stream_agent_response(message: str, session_id: str) -> AsyncGenerator
                 await asyncio.sleep(0.1)
 
             if content_text:
+                agent_response_parts.append(content_text)
                 content_msg = ChatMessage(
                     type="content",
                     data={"text": content_text}
                 )
                 yield f"data: {content_msg.model_dump_json()}\n\n"
                 await asyncio.sleep(0.01)  # Small delay to avoid overwhelming client
+
+        # Flush the final agent's LLM span
+        _flush_text_turn_span(current_agent)
 
         # Send completion message
         done_msg = ChatMessage(
@@ -463,9 +579,12 @@ async def stream_agent_response(message: str, session_id: str) -> AsyncGenerator
                 session_id=session_id
             )
 
-        # Run the agent and stream responses
-        async for event in run_agent(message, session_id, current_agent, sub_agents):
-            yield event
+        with LLMObs.workflow(name="tribune_concierge") as workflow_span:
+            LLMObs.annotate(span=workflow_span, tags={"session.id": session_id})
+
+            # Run the agent and stream responses
+            async for event in run_agent(message, session_id, sub_agents):
+                yield event
 
     except Exception as e:
         import traceback
@@ -480,12 +599,17 @@ async def stream_agent_response(message: str, session_id: str) -> AsyncGenerator
 
 
 @app.post("/api/chat/legionnaire/stream")
-async def legionnaire_chat_stream(request: ChatRequest):
+async def legionnaire_chat_stream(http_request: Request, request: ChatRequest):
     """
     Stream chat responses for Legionnaire cardholders (basic concierge without subagents)
     """
     return StreamingResponse(
-        stream_legionnaire_response(request.message, request.session_id),
+        traced_sse_stream(
+            stream_legionnaire_response(request.message, request.session_id),
+            resource="POST /api/chat/legionnaire/stream",
+            session_id=request.session_id,
+            http_request=http_request,
+        ),
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",
@@ -496,7 +620,7 @@ async def legionnaire_chat_stream(request: ChatRequest):
 
 
 @app.post("/api/chat/insecure/stream")
-async def insecure_chat_stream(request: ChatRequest):
+async def insecure_chat_stream(http_request: Request, request: ChatRequest):
     """
     Stream chat responses for the insecure debug agent (gated by feature flag)
     """
@@ -504,7 +628,12 @@ async def insecure_chat_stream(request: ChatRequest):
     if not flag_enabled:
         raise HTTPException(status_code=403, detail="Feature not available")
     return StreamingResponse(
-        stream_insecure_response(request.message, request.session_id),
+        traced_sse_stream(
+            stream_insecure_response(request.message, request.session_id),
+            resource="POST /api/chat/insecure/stream",
+            session_id=request.session_id,
+            http_request=http_request,
+        ),
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",
@@ -515,12 +644,17 @@ async def insecure_chat_stream(request: ChatRequest):
 
 
 @app.post("/api/chat/stream")
-async def chat_stream(request: ChatRequest):
+async def chat_stream(http_request: Request, request: ChatRequest):
     """
     Stream chat responses with Server-Sent Events (Tribune Premium - with subagents)
     """
     return StreamingResponse(
-        stream_agent_response(request.message, request.session_id),
+        traced_sse_stream(
+            stream_agent_response(request.message, request.session_id),
+            resource="POST /api/chat/stream",
+            session_id=request.session_id,
+            http_request=http_request,
+        ),
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",

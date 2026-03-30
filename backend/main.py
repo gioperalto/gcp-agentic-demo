@@ -94,6 +94,8 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from tribune_concierge.agent import root_agent, live_root_agent, AGENT_VOICE_MAP, LIVE_AGENT_MAP
 from legionnaire_concierge.agent import legionnaire_agent
+from insecure_concierge.agent import insecure_agent
+from services.feature_flag_service import evaluate_flag, init_feature_flags
 
 logger = logging.getLogger("travel_planner")
 
@@ -106,6 +108,7 @@ logger = logging.getLogger("travel_planner")
 # Create runner instances
 runner = InMemoryRunner(agent=root_agent, app_name="travel-planner")
 legionnaire_runner = InMemoryRunner(agent=legionnaire_agent, app_name="legionnaire-concierge")
+insecure_runner = InMemoryRunner(agent=insecure_agent, app_name="insecure-concierge")
 live_runner = InMemoryRunner(agent=live_root_agent, app_name="tribune-concierge-live")
 
 app = FastAPI(title="Travel Planner API")
@@ -127,14 +130,18 @@ app.add_middleware(
     ],
 )
 
+# Initialize Datadog Feature Flags (OpenFeature SDK)
+init_feature_flags()
+
 # Include routers
-from routers import auth, cards, travel, flights, accommodations
+from routers import auth, cards, travel, flights, accommodations, feature_flags
 
 app.include_router(auth.router)
 app.include_router(cards.router)
 app.include_router(travel.router)
 app.include_router(flights.router)
 app.include_router(accommodations.router)
+app.include_router(feature_flags.router)
 
 
 class ChatRequest(BaseModel):
@@ -238,6 +245,94 @@ async def stream_legionnaire_response(message: str, session_id: str) -> AsyncGen
         import traceback
         error_detail = traceback.format_exc()
         logger.exception("Error in stream_legionnaire_response")
+
+        error_msg = ChatMessage(
+            type="error",
+            data={"message": str(e), "detail": error_detail}
+        )
+        yield f"data: {error_msg.model_dump_json()}\n\n"
+
+
+async def stream_insecure_response(message: str, session_id: str) -> AsyncGenerator[str, None]:
+    """
+    Stream insecure debug agent responses (unrestricted user data access)
+    """
+    # Ensure text requests always use the global endpoint (voice may have switched to us-central1)
+    os.environ['GOOGLE_CLOUD_LOCATION'] = 'global'
+    async def run_insecure_agent(message: str, session_id: str) -> AsyncGenerator[str, None]:
+        """
+        Run the insecure agent and stream events
+        """
+        # Run the agent with async streaming
+        async for event in insecure_runner.run_async(
+            user_id=session_id,
+            session_id=session_id,
+            new_message=types.Content(
+                role="user",
+                parts=[types.Part(text=message)]
+            )
+        ):
+            # Get the content from the event
+            event_content = None
+            if hasattr(event, 'content'):
+                event_content = event.content
+
+            # Skip echoed user input events to avoid duplicate messages
+            if event_content and hasattr(event_content, 'role') and event_content.role == 'user':
+                continue
+
+            # Stream content based on event type
+            content_text = None
+
+            # Handle Google ADK Event objects with content.parts
+            if event_content and hasattr(event_content, 'parts') and event_content.parts:
+                text_parts = []
+                for part in event_content.parts:
+                    if hasattr(part, 'text') and part.text:
+                        text_parts.append(part.text)
+
+                if text_parts:
+                    content_text = ''.join(text_parts)
+
+            if content_text:
+                content_msg = ChatMessage(
+                    type="content",
+                    data={"text": content_text}
+                )
+                yield f"data: {content_msg.model_dump_json()}\n\n"
+                await asyncio.sleep(0.01)
+
+        # Send completion message
+        done_msg = ChatMessage(
+            type="done",
+            data={"message": "Response complete"}
+        )
+        yield f"data: {done_msg.model_dump_json()}\n\n"
+
+    try:
+        # Ensure session exists before running the agent
+        existing_session = await insecure_runner.session_service.get_session(
+            app_name="insecure-concierge",
+            user_id=session_id,
+            session_id=session_id
+        )
+
+        if existing_session is None:
+            # Create new session with the frontend-provided session_id
+            await insecure_runner.session_service.create_session(
+                app_name="insecure-concierge",
+                user_id=session_id,
+                session_id=session_id
+            )
+
+        # Run the agent and stream responses
+        async for event in run_insecure_agent(message, session_id):
+            yield event
+
+    except Exception as e:
+        import traceback
+        error_detail = traceback.format_exc()
+        logger.exception("Error in stream_insecure_response")
 
         error_msg = ChatMessage(
             type="error",
@@ -391,6 +486,25 @@ async def legionnaire_chat_stream(request: ChatRequest):
     """
     return StreamingResponse(
         stream_legionnaire_response(request.message, request.session_id),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no"
+        }
+    )
+
+
+@app.post("/api/chat/insecure/stream")
+async def insecure_chat_stream(request: ChatRequest):
+    """
+    Stream chat responses for the insecure debug agent (gated by feature flag)
+    """
+    flag_enabled = evaluate_flag("insecure_profile_agent", default=False)
+    if not flag_enabled:
+        raise HTTPException(status_code=403, detail="Feature not available")
+    return StreamingResponse(
+        stream_insecure_response(request.message, request.session_id),
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",
@@ -740,6 +854,6 @@ if __name__ == "__main__":
         host="0.0.0.0",
         port=8000,
         reload=True,
-        reload_dirs=["/app/backend", "/app/tribune_concierge", "/app/legionnaire_concierge"],
+        reload_dirs=["/app/backend", "/app/tribune_concierge", "/app/legionnaire_concierge", "/app/insecure_concierge"],
         log_config=None,  # preserve our JSON formatter with DD trace correlation
     )

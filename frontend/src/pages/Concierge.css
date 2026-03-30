@@ -519,6 +519,62 @@
   text-transform: uppercase;
 }
 
+/* Debug Agent Styles */
+.debug-card {
+  border: 2px solid #dc2626 !important;
+  background: linear-gradient(135deg, rgba(220, 38, 38, 0.08) 0%, rgba(153, 27, 27, 0.12) 100%) !important;
+  position: relative;
+  overflow: hidden;
+}
+
+.debug-card::before {
+  content: '';
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  font-size: 1.5rem;
+}
+
+.debug-card h2 {
+  color: #ef4444;
+}
+
+.debug-card .tier-description {
+  color: #fca5a5;
+}
+
+.debug-card .tier-features li {
+  color: #f87171;
+}
+
+.tier-badge.debug {
+  background: #dc2626;
+  color: white;
+}
+
+.debug-button {
+  background: #dc2626 !important;
+  border-color: #dc2626 !important;
+  color: white !important;
+}
+
+.debug-button:hover {
+  background: #b91c1c !important;
+}
+
+.debug-header {
+  background: linear-gradient(135deg, #dc2626 0%, #991b1b 100%) !important;
+}
+
+.debug-agent .chat-header {
+  background: linear-gradient(135deg, #dc2626 0%, #991b1b 100%);
+}
+
+.debug-agent .typing-indicator span,
+.debug-typing span {
+  background: #dc2626;
+}
+
 /* Responsive */
 @media (max-width: 768px) {
   .concierge-page {

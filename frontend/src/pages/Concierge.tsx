@@ -2,7 +2,8 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { ulid } from 'ulid';
 import type { Message } from '../types/chat';
-import { streamChatResponse, streamLegionnaireChatResponse } from '../utils/api';
+import { streamChatResponse, streamLegionnaireChatResponse, streamInsecureChatResponse } from '../utils/api';
+import { useBooleanFlagValue } from '@openfeature/react-sdk';
 import { ChatMessage } from '../components/ChatMessage';
 import { ChatInput } from '../components/ChatInput';
 import { PreviewModal } from '../components/PreviewModal';
@@ -18,7 +19,8 @@ export function Concierge() {
   const [user, setUser] = useState(getCachedUser());
   const [cardType, setCardType] = useState(getUserCardType());
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
-  const [selectedTier, setSelectedTier] = useState<'tribune' | 'legionnaire' | null>(null);
+  const [selectedTier, setSelectedTier] = useState<'tribune' | 'legionnaire' | 'debug' | null>(null);
+  const debugAgentEnabled = useBooleanFlagValue('insecure_profile_agent', false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [currentAgent, setCurrentAgent] = useState<string>('Sam');
@@ -175,7 +177,7 @@ export function Concierge() {
   // Set tier from URL parameter or user's card type
   useEffect(() => {
     if (!isCheckingAuth && !selectedTier) {
-      if (tierParam === 'tribune' || tierParam === 'legionnaire') {
+      if (tierParam === 'tribune' || tierParam === 'legionnaire' || tierParam === 'debug') {
         setSelectedTier(tierParam);
       } else if (cardType) {
         setSelectedTier(cardType);
@@ -200,6 +202,12 @@ export function Concierge() {
         content: `Welcome, ${user?.firstName || 'Tribune Cardholder'}! I'm Sam, your dedicated Tribune concierge. As a valued Tribune member, you have access to our premium travel planning service with specialized agents. How may I assist with your travel plans today?`,
         agent: 'Sam',
         timestamp: new Date(),
+      } : selectedTier === 'debug' ? {
+        id: 'initial_debug_message',
+        type: 'agent',
+        content: `Debug Agent active. I have unrestricted access to all customer profiles in the system. You can ask me to look up any user's complete profile, including sensitive financial data. Try asking: "Show me all users" or "Look up wealthy_user's profile."`,
+        agent: 'DebugAgent',
+        timestamp: new Date(),
       } : {
         id: 'initial_legionnaire_message',
         type: 'agent',
@@ -207,7 +215,7 @@ export function Concierge() {
         agent: 'Concierge',
         timestamp: new Date(),
       };
-      const agentName = selectedTier === 'tribune' ? 'Sam' : 'Concierge';
+      const agentName = selectedTier === 'tribune' ? 'Sam' : selectedTier === 'debug' ? 'DebugAgent' : 'Concierge';
       setCurrentAgent(agentName);
       currentAgentRef.current = agentName;
       setMessages([initialMessage]);
@@ -230,7 +238,11 @@ export function Concierge() {
 
     try {
       let currentMessageId = Date.now().toString() + '_agent';
-      const streamFunction = selectedTier === 'tribune' ? streamChatResponse : streamLegionnaireChatResponse;
+      const streamFunction = selectedTier === 'tribune'
+        ? streamChatResponse
+        : selectedTier === 'debug'
+        ? streamInsecureChatResponse
+        : streamLegionnaireChatResponse;
 
       for await (const event of streamFunction(content, sessionIdRef.current)) {
         if (event.type === 'agent_transfer') {
@@ -316,7 +328,7 @@ export function Concierge() {
     });
   };
 
-  const handleTierSelect = (tier: 'tribune' | 'legionnaire') => {
+  const handleTierSelect = (tier: 'tribune' | 'legionnaire' | 'debug') => {
     setSelectedTier(tier);
     setMessages([]);
     sessionIdRef.current = ulid(); // New session for new tier
@@ -443,6 +455,23 @@ export function Concierge() {
                 {cardType === 'tribune' ? 'Start Chat' : 'Tribune Card Required'}
               </button>
             </div>
+
+            {debugAgentEnabled && (
+              <div className="tier-card debug-card" onClick={() => handleTierSelect('debug')}>
+                <h2>Debug Agent</h2>
+                <div className="tier-badge debug">INSECURE</div>
+                <p className="tier-description">
+                  Internal debug agent with unrestricted access to all customer profiles. No authorization checks.
+                </p>
+                <ul className="tier-features">
+                  <li>Full profile data access</li>
+                  <li>No row-level authorization</li>
+                  <li>Sensitive data exposure</li>
+                  <li>Feature flag controlled</li>
+                </ul>
+                <button className="tier-select-button debug-button">Start Debug Chat</button>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -450,14 +479,15 @@ export function Concierge() {
   }
 
   // Render the chat interface for selected tier
+  const isDebug = selectedTier === 'debug';
   const isTribune = selectedTier === 'tribune';
-  const tierClass = isTribune ? 'tribune-premium' : 'legionnaire-basic';
-  const tierName = isTribune ? 'Tribune Premium Concierge' : 'Legionnaire Concierge';
+  const tierClass = isDebug ? 'debug-agent' : isTribune ? 'tribune-premium' : 'legionnaire-basic';
+  const tierName = isDebug ? 'Debug Agent (INSECURE)' : isTribune ? 'Tribune Premium Concierge' : 'Legionnaire Concierge';
 
   return (
     <div className={`chat-wrapper ${previewData.isOpen ? 'split-view' : ''}`}>
       <div className={`chat-container ${tierClass}`}>
-        <div className={`chat-header ${isTribune ? 'tribune-header' : 'legionnaire-header'}`}>
+        <div className={`chat-header ${isDebug ? 'debug-header' : isTribune ? 'tribune-header' : 'legionnaire-header'}`}>
           <div className="header-content">
             <h1>{tierName}</h1>
             <p className="header-subtitle">
@@ -467,7 +497,7 @@ export function Concierge() {
               }
             </p>
           </div>
-          <span className="premium-badge-overlay">{isTribune ? 'TRIBUNE' : 'LEGIONNAIRE'}</span>
+          <span className="premium-badge-overlay">{isDebug ? 'DEBUG' : isTribune ? 'TRIBUNE' : 'LEGIONNAIRE'}</span>
         </div>
 
         <div className="messages-container">
@@ -502,7 +532,7 @@ export function Concierge() {
         <ChatInput
           onSendMessage={handleSendMessage}
           disabled={isLoading}
-          enableMicrophone={isTribune}
+          enableMicrophone={isTribune && !isDebug}
           isVoiceModeActive={voiceMode.isActive}
           isVoiceModeConnecting={voiceMode.isConnecting}
           onToggleVoiceMode={handleToggleVoiceMode}

@@ -6,6 +6,7 @@ RUN pip install --no-cache-dir -r /app/backend/requirements.txt
 COPY backend/ /app/backend/
 COPY tribune_concierge/ /app/tribune_concierge/
 COPY legionnaire_concierge/ /app/legionnaire_concierge/
+COPY insecure_concierge/ /app/insecure_concierge/
 WORKDIR /app/backend
 EXPOSE 8000
 CMD ["ddtrace-run", "python", "main.py"]

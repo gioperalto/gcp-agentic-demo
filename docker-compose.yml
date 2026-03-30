@@ -28,6 +28,7 @@ services:
       DD_DOGSTATSD_NON_LOCAL_TRAFFIC: "true"
       DD_PROCESS_AGENT_ENABLED: "true"
       DD_COMPLIANCE_CONFIG_ENABLED: "true"
+      DD_REMOTE_CONFIGURATION_ENABLED: "true"
 
   backend:
     container_name: ${PROJECT_NAME}-api
@@ -50,6 +51,8 @@ services:
       DD_LLMOBS_AGENTLESS_ENABLED: 0
       DD_API_KEY: ${DATADOG_API_KEY}
       DD_TRACE_PROPAGATION_STYLE: "datadog,tracecontext"
+      DD_EXPERIMENTAL_FLAGGING_PROVIDER_ENABLED: "true"
+      DD_REMOTE_CONFIG_ENABLED: "true"
       GOOGLE_APPLICATION_CREDENTIALS: /app/credentials/sa.json
       GOOGLE_GENAI_USE_VERTEXAI: ${GOOGLE_GENAI_USE_VERTEXAI}
       GOOGLE_GENAI_MODEL: ${GOOGLE_GENAI_MODEL}
@@ -60,6 +63,7 @@ services:
       - ./backend:/app/backend
       - ./tribune_concierge:/app/tribune_concierge
       - ./legionnaire_concierge:/app/legionnaire_concierge
+      - ./insecure_concierge:/app/insecure_concierge
       - ${GOOGLE_APPLICATION_CREDENTIALS}:/app/credentials/sa.json:ro
     labels:
       com.datadoghq.tags.env: ${DD_ENV:-development}

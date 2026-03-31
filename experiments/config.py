@@ -24,7 +24,7 @@ DD_API_KEY = os.getenv("DATADOG_API_KEY")
 DD_APP_KEY = os.getenv("DD_APPLICATION_KEY") or os.getenv("DD_APP_KEY")
 DD_SITE = os.getenv("DD_SITE", "datadoghq.com")
 
-PROJECT_NAME = "travel-planner-experiments"
+PROJECT_NAME = "Travel Planner"
 ML_APP = "travel-planner"
 
 

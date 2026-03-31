@@ -15,6 +15,15 @@ os.environ['GOOGLE_CLOUD_LOCATION'] = 'global'
 from ddtrace.llmobs import LLMObs
 from ddtrace.trace import tracer
 
+# Hallucination detection (LLM-as-judge) — runs async after each concierge turn.
+# The experiments package lives outside the backend Docker image, so import is
+# optional: when unavailable the judge is silently skipped.
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+try:
+    from experiments.hallucination_evaluator import hallucination_judge
+except ImportError:
+    hallucination_judge = None  # type: ignore[assignment]
+
 
 # ---------------------------------------------------------------------------
 # JSON log formatter with Datadog trace correlation
@@ -223,6 +232,7 @@ async def stream_legionnaire_response(message: str, session_id: str) -> AsyncGen
     os.environ['GOOGLE_CLOUD_LOCATION'] = 'global'
 
     response_parts: list[str] = []
+    tool_context: list[str] = []       # ground truth from tool calls
 
     async def run_legionnaire_agent(message: str, session_id: str) -> AsyncGenerator[str, None]:
         """
@@ -255,6 +265,17 @@ async def stream_legionnaire_response(message: str, session_id: str) -> AsyncGen
                 for part in event_content.parts:
                     if hasattr(part, 'text') and part.text:
                         text_parts.append(part.text)
+                    # Capture tool results as ground truth for hallucination detection
+                    elif hasattr(part, 'function_response') and part.function_response:
+                        try:
+                            fr = part.function_response
+                            resp_data = fr.response if hasattr(fr, 'response') else str(fr)
+                            if isinstance(resp_data, dict):
+                                tool_context.append(json.dumps(resp_data, default=str))
+                            else:
+                                tool_context.append(str(resp_data))
+                        except Exception:
+                            pass
 
                 if text_parts:
                     content_text = ''.join(text_parts)
@@ -307,6 +328,19 @@ async def stream_legionnaire_response(message: str, session_id: str) -> AsyncGen
                     input_data=[{"content": message, "role": "user"}],
                     output_data=[{"content": "".join(response_parts), "role": "assistant"}],
                     metadata={"model": _genai_model, "model_provider": "google"},
+                )
+
+            # Run hallucination detection asynchronously (non-blocking)
+            if hallucination_judge is not None:
+                full_response = "".join(response_parts)
+                asyncio.create_task(
+                    hallucination_judge(
+                        user_message=message,
+                        agent_response=full_response,
+                        tool_context=tool_context,
+                        workflow_span=workflow_span,
+                        agent_name="legionnaire",
+                    )
                 )
 
     except Exception as e:
@@ -436,6 +470,8 @@ async def stream_agent_response(message: str, session_id: str) -> AsyncGenerator
 
     # Per-agent response accumulators for LLMObs spans
     agent_response_parts: list[str] = []
+    all_response_parts: list[str] = []    # full turn accumulator for hallucination judge
+    tool_context: list[str] = []          # ground truth from tool calls
     current_agent = "Sam"
 
     def _flush_text_turn_span(agent_name: str) -> None:
@@ -514,8 +550,18 @@ async def stream_agent_response(message: str, session_id: str) -> AsyncGenerator
                         text_parts.append(part.text)
                     elif hasattr(part, 'function_call'):
                         has_function_call = True
-                    elif hasattr(part, 'function_response'):
+                    elif hasattr(part, 'function_response') and part.function_response:
                         has_function_response = True
+                        # Capture tool results as ground truth for hallucination detection
+                        try:
+                            fr = part.function_response
+                            resp_data = fr.response if hasattr(fr, 'response') else str(fr)
+                            if isinstance(resp_data, dict):
+                                tool_context.append(json.dumps(resp_data, default=str))
+                            else:
+                                tool_context.append(str(resp_data))
+                        except Exception:
+                            pass
 
                 if text_parts:
                     content_text = ''.join(text_parts)
@@ -543,6 +589,7 @@ async def stream_agent_response(message: str, session_id: str) -> AsyncGenerator
 
             if content_text:
                 agent_response_parts.append(content_text)
+                all_response_parts.append(content_text)
                 content_msg = ChatMessage(
                     type="content",
                     data={"text": content_text}
@@ -585,6 +632,19 @@ async def stream_agent_response(message: str, session_id: str) -> AsyncGenerator
             # Run the agent and stream responses
             async for event in run_agent(message, session_id, sub_agents):
                 yield event
+
+            # Run hallucination detection asynchronously (non-blocking)
+            if hallucination_judge is not None:
+                full_response = "".join(all_response_parts)
+                asyncio.create_task(
+                    hallucination_judge(
+                        user_message=message,
+                        agent_response=full_response,
+                        tool_context=tool_context,
+                        workflow_span=workflow_span,
+                        agent_name=f"tribune.{current_agent}",
+                    )
+                )
 
     except Exception as e:
         import traceback
@@ -724,11 +784,20 @@ async def voice_websocket(websocket: WebSocket, session_id: str = "default"):
     # Transcription accumulators for LLMObs spans
     user_transcript_parts: list[str] = []
     agent_transcript_parts: list[str] = []
+    # Deferred-flush flag: set on turnComplete, cleared at the top of the next
+    # event iteration after absorbing any trailing transcription frames that
+    # arrive after the turnComplete signal (inputTranscription.finished often
+    # lags behind the agent's turnComplete in the Live API event stream).
+    pending_turn_complete: bool = False
 
     live_model_name = os.getenv("GOOGLE_GENAI_LIVE_MODEL", "gemini-live-2.5-flash-native-audio")
 
     # Shared flag for the message receiver task
     client_disconnected = False
+
+    # Captured by the workflow context manager and reactivated inside
+    # asyncio tasks so that child spans nest under the workflow trace.
+    _workflow_span_ref = None
 
     def _flush_voice_turn_span(*, interrupted: bool = False) -> None:
         """Create an LLMObs span for the completed voice turn and reset accumulators."""
@@ -740,6 +809,11 @@ async def voice_websocket(websocket: WebSocket, session_id: str = "default"):
         span_name = f"voice_llm.{current_agent_name}"
         if interrupted:
             span_name += ".interrupted"
+
+        # Reactivate the workflow span so this LLM span becomes its child.
+        if _workflow_span_ref is not None:
+            tracer.context_provider.activate(_workflow_span_ref)
+
         with LLMObs.llm(
             model_name=live_model_name,
             model_provider="google",
@@ -759,7 +833,13 @@ async def voice_websocket(websocket: WebSocket, session_id: str = "default"):
         Returns the name of the agent to transfer to, or None if the
         conversation ended normally / client disconnected.
         """
-        nonlocal last_author, user_transcript_parts, agent_transcript_parts, current_agent_name, transfer_audio_muted
+        nonlocal last_author, user_transcript_parts, agent_transcript_parts, pending_turn_complete, current_agent_name, transfer_audio_muted
+
+        # Reactivate the workflow span in this async task so all child
+        # spans (created by _flush_voice_turn_span) nest under it.
+        if _workflow_span_ref is not None:
+            tracer.context_provider.activate(_workflow_span_ref)
+
         pending_transfer_target: str | None = None
         conversation_ended = False
         # If audio was muted (transfer in progress), re-enable after
@@ -811,6 +891,15 @@ async def voice_websocket(websocket: WebSocket, session_id: str = "default"):
                     else:
                         user_transcript_parts.append(in_t["text"])
 
+                # Flush the span deferred from the previous turnComplete now
+                # that this event's transcription frames have been absorbed above.
+                # This ensures inputTranscription/outputTranscription events that
+                # trail the turnComplete signal in the Live API stream are captured
+                # before the LLMObs span is written.
+                if pending_turn_complete:
+                    _flush_voice_turn_span(interrupted=False)
+                    pending_turn_complete = False
+
                 # Flush span on turn boundaries
                 if event_dict.get("interrupted"):
                     _flush_voice_turn_span(interrupted=True)
@@ -818,7 +907,11 @@ async def voice_websocket(websocket: WebSocket, session_id: str = "default"):
                     # fire later when the user was mid-sentence
                     pending_transfer_target = None
                 elif event_dict.get("turnComplete"):
-                    _flush_voice_turn_span(interrupted=False)
+                    # Defer the span flush by one event frame so any trailing
+                    # transcription events (e.g. inputTranscription.finished) are
+                    # captured before the span is written (see pending_turn_complete
+                    # check above, which fires at the top of the next iteration).
+                    pending_turn_complete = True
 
                     # Re-enable incoming audio after the new agent's priming
                     # response completes (first turnComplete post-transfer).
@@ -827,8 +920,12 @@ async def voice_websocket(websocket: WebSocket, session_id: str = "default"):
                         reenable_audio_on_turn = False
                         voice_logger.info("Audio re-enabled after new agent greeting turn (session %s)", session_id)
 
-                    # After turn completes, act on pending transfer or end
+                    # After turn completes, act on pending transfer or end.
+                    # Flush inline here since we're about to return and won't
+                    # process any further events for this turn.
                     if pending_transfer_target:
+                        pending_turn_complete = False
+                        _flush_voice_turn_span(interrupted=False)
                         # Mute incoming audio until the new agent's first
                         # turnComplete — event-based, not time-based.
                         transfer_audio_muted = True
@@ -845,6 +942,8 @@ async def voice_websocket(websocket: WebSocket, session_id: str = "default"):
                         return pending_transfer_target
 
                     if conversation_ended:
+                        pending_turn_complete = False
+                        _flush_voice_turn_span(interrupted=False)
                         await websocket.send_text(
                             event.model_dump_json(exclude_none=True, by_alias=True)
                         )
@@ -859,6 +958,11 @@ async def voice_websocket(websocket: WebSocket, session_id: str = "default"):
         except Exception:
             voice_logger.exception("forward_events error for session %s", session_id)
             raise
+
+        # Flush any turn that completed right as run_live ended.
+        if pending_turn_complete:
+            _flush_voice_turn_span(interrupted=False)
+            pending_turn_complete = False
 
         return None  # run_live ended (queue closed / client disconnected)
 
@@ -903,6 +1007,8 @@ async def voice_websocket(websocket: WebSocket, session_id: str = "default"):
 
     try:
         with LLMObs.workflow(name="voice_session") as _workflow_span:
+            _workflow_span_ref = _workflow_span
+            LLMObs.annotate(span=_workflow_span, tags={"session.id": session_id})
             priming_message: str | None = None
 
             while not client_disconnected:

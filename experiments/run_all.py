@@ -6,11 +6,13 @@ Usage:
     # Run all experiments
     python -m experiments.run_all
 
-    # Run a single specialist
-    python -m experiments.run_all --agent jenny
-    python -m experiments.run_all --agent marcus
-    python -m experiments.run_all --agent sofia
-    python -m experiments.run_all --agent luca
+    # Run a single specialist by color name
+    python -m experiments.run_all --agent red
+    python -m experiments.run_all --agent blue
+    python -m experiments.run_all --agent yellow
+    python -m experiments.run_all --agent green
+    python -m experiments.run_all --agent orange
+    python -m experiments.run_all --agent purple
 
 Environment variables required:
     DATADOG_API_KEY          — Datadog API key
@@ -35,23 +37,26 @@ def main():
     parser = argparse.ArgumentParser(description="Run Datadog LLM Observability Experiments")
     parser.add_argument(
         "--agent",
-        choices=["jenny", "marcus", "sofia", "luca", "all"],
+        choices=["red", "blue", "yellow", "green", "orange", "purple", "hallucination", "all"],
         default="all",
         help="Which specialist to evaluate (default: all)",
     )
     args = parser.parse_args()
 
     runners = {
-        "jenny": ("Jenny (Flights)", "experiments.jenny_flights"),
-        "marcus": ("Marcus (Accommodations)", "experiments.marcus_accommodations"),
-        "sofia": ("Sofia (Experiences)", "experiments.sofia_experiences"),
-        "luca": ("Luca (Restaurants)", "experiments.luca_restaurants"),
+        "red": ("Red (Flights)", "experiments.red_flights"),
+        "blue": ("Blue (Accommodations)", "experiments.blue_accommodations"),
+        "yellow": ("Yellow (Experiences)", "experiments.yellow_experiences"),
+        "green": ("Green (Restaurants)", "experiments.green_restaurants"),
+        "orange": ("Orange (Legionnaire Concierge)", "experiments.orange_legionnaire"),
+        "purple": ("Purple (Insecure Concierge)", "experiments.purple_insecure"),
+        "hallucination": ("Hallucination Detection (LLM-as-Judge)", "experiments.hallucination_experiment"),
     }
 
     agents_to_run = list(runners.keys()) if args.agent == "all" else [args.agent]
 
     print("=" * 60)
-    print("Datadog LLM Observability — Specialist Experiments")
+    print("Datadog LLM Observability — Travel Planner Experiments")
     print("=" * 60)
 
     for agent_key in agents_to_run:
@@ -70,7 +75,7 @@ def main():
     print(f"\n{'=' * 60}")
     print("All experiments complete.")
     print("View results in Datadog → LLM Observability → Experiments")
-    print(f"Project: travel-planner-experiments")
+    print(f"Project: Travel Planner")
     print(f"{'=' * 60}")
 
 

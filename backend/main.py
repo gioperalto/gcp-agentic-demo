@@ -1,7 +1,7 @@
 """
 FastAPI backend for Travel Planner with streaming support
 """
-import os, json, asyncio, sys, logging, logging.config
+import os, json, asyncio, sys, logging, logging.config, time
 from datetime import datetime, timezone
 from dotenv import load_dotenv
 
@@ -823,7 +823,7 @@ async def voice_websocket(websocket: WebSocket, session_id: str = "default"):
         Returns the name of the agent to transfer to, or None if the
         conversation ended normally / client disconnected.
         """
-        nonlocal last_author, user_transcript_parts, agent_transcript_parts, pending_turn_complete, current_agent_name, transfer_audio_muted, current_live_session_id
+        nonlocal last_author, user_transcript_parts, agent_transcript_parts, pending_turn_complete, current_agent_name, transfer_audio_muted, transfer_audio_muted_since, current_live_session_id
 
         # Reactivate the workflow span in this async task so all child
         # spans (created by _flush_voice_turn_span) nest under it.
@@ -906,7 +906,7 @@ async def voice_websocket(websocket: WebSocket, session_id: str = "default"):
                     # Re-enable incoming audio after the new agent's priming
                     # response completes (first turnComplete post-transfer).
                     if reenable_audio_on_turn:
-                        transfer_audio_muted = False
+                        _clear_transfer_audio_mute("turn_complete")
                         reenable_audio_on_turn = False
                         voice_logger.info("Audio re-enabled after new agent greeting turn (session %s)", session_id)
 
@@ -919,6 +919,7 @@ async def voice_websocket(websocket: WebSocket, session_id: str = "default"):
                         # Mute incoming audio until the new agent's first
                         # turnComplete — event-based, not time-based.
                         transfer_audio_muted = True
+                        transfer_audio_muted_since = time.monotonic()
                         await websocket.send_text(
                             event.model_dump_json(exclude_none=True, by_alias=True)
                         )
@@ -968,8 +969,17 @@ async def voice_websocket(websocket: WebSocket, session_id: str = "default"):
 
     # When True, incoming audio frames are silently dropped (used during transfers
     # to discard in-flight mic data and prevent echo of the new agent's greeting).
-    # Cleared on the new agent's first turnComplete — NOT on a timer.
+    # Normally cleared on the new agent's first turnComplete, with a timeout
+    # fallback so a stalled transfer cannot block user speech indefinitely.
     transfer_audio_muted = False
+    transfer_audio_muted_since: float | None = None
+
+    def _clear_transfer_audio_mute(reason: str) -> None:
+        nonlocal transfer_audio_muted, transfer_audio_muted_since
+        if transfer_audio_muted:
+            voice_logger.info("Clearing transfer audio mute (%s) for session %s", reason, session_id)
+        transfer_audio_muted = False
+        transfer_audio_muted_since = None
 
     async def process_messages(live_request_queue: LiveRequestQueue):
         """Receive JSON LiveRequest frames from browser and feed to queue."""
@@ -980,9 +990,11 @@ async def voice_websocket(websocket: WebSocket, session_id: str = "default"):
                 try:
                     # During transfers, drop audio-only frames to prevent residual
                     # mic data from triggering a second greeting on the new agent.
-                    if transfer_audio_muted:
-                        parsed = json.loads(data)
-                        if "blob" in parsed:
+                    parsed = json.loads(data)
+                    if transfer_audio_muted and "blob" in parsed:
+                        if transfer_audio_muted_since is not None and time.monotonic() - transfer_audio_muted_since > 15:
+                            _clear_transfer_audio_mute("timeout")
+                        else:
                             continue
                     live_request_queue.send(LiveRequest.model_validate_json(data))
                 except Exception as e:
@@ -1005,11 +1017,17 @@ async def voice_websocket(websocket: WebSocket, session_id: str = "default"):
                 # Use a fresh ADK live session for each agent stint so transfer
                 # tool calls cannot leak into the next agent's history.
                 voice_runner.agent = LIVE_AGENT_MAP[current_agent_name]
-                await voice_runner.session_service.create_session(
+                existing_session = await voice_runner.session_service.get_session(
                     app_name="tribune-concierge-live",
                     user_id=session_id,
                     session_id=current_live_session_id,
                 )
+                if existing_session is None:
+                    await voice_runner.session_service.create_session(
+                        app_name="tribune-concierge-live",
+                        user_id=session_id,
+                        session_id=current_live_session_id,
+                    )
                 run_config = _make_voice_run_config(current_agent_name)
                 live_request_queue = LiveRequestQueue()
 

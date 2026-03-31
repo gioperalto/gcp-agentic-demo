@@ -264,6 +264,11 @@ export function useVoiceMode(sessionId: string, callbacks?: VoiceModeCallbacks) 
             micMutedRef.current = true;
             transferTTSPlayingRef.current = true;
             awaitingTransferTurnRef.current = true;
+            // Hide the new agent's priming-driven greeting from chat UI while
+            // still allowing the audio to play through the persistent socket.
+            suppressGreetingRef.current = true;
+            agentTranscriptRef.current = '';
+            setState(prev => ({ ...prev, currentTranscript: '' }));
 
             // Wait for any queued agent audio to finish playing before
             // starting the TTS announcement so we don't talk over Sam's goodbye.
@@ -436,7 +441,7 @@ export function useVoiceMode(sessionId: string, callbacks?: VoiceModeCallbacks) 
         if (userTranscriptRef.current) {
           callbacks?.onUserTranscript?.(userTranscriptRef.current, true);
         }
-        if (agentTranscriptRef.current) {
+        if (agentTranscriptRef.current && !suppressGreetingRef.current) {
           callbacks?.onAgentTranscript?.(agentTranscriptRef.current, true);
         }
         // Surface unexpected close to user (1000 = normal close)

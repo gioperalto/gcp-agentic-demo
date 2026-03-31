@@ -763,23 +763,13 @@ async def voice_websocket(websocket: WebSocket, session_id: str = "default"):
 
     await websocket.accept()
 
-    # Ensure session exists
-    existing_session = await live_runner.session_service.get_session(
-        app_name="tribune-concierge-live",
-        user_id=session_id,
-        session_id=session_id,
-    )
-    if existing_session is None:
-        existing_session = await live_runner.session_service.create_session(
-            app_name="tribune-concierge-live",
-            user_id=session_id,
-            session_id=session_id,
-        )
-
     voice_logger = logging.getLogger("voice_ws")
+    voice_runner = InMemoryRunner(agent=live_root_agent, app_name="tribune-concierge-live")
 
     last_author = None
     current_agent_name: str = "Sam"
+    current_live_session_id: str = f"{session_id}:0:{current_agent_name}"
+    transfer_count = 0
 
     # Transcription accumulators for LLMObs spans
     user_transcript_parts: list[str] = []
@@ -833,7 +823,7 @@ async def voice_websocket(websocket: WebSocket, session_id: str = "default"):
         Returns the name of the agent to transfer to, or None if the
         conversation ended normally / client disconnected.
         """
-        nonlocal last_author, user_transcript_parts, agent_transcript_parts, pending_turn_complete, current_agent_name, transfer_audio_muted
+        nonlocal last_author, user_transcript_parts, agent_transcript_parts, pending_turn_complete, current_agent_name, transfer_audio_muted, current_live_session_id
 
         # Reactivate the workflow span in this async task so all child
         # spans (created by _flush_voice_turn_span) nest under it.
@@ -847,9 +837,9 @@ async def voice_websocket(websocket: WebSocket, session_id: str = "default"):
         reenable_audio_on_turn = transfer_audio_muted
 
         try:
-            async for event in live_runner.run_live(
+            async for event in voice_runner.run_live(
                 user_id=session_id,
-                session_id=session_id,
+                session_id=current_live_session_id,
                 live_request_queue=live_request_queue,
                 run_config=run_config,
             ):
@@ -1012,8 +1002,14 @@ async def voice_websocket(websocket: WebSocket, session_id: str = "default"):
             priming_message: str | None = None
 
             while not client_disconnected:
-                # Swap the agent on the shared runner
-                live_runner.agent = LIVE_AGENT_MAP[current_agent_name]
+                # Use a fresh ADK live session for each agent stint so transfer
+                # tool calls cannot leak into the next agent's history.
+                voice_runner.agent = LIVE_AGENT_MAP[current_agent_name]
+                await voice_runner.session_service.create_session(
+                    app_name="tribune-concierge-live",
+                    user_id=session_id,
+                    session_id=current_live_session_id,
+                )
                 run_config = _make_voice_run_config(current_agent_name)
                 live_request_queue = LiveRequestQueue()
 
@@ -1053,10 +1049,12 @@ async def voice_websocket(websocket: WebSocket, session_id: str = "default"):
                 if transfer_target and not client_disconnected:
                     old_agent = current_agent_name
                     current_agent_name = transfer_target
+                    transfer_count += 1
+                    current_live_session_id = f"{session_id}:{transfer_count}:{current_agent_name}"
                     priming_message = (
                         f"The customer was just transferred to you from {old_agent}. "
-                        f"Greet them briefly, then STOP and wait silently for the user to speak. "
-                        f"Do NOT continue talking or ask follow-up questions until the user responds."
+                        f"Reply with exactly one brief greeting sentence, then wait silently for the user. "
+                        f"Do not ask a follow-up question or add a second sentence unless the user speaks again."
                     )
                     voice_logger.info("Agent switch: %s → %s (session %s)", old_agent, current_agent_name, session_id)
                     continue

@@ -48,16 +48,18 @@ export function Restaurants() {
     loadRestaurants();
   }, []);
 
-  // Auto-select restaurant from query param
+  // Auto-select restaurant from query param — depends on user so it re-fires
+  // after auth hydration completes in a new tab (getCachedUser() returns null
+  // on fresh page load; fetchCurrentUser() populates it asynchronously).
   useEffect(() => {
     const id = searchParams.get('id');
-    if (id && restaurants.length > 0) {
+    if (id && user && restaurants.length > 0) {
       const restaurant = restaurants.find(r => r.id === id);
       if (restaurant) {
         openReservationModal(restaurant);
       }
     }
-  }, [restaurants, searchParams]);
+  }, [restaurants, searchParams, user]);
 
   // Apply filters
   useEffect(() => {

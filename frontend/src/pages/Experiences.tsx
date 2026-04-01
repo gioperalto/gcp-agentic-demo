@@ -45,16 +45,18 @@ export const Experiences = () => {
     loadExperiences();
   }, []);
 
-  // Auto-select experience from query param
+  // Auto-select experience from query param — depends on user so it re-fires
+  // after auth hydration completes in a new tab. Also guards against calling
+  // openBookingModal (which redirects to /login) before user is available.
   useEffect(() => {
     const id = searchParams.get('id');
-    if (id && experiences.length > 0) {
+    if (id && user && experiences.length > 0) {
       const experience = experiences.find(e => e.id === id);
       if (experience) {
         openBookingModal(experience);
       }
     }
-  }, [experiences, searchParams]);
+  }, [experiences, searchParams, user]);
 
   useEffect(() => {
     applyFilters();

@@ -774,6 +774,7 @@ async def voice_websocket(websocket: WebSocket, session_id: str = "default"):
     # Transcription accumulators for LLMObs spans
     user_transcript_parts: list[str] = []
     agent_transcript_parts: list[str] = []
+    conversation_history: list[dict[str, str]] = []
     # Deferred-flush flag: set on turnComplete, cleared at the top of the next
     # event iteration after absorbing any trailing transcription frames that
     # arrive after the turnComplete signal (inputTranscription.finished often
@@ -791,7 +792,7 @@ async def voice_websocket(websocket: WebSocket, session_id: str = "default"):
 
     def _flush_voice_turn_span(*, interrupted: bool = False) -> None:
         """Create an LLMObs span for the completed voice turn and reset accumulators."""
-        nonlocal user_transcript_parts, agent_transcript_parts
+        nonlocal user_transcript_parts, agent_transcript_parts, conversation_history
         user_text = "".join(user_transcript_parts).strip()
         agent_text = "".join(agent_transcript_parts).strip()
         if not user_text and not agent_text:
@@ -814,6 +815,18 @@ async def voice_websocket(websocket: WebSocket, session_id: str = "default"):
                 input_data=[{"content": user_text or "(audio-only)", "role": "user"}],
                 output_data=[{"content": agent_text or "(audio-only)", "role": "assistant"}],
             )
+        if user_text:
+            conversation_history.append({
+                "role": "user",
+                "agent_name": current_agent_name,
+                "text": user_text,
+            })
+        if agent_text:
+            conversation_history.append({
+                "role": "agent",
+                "agent_name": current_agent_name,
+                "text": agent_text,
+            })
         user_transcript_parts = []
         agent_transcript_parts = []
 
@@ -1069,10 +1082,17 @@ async def voice_websocket(websocket: WebSocket, session_id: str = "default"):
                     current_agent_name = transfer_target
                     transfer_count += 1
                     current_live_session_id = f"{session_id}:{transfer_count}:{current_agent_name}"
+                    history_lines = []
+                    for entry in conversation_history:
+                        speaker = entry["agent_name"] if entry["role"] == "agent" else "Customer"
+                        compact_text = " ".join(entry["text"].split())
+                        history_lines.append(f'  {speaker}: {json.dumps(compact_text)}')
+                    history_block = "\n".join(history_lines) if history_lines else '  Customer: "(no prior conversation captured)"'
                     priming_message = (
-                        f"The customer was just transferred to you from {old_agent}. "
-                        f"Reply with exactly one brief greeting sentence, then wait silently for the user. "
-                        f"Do not ask a follow-up question or add a second sentence unless the user speaks again."
+                        f"The customer was just transferred to you from {old_agent}.\n"
+                        f"Here is a summary of the conversation so far:\n"
+                        f"{history_block}\n"
+                        f"Reply with exactly one brief greeting sentence acknowledging the context, then wait silently for the user."
                     )
                     voice_logger.info("Agent switch: %s → %s (session %s)", old_agent, current_agent_name, session_id)
                     continue

@@ -265,6 +265,7 @@ export function useVoiceMode(sessionId: string, callbacks?: VoiceModeCallbacks) 
             const { from, to, message } = data.agentTransfer;
             console.log(`[voice] Agent transfer: ${from} → ${to}`);
             currentAuthorRef.current = to;
+            suppressGreetingRef.current = true;
 
             if (transferFallbackTimeoutRef.current) {
               clearTimeout(transferFallbackTimeoutRef.current);

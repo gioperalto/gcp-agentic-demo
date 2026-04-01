@@ -353,8 +353,13 @@ TRANSFERS:
 - If the user asks about experiences or itineraries, suggest transferring to Sofia. Only call transfer_to('Sofia') after the user agrees.
 - If the user asks about restaurants or dining, suggest transferring to Luca. Only call transfer_to('Luca') after the user agrees.
 - If the user wants to go back to the main concierge, suggest transferring to Sam. Only call transfer_to('Sam') after the user agrees.
-- NEVER call transfer_to unprompted — the user must initiate or confirm the transfer.''',
-    tools=[FunctionTool(search_flights), FunctionTool(compare_flight_prices), FunctionTool(get_flight_details), _transfer_tool],
+- NEVER call transfer_to unprompted — the user must initiate or confirm the transfer.
+
+END CONVERSATION:
+- If the user says goodbye, "that will be all", "no further help needed", "thanks, bye", or any clear farewell, call end_conversation() to gracefully close the voice session.
+- If you are done with flights but the user might need other help, offer to transfer back to Sam first.
+- NEVER call end_conversation unprompted — the user must explicitly conclude.''',
+    tools=[FunctionTool(search_flights), FunctionTool(compare_flight_prices), FunctionTool(get_flight_details), _transfer_tool, _end_conversation_tool],
 )
 
 live_accommodation_agent = Agent(
@@ -376,8 +381,13 @@ TRANSFERS:
 - If the user asks about experiences or itineraries, suggest transferring to Sofia. Only call transfer_to('Sofia') after the user agrees.
 - If the user asks about restaurants or dining, suggest transferring to Luca. Only call transfer_to('Luca') after the user agrees.
 - If the user wants to go back to the main concierge, suggest transferring to Sam. Only call transfer_to('Sam') after the user agrees.
-- NEVER call transfer_to unprompted — the user must initiate or confirm the transfer.''',
-    tools=[FunctionTool(search_accommodations), FunctionTool(get_accommodation_reviews), _transfer_tool],
+- NEVER call transfer_to unprompted — the user must initiate or confirm the transfer.
+
+END CONVERSATION:
+- If the user says goodbye, "that will be all", "no further help needed", "thanks, bye", or any clear farewell, call end_conversation() to gracefully close the voice session.
+- If you are done with accommodations but the user might need other help, offer to transfer back to Sam first.
+- NEVER call end_conversation unprompted — the user must explicitly conclude.''',
+    tools=[FunctionTool(search_accommodations), FunctionTool(get_accommodation_reviews), _transfer_tool, _end_conversation_tool],
 )
 
 live_itinerary_agent = Agent(
@@ -399,8 +409,13 @@ TRANSFERS:
 - If the user asks about accommodations or hotels, suggest transferring to Marcus. Only call transfer_to('Marcus') after the user agrees.
 - If the user asks about restaurants or dining, suggest transferring to Luca. Only call transfer_to('Luca') after the user agrees.
 - If the user wants to go back to the main concierge, suggest transferring to Sam. Only call transfer_to('Sam') after the user agrees.
-- NEVER call transfer_to unprompted — the user must initiate or confirm the transfer.''',
-    tools=[FunctionTool(search_attractions), FunctionTool(create_daily_itinerary), FunctionTool(check_operating_hours), _transfer_tool],
+- NEVER call transfer_to unprompted — the user must initiate or confirm the transfer.
+
+END CONVERSATION:
+- If the user says goodbye, "that will be all", "no further help needed", "thanks, bye", or any clear farewell, call end_conversation() to gracefully close the voice session.
+- If you are done with experiences but the user might need other help, offer to transfer back to Sam first.
+- NEVER call end_conversation unprompted — the user must explicitly conclude.''',
+    tools=[FunctionTool(search_attractions), FunctionTool(create_daily_itinerary), FunctionTool(check_operating_hours), _transfer_tool, _end_conversation_tool],
 )
 
 live_restaurant_agent = Agent(
@@ -424,8 +439,13 @@ TRANSFERS:
 - If the user asks about accommodations or hotels, suggest transferring to Marcus. Only call transfer_to('Marcus') after the user agrees.
 - If the user asks about experiences or itineraries, suggest transferring to Sofia. Only call transfer_to('Sofia') after the user agrees.
 - If the user wants to go back to the main concierge, suggest transferring to Sam. Only call transfer_to('Sam') after the user agrees.
-- NEVER call transfer_to unprompted — the user must initiate or confirm the transfer.''',
-    tools=[FunctionTool(get_restaurant_recommendations), FunctionTool(get_restaurant_details), _transfer_tool],
+- NEVER call transfer_to unprompted — the user must initiate or confirm the transfer.
+
+END CONVERSATION:
+- If the user says goodbye, "that will be all", "no further help needed", "thanks, bye", or any clear farewell, call end_conversation() to gracefully close the voice session.
+- If you are done with dining but the user might need other help, offer to transfer back to Sam first.
+- NEVER call end_conversation unprompted — the user must explicitly conclude.''',
+    tools=[FunctionTool(get_restaurant_recommendations), FunctionTool(get_restaurant_details), _transfer_tool, _end_conversation_tool],
 )
 
 live_utility_agent = Agent(
@@ -453,12 +473,18 @@ CRITICAL — DO NOT TRANSFER:
 
 TRANSFERS (only one exception):
 - If the user explicitly and repeatedly insists on a specific specialist and will not proceed with you, only then call transfer_to() — but make one more attempt to keep them with you first.
-- NEVER call transfer_to unprompted.''',
+- NEVER call transfer_to unprompted.
+
+END CONVERSATION:
+- If the user says goodbye, "that will be all", "no further help needed", "thanks, bye", or any clear farewell, call end_conversation() to gracefully close the voice session.
+- If you are done but the user might need other help, offer to transfer back to Sam first.
+- NEVER call end_conversation unprompted — the user must explicitly conclude.''',
     tools=[
         FunctionTool(audit_all_travel_options),
         FunctionTool(cross_reference_availability),
         FunctionTool(compile_travel_brief),
         _transfer_tool,
+        _end_conversation_tool,
     ],
 )
 

@@ -182,14 +182,15 @@ export function useVoiceMode(sessionId: string, callbacks?: VoiceModeCallbacks) 
     });
   }, []);
 
-  const startVoiceMode = useCallback(async (initialGreeting?: string) => {
+  const startVoiceMode = useCallback(async (initialGreeting?: string, isResume?: boolean) => {
     if (state.isActive || state.isConnecting) return;
 
     setState(prev => ({ ...prev, isConnecting: true }));
 
-    // Mute mic if we need to play an initial greeting first
+    // Mute mic while the initial/resume greeting plays.
+    // On resume, do NOT suppress the transcript — the user should see Sam's response.
     micMutedRef.current = !!initialGreeting;
-    suppressGreetingRef.current = !!initialGreeting;
+    suppressGreetingRef.current = !!initialGreeting && !isResume;
 
     try {
       // 1. Open WebSocket

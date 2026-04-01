@@ -27,9 +27,10 @@ from ddtrace.llmobs._experiment import EvaluationResult as EvaluatorResult
 logger = logging.getLogger("travel_planner")
 
 _DD_SITE = os.getenv("DD_SITE", "datadoghq.com")
-_DD_API_KEY = os.getenv("DATADOG_API_KEY", "")
+_DD_API_KEY = os.getenv("DD_API_KEY") or os.getenv("DATADOG_API_KEY", "")
+_DD_APP_KEY = os.getenv("DD_APP_KEY") or os.getenv("DATADOG_APP_KEY", "")
 _ML_APP = os.getenv("DD_LLMOBS_ML_APP", "travel-planner")
-_EVAL_API_URL = f"https://api.{_DD_SITE}/api/intake/llm-obs/v2/eval-metric"
+_EVAL_API_URL = f"https://api.{_DD_SITE}/api/v2/llm-obs/v1/eval-metric"
 
 
 async def _submit_eval_http(
@@ -41,30 +42,29 @@ async def _submit_eval_http(
 ) -> None:
     """Submit a hallucination evaluation via the Datadog external evaluations HTTP API.
 
-    Uses POST /api/intake/llm-obs/v2/eval-metric to associate the score with the
+    Uses POST /api/v2/llm-obs/v1/eval-metric to associate the score with the
     specific LLM span that produced the response being evaluated.
     """
+    if not _DD_API_KEY or not _DD_APP_KEY:
+        logger.warning(
+            "Skipping hallucination eval submission for label=%s: missing DD_API_KEY or DD_APP_KEY",
+            label,
+        )
+        return
+
     payload = {
         "data": {
             "type": "evaluation_metric",
             "attributes": {
-                "metrics": [
-                    {
-                        "join_on": {
-                            "span": {
-                                "span_id": str(span_context["span_id"]),
-                                "trace_id": str(span_context["trace_id"]),
-                            }
-                        },
-                        "ml_app": _ML_APP,
-                        "timestamp_ms": int(time.time() * 1000),
-                        "metric_type": "score",
-                        "label": label,
-                        "score_value": value,
-                        "assessment": assessment,
-                        "reasoning": reasoning,
-                    }
-                ]
+                "ml_app": _ML_APP,
+                "span_id": str(span_context["span_id"]),
+                "trace_id": str(span_context["trace_id"]),
+                "timestamp_ms": int(time.time() * 1000),
+                "metric_type": "score",
+                "label": label,
+                "score_value": value,
+                "assessment": assessment,
+                "reasoning": reasoning,
             },
         }
     }
@@ -74,10 +74,11 @@ async def _submit_eval_http(
             json=payload,
             headers={
                 "DD-API-KEY": _DD_API_KEY,
+                "DD-APPLICATION-KEY": _DD_APP_KEY,
                 "Content-Type": "application/json",
             },
         )
-        if resp.status_code != 202:
+        if resp.status_code not in (200, 202):
             logger.warning(
                 "External eval API returned %d for label=%s: %s",
                 resp.status_code, label, resp.text[:200],

@@ -46,6 +46,7 @@ interface VoiceModeCallbacks {
   onAgentTranscript?: (text: string, isFinal: boolean) => void;
   onUserTranscript?: (text: string, isFinal: boolean) => void;
   onAgentTransfer?: (agentName: string) => void;
+  onToolResult?: (agentName: string, message: string, toolName?: string) => void;
   onConversationEnd?: () => void;
   onError?: (error: string) => void;
 }
@@ -336,6 +337,13 @@ export function useVoiceMode(sessionId: string, callbacks?: VoiceModeCallbacks) 
             }
 
             callbacks?.onAgentTransfer?.(to);
+            return;
+          }
+
+          // Tool result forwarded from backend (search results with markdown links)
+          if (data.voiceToolResult) {
+            const { agent, message, toolName } = data.voiceToolResult;
+            callbacks?.onToolResult?.(agent || currentAuthorRef.current, message, toolName);
             return;
           }
 

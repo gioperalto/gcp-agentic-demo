@@ -848,6 +848,8 @@ async def voice_websocket(websocket: WebSocket, session_id: str = "default"):
         # If audio was muted (transfer in progress), re-enable after
         # the first turnComplete so the user can speak to the new agent.
         reenable_audio_on_turn = transfer_audio_muted
+        # Deduplicate tool result messages within this run (tool may emit twice)
+        seen_tool_messages: set[tuple[str, str]] = set()
 
         try:
             async for event in voice_runner.run_live(
@@ -865,7 +867,8 @@ async def voice_websocket(websocket: WebSocket, session_id: str = "default"):
                     last_author = author
                     current_agent_name = author
 
-                # Detect transfer_to / end_conversation function calls
+                # Detect transfer_to / end_conversation function calls;
+                # also forward tool result messages to the chat as voiceToolResult.
                 content_parts = event_dict.get("content", {}).get("parts", [])
                 for part in content_parts:
                     fc = part.get("functionCall")
@@ -877,6 +880,24 @@ async def voice_websocket(websocket: WebSocket, session_id: str = "default"):
                         elif fc.get("name") == "end_conversation":
                             conversation_ended = True
                             voice_logger.info("Conversation ended by agent (session %s)", session_id)
+
+                    fr = part.get("functionResponse")
+                    if fr:
+                        resp = fr.get("response") if isinstance(fr, dict) else None
+                        if isinstance(resp, dict):
+                            msg = resp.get("message")
+                            tool_name = fr.get("name", "")
+                            if isinstance(msg, str) and msg.strip():
+                                key = (tool_name, msg)
+                                if key not in seen_tool_messages:
+                                    seen_tool_messages.add(key)
+                                    await websocket.send_text(json.dumps({
+                                        "voiceToolResult": {
+                                            "agent": current_agent_name,
+                                            "toolName": tool_name,
+                                            "message": msg,
+                                        }
+                                    }))
 
                 # Accumulate output transcription (agent speaking)
                 out_t = event_dict.get("outputTranscription")

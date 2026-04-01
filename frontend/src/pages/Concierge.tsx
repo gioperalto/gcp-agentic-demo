@@ -117,6 +117,16 @@ export function Concierge() {
     currentAgentRef.current = agentName;
   }, []);
 
+  const handleVoiceToolResult = useCallback((agentName: string, message: string) => {
+    setMessages(prev => [...prev, {
+      id: Date.now().toString() + '_voice_tool',
+      type: 'agent' as const,
+      content: message,
+      agent: agentName,
+      timestamp: new Date(),
+    }]);
+  }, []);
+
   const handleVoiceError = useCallback((error: string) => {
     console.error('Voice mode error:', error);
     setMessages(prev => [
@@ -134,6 +144,7 @@ export function Concierge() {
     onAgentTranscript: handleVoiceAgentTranscript,
     onUserTranscript: handleVoiceUserTranscript,
     onAgentTransfer: handleVoiceAgentTransfer,
+    onToolResult: handleVoiceToolResult,
     onError: handleVoiceError,
   });
 

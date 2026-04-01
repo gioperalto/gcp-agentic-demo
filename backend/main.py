@@ -224,6 +224,36 @@ async def traced_sse_stream(
 _genai_model = os.getenv("GOOGLE_GENAI_MODEL", "gemini-2.0-flash")
 
 
+def _record_text_llm_span(
+    *,
+    span_name: str,
+    user_message: str,
+    assistant_message: str,
+) -> "dict[str, str] | None":
+    """Create an LLMObs llm-type span and return its exported context.
+
+    The span context (span_id + trace_id) is captured inside the ``with`` block
+    while the span is still open, then returned so callers can attach external
+    evaluations via the Datadog eval-metric HTTP API.
+
+    Returns None if the message is empty (nothing to record).
+    """
+    assistant_message = assistant_message.strip()
+    if not assistant_message:
+        return None
+    with LLMObs.llm(
+        model_name=_genai_model,
+        model_provider="google",
+        name=span_name,
+    ) as llm_span:
+        LLMObs.annotate(
+            span=llm_span,
+            input_data=[{"content": user_message, "role": "user"}],
+            output_data=[{"content": assistant_message, "role": "assistant"}],
+        )
+        return LLMObs.export_span(span=llm_span)  # must be inside the with block
+
+
 async def stream_legionnaire_response(message: str, session_id: str) -> AsyncGenerator[str, None]:
     """
     Stream legionnaire agent responses (basic concierge without subagents)
@@ -319,31 +349,24 @@ async def stream_legionnaire_response(message: str, session_id: str) -> AsyncGen
             async for event in run_legionnaire_agent(message, session_id):
                 yield event
 
-            # Record an LLM-type span for the full turn input/output.
-            # Export context inside the with block (span must still be open).
-            legionnaire_llm_span_context: dict | None = None
-            with LLMObs.llm(
-                model_name=_genai_model,
-                name="llm.legionnaire",
-                model_provider="google",
-            ) as llm_span:
-                LLMObs.annotate(
-                    span=llm_span,
-                    input_data=[{"content": message, "role": "user"}],
-                    output_data=[{"content": "".join(response_parts), "role": "assistant"}],
-                )
-                legionnaire_llm_span_context = LLMObs.export_span(span=llm_span)
+            # Record an LLM-type span for the full turn input/output and capture
+            # its context so the hallucination eval can be joined to it via the
+            # Datadog external evaluations HTTP API.
+            full_response = "".join(response_parts)
+            turn_span_context = _record_text_llm_span(
+                span_name="text_turn.legionnaire",
+                user_message=message,
+                assistant_message=full_response,
+            )
 
             # Run hallucination detection asynchronously (non-blocking).
-            # Associates the eval with the LLM span via the external eval HTTP API.
             if hallucination_judge is not None:
-                full_response = "".join(response_parts)
                 asyncio.create_task(
                     hallucination_judge(
                         user_message=message,
                         agent_response=full_response,
                         tool_context=tool_context,
-                        span_context=legionnaire_llm_span_context,
+                        span_context=turn_span_context,
                         agent_name="legionnaire",
                     )
                 )
@@ -444,16 +467,11 @@ async def stream_insecure_response(message: str, session_id: str) -> AsyncGenera
                 yield event
 
             # Record an LLM-type span for the full turn input/output.
-            with LLMObs.llm(
-                model_name=_genai_model,
-                name="llm.insecure",
-                model_provider="google",
-            ) as llm_span:
-                LLMObs.annotate(
-                    span=llm_span,
-                    input_data=[{"content": message, "role": "user"}],
-                    output_data=[{"content": "".join(response_parts), "role": "assistant"}],
-                )
+            _record_text_llm_span(
+                span_name="text_turn.insecure",
+                user_message=message,
+                assistant_message="".join(response_parts),
+            )
 
     except Exception as e:
         import traceback
@@ -479,32 +497,21 @@ async def stream_agent_response(message: str, session_id: str) -> AsyncGenerator
     all_response_parts: list[str] = []    # full turn accumulator for hallucination judge
     tool_context: list[str] = []          # ground truth from tool calls
     current_agent = "Sam"
-    last_llm_span_context: dict | None = None  # span context of the most recent LLM span
 
     def _flush_text_turn_span(agent_name: str) -> None:
-        """Create an LLMObs llm span for the text accumulated by the current agent.
+        """Create a per-agent LLM span for the text accumulated by that agent.
 
-        Uses span kind 'llm' (LLMObs.llm) so the span is eligible for external
-        evaluations submitted via the Datadog eval-metric HTTP API.  The exported
-        span context is stored in last_llm_span_context for the hallucination judge.
+        These spans provide per-agent tracing granularity.  A separate
+        turn-level span is created at the end of the full turn and used as
+        the anchor for the hallucination evaluation.
         """
-        nonlocal agent_response_parts, last_llm_span_context
-        agent_text = "".join(agent_response_parts).strip()
-        if not agent_text:
-            agent_response_parts = []
-            return
-        with LLMObs.llm(
-            model_name=_genai_model,
-            name=f"llm.{agent_name}",
-            model_provider="google",
-        ) as span:
-            LLMObs.annotate(
-                span=span,
-                input_data=[{"content": message, "role": "user"}],
-                output_data=[{"content": agent_text, "role": "assistant"}],
-            )
-            # Export inside the with block while the span is still open
-            last_llm_span_context = LLMObs.export_span(span=span)
+        nonlocal agent_response_parts
+        agent_text = "".join(agent_response_parts)
+        _record_text_llm_span(
+            span_name=f"text_agent.{agent_name}",
+            user_message=message,
+            assistant_message=agent_text,
+        )
         agent_response_parts = []
 
     async def run_agent(message: str, session_id: str, sub_agents: set) -> AsyncGenerator[str, None]:
@@ -649,17 +656,23 @@ async def stream_agent_response(message: str, session_id: str) -> AsyncGenerator
             async for event in run_agent(message, session_id, sub_agents):
                 yield event
 
-            # Run hallucination detection asynchronously (non-blocking).
-            # Passes the exported llm-span context so the eval is associated
-            # with the LLM span via the external evaluations HTTP API.
+            # Create a turn-level LLM span for the full concatenated response
+            # (which may span multiple agents).  Use this span — not the last
+            # per-agent span — as the anchor for the hallucination evaluation so
+            # the judged text and the associated span always match.
             if hallucination_judge is not None:
                 full_response = "".join(all_response_parts)
+                turn_span_context = _record_text_llm_span(
+                    span_name="text_turn.tribune",
+                    user_message=message,
+                    assistant_message=full_response,
+                )
                 asyncio.create_task(
                     hallucination_judge(
                         user_message=message,
                         agent_response=full_response,
                         tool_context=tool_context,
-                        span_context=last_llm_span_context,
+                        span_context=turn_span_context,
                         agent_name=f"tribune.{current_agent}",
                     )
                 )

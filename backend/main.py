@@ -106,6 +106,7 @@ from tribune_concierge.agent import root_agent, live_root_agent, AGENT_VOICE_MAP
 from legionnaire_concierge.agent import legionnaire_agent
 from insecure_concierge.agent import insecure_agent
 from services.feature_flag_service import evaluate_flag, init_feature_flags
+from feature_flags import FLAGS, INSECURE_PROFILE_AGENT, RALPH_AGENT
 
 logger = logging.getLogger("travel_planner")
 
@@ -573,6 +574,7 @@ async def stream_agent_response(message: str, session_id: str) -> AsyncGenerator
         Run the agent and stream events with agent transfer notifications
         """
         nonlocal current_agent, agent_response_parts
+        _ralph_blocked = False  # True when ralph_agent flag is disabled and transfer to Ralph was attempted
 
         # Run the agent with async streaming
         async for event in runner.run_async(
@@ -655,18 +657,33 @@ async def stream_agent_response(message: str, session_id: str) -> AsyncGenerator
                 _flush_text_turn_span(current_agent)
                 # Close the outgoing sub-agent workflow (no-op for Sam)
                 _close_subagent_workflow()
-                current_agent = event_agent
-                # Open a workflow span for the incoming sub-agent (no-op for Sam)
-                _open_subagent_workflow(current_agent)
-                transfer_msg = ChatMessage(
-                    type="agent_transfer",
-                    data={
-                        "agent": event_agent,
-                        "message": get_agent_friendly_message(event_agent)
-                    }
-                )
-                yield f"data: {transfer_msg.model_dump_json()}\n\n"
-                await asyncio.sleep(0.1)
+
+                # Feature flag gate for Ralph
+                if event_agent == "Ralph" and not evaluate_flag(RALPH_AGENT, default=FLAGS[RALPH_AGENT]):
+                    _ralph_blocked = True
+                    blocked_msg = ChatMessage(
+                        type="content",
+                        data={"text": "Ralph is currently unavailable. Sam will continue to assist you."}
+                    )
+                    yield f"data: {blocked_msg.model_dump_json()}\n\n"
+                else:
+                    _ralph_blocked = False
+                    current_agent = event_agent
+                    # Open a workflow span for the incoming sub-agent (no-op for Sam)
+                    _open_subagent_workflow(current_agent)
+                    transfer_msg = ChatMessage(
+                        type="agent_transfer",
+                        data={
+                            "agent": event_agent,
+                            "message": get_agent_friendly_message(event_agent)
+                        }
+                    )
+                    yield f"data: {transfer_msg.model_dump_json()}\n\n"
+                    await asyncio.sleep(0.1)
+
+            # Suppress content events while Ralph is blocked by the feature flag
+            if _ralph_blocked:
+                continue
 
             if content_text:
                 agent_response_parts.append(content_text)
@@ -774,7 +791,7 @@ async def insecure_chat_stream(http_request: Request, request: ChatRequest):
     """
     Stream chat responses for the insecure debug agent (gated by feature flag)
     """
-    flag_enabled = evaluate_flag("insecure_profile_agent", default=False)
+    flag_enabled = evaluate_flag(INSECURE_PROFILE_AGENT, default=FLAGS[INSECURE_PROFILE_AGENT])
     if not flag_enabled:
         raise HTTPException(status_code=403, detail="Feature not available")
     return StreamingResponse(

@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { ulid } from 'ulid';
 import type { Message } from '../types/chat';
 import { streamChatResponse, streamLegionnaireChatResponse, streamInsecureChatResponse } from '../utils/api';
-import { useBooleanFlagValue } from '@openfeature/react-sdk';
+import { useInsecureProfileAgent, useRalphAgent } from '../feature_flags';
 import { ChatMessage } from '../components/ChatMessage';
 import { ChatInput } from '../components/ChatInput';
 import { PreviewModal } from '../components/PreviewModal';
@@ -20,7 +20,8 @@ export function Concierge() {
   const [cardType, setCardType] = useState(getUserCardType());
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
   const [selectedTier, setSelectedTier] = useState<'tribune' | 'legionnaire' | 'debug' | null>(null);
-  const debugAgentEnabled = useBooleanFlagValue('insecure_profile_agent', false);
+  const debugAgentEnabled = useInsecureProfileAgent();
+  const ralphAgentEnabled = useRalphAgent();
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [currentAgent, setCurrentAgent] = useState<string>('Sam');
@@ -479,6 +480,7 @@ export function Concierge() {
                 <li>Voice & chat support</li>
                 <li>Complex trip planning</li>
                 <li>VIP experiences</li>
+                {ralphAgentEnabled && <li>Ralph — Utility Coordinator (active)</li>}
               </ul>
               <button className="tier-select-button" disabled={cardType !== 'tribune'}>
                 {cardType === 'tribune' ? 'Start Chat' : 'Tribune Card Required'}

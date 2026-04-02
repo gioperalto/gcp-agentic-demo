@@ -22,6 +22,14 @@ export async function initFeatureFlags(): Promise<void> {
       clientToken: clientToken,
       site: site,
       env: env,
+      // Sends each flag evaluation to Datadog RUM via addFeatureFlagEvaluation().
+      // Requires flags to have explicit variation keys set in Datadog Feature Management
+      // (e.g. "on"/"off") — evaluations are silently skipped if variant is null.
+      enableRumFeatureFlagTracking: true,
+      // Batches evaluations to the Datadog flagging endpoint for analytics.
+      enableFlagEvaluationTracking: true,
+      // Logs flag exposures for experiment attribution.
+      enableExposureLogging: true,
     });
 
     await OpenFeature.setProviderAndWait(provider);

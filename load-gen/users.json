@@ -1,0 +1,37 @@
+[
+  {
+    "username": "demo_user",
+    "password": "password123",
+    "first_name": "Nanci",
+    "last_name": "Scinto",
+    "current_card": "legionnaire"
+  },
+  {
+    "username": "wealthy_user",
+    "password": "password123",
+    "first_name": "Thomas",
+    "last_name": "Hartquist",
+    "current_card": "tribune"
+  },
+  {
+    "username": "victoria_chen",
+    "password": "password123",
+    "first_name": "Victoria",
+    "last_name": "Chen",
+    "current_card": "tribune"
+  },
+  {
+    "username": "james_whitmore",
+    "password": "password123",
+    "first_name": "James",
+    "last_name": "Whitmore",
+    "current_card": "tribune"
+  },
+  {
+    "username": "sarah_mitchell",
+    "password": "password123",
+    "first_name": "Sarah",
+    "last_name": "Mitchell",
+    "current_card": "legionnaire"
+  }
+]

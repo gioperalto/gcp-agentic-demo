@@ -46,6 +46,7 @@ interface VoiceModeCallbacks {
   onAgentTranscript?: (text: string, isFinal: boolean) => void;
   onUserTranscript?: (text: string, isFinal: boolean) => void;
   onAgentTransfer?: (agentName: string) => void;
+  onToolResult?: (agentName: string, message: string, toolName?: string) => void;
   onConversationEnd?: () => void;
   onError?: (error: string) => void;
 }
@@ -86,6 +87,7 @@ export function useVoiceMode(sessionId: string, callbacks?: VoiceModeCallbacks) 
   const awaitingTransferTurnRef = useRef(false);
   // Track the current speaking agent to detect actual transfers (not per-event noise)
   const currentAuthorRef = useRef<string>('Sam');
+  const transferFallbackTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   /**
    * Schedule Int16 LE PCM audio for immediate gapless playback.
@@ -122,6 +124,11 @@ export function useVoiceMode(sessionId: string, callbacks?: VoiceModeCallbacks) 
   }
 
   const cleanup = useCallback(() => {
+    if (transferFallbackTimeoutRef.current) {
+      clearTimeout(transferFallbackTimeoutRef.current);
+      transferFallbackTimeoutRef.current = null;
+    }
+
     // Clear idle watchdog
     if (watchdogIntervalRef.current) {
       clearInterval(watchdogIntervalRef.current);
@@ -175,14 +182,15 @@ export function useVoiceMode(sessionId: string, callbacks?: VoiceModeCallbacks) 
     });
   }, []);
 
-  const startVoiceMode = useCallback(async (initialGreeting?: string) => {
+  const startVoiceMode = useCallback(async (initialGreeting?: string, isResume?: boolean) => {
     if (state.isActive || state.isConnecting) return;
 
     setState(prev => ({ ...prev, isConnecting: true }));
 
-    // Mute mic if we need to play an initial greeting first
+    // Mute mic while the initial/resume greeting plays.
+    // On resume, do NOT suppress the transcript — the user should see Sam's response.
     micMutedRef.current = !!initialGreeting;
-    suppressGreetingRef.current = !!initialGreeting;
+    suppressGreetingRef.current = !!initialGreeting && !isResume;
 
     try {
       // 1. Open WebSocket
@@ -260,10 +268,23 @@ export function useVoiceMode(sessionId: string, callbacks?: VoiceModeCallbacks) 
             console.log(`[voice] Agent transfer: ${from} → ${to}`);
             currentAuthorRef.current = to;
 
+            if (transferFallbackTimeoutRef.current) {
+              clearTimeout(transferFallbackTimeoutRef.current);
+            }
+
             // Mute mic immediately to prevent echo feedback
             micMutedRef.current = true;
             transferTTSPlayingRef.current = true;
             awaitingTransferTurnRef.current = true;
+            agentTranscriptRef.current = '';
+            setState(prev => ({ ...prev, currentTranscript: '' }));
+
+            transferFallbackTimeoutRef.current = setTimeout(() => {
+              console.warn('[voice] Transfer turnComplete timeout — clearing transfer wait state');
+              awaitingTransferTurnRef.current = false;
+              suppressGreetingRef.current = false;
+              transferFallbackTimeoutRef.current = null;
+            }, 15000);
 
             // Wait for any queued agent audio to finish playing before
             // starting the TTS announcement so we don't talk over Sam's goodbye.
@@ -320,6 +341,13 @@ export function useVoiceMode(sessionId: string, callbacks?: VoiceModeCallbacks) 
             return;
           }
 
+          // Tool result forwarded from backend (search results with markdown links)
+          if (data.voiceToolResult) {
+            const { agent, message, toolName } = data.voiceToolResult;
+            callbacks?.onToolResult?.(agent || currentAuthorRef.current, message, toolName);
+            return;
+          }
+
           // Backend signals conversation is complete
           if (data.conversationEnded) {
             console.log('[voice] Conversation ended by agent');
@@ -367,6 +395,10 @@ export function useVoiceMode(sessionId: string, callbacks?: VoiceModeCallbacks) 
               console.log('[voice] New agent greeting turn complete — allowing unmute');
               awaitingTransferTurnRef.current = false;
             }
+            if (transferFallbackTimeoutRef.current) {
+              clearTimeout(transferFallbackTimeoutRef.current);
+              transferFallbackTimeoutRef.current = null;
+            }
             // Unmute mic after the initial greeting finishes, but NOT during
             // a transfer TTS — the TTS onend callback handles unmuting then.
             if (micMutedRef.current && !transferTTSPlayingRef.current) {
@@ -389,6 +421,10 @@ export function useVoiceMode(sessionId: string, callbacks?: VoiceModeCallbacks) 
             // Output transcription (agent speaking)
             if (data.outputTranscription?.text) {
               transcriptEventCount++;
+              if (awaitingTransferTurnRef.current && transferFallbackTimeoutRef.current) {
+                clearTimeout(transferFallbackTimeoutRef.current);
+                transferFallbackTimeoutRef.current = null;
+              }
               // Finalize pending user transcript when agent starts speaking
               if (userTranscriptRef.current) {
                 console.log(`[voice] Finalizing user transcript (${userTranscriptRef.current.length} chars)`);
@@ -436,7 +472,7 @@ export function useVoiceMode(sessionId: string, callbacks?: VoiceModeCallbacks) 
         if (userTranscriptRef.current) {
           callbacks?.onUserTranscript?.(userTranscriptRef.current, true);
         }
-        if (agentTranscriptRef.current) {
+        if (agentTranscriptRef.current && !suppressGreetingRef.current) {
           callbacks?.onAgentTranscript?.(agentTranscriptRef.current, true);
         }
         // Surface unexpected close to user (1000 = normal close)

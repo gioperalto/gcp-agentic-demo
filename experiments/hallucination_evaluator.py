@@ -16,13 +16,73 @@ import json
 import logging
 import os
 import re
+import time
 
+import httpx
 from google import genai
 
 from ddtrace.llmobs import LLMObs
 from ddtrace.llmobs._experiment import EvaluationResult as EvaluatorResult
 
 logger = logging.getLogger("travel_planner")
+
+_DD_SITE = os.getenv("DD_SITE", "datadoghq.com")
+_DD_API_KEY = os.getenv("DD_API_KEY") or os.getenv("DATADOG_API_KEY", "")
+_DD_APP_KEY = os.getenv("DD_APP_KEY") or os.getenv("DATADOG_APP_KEY", "")
+_ML_APP = os.getenv("DD_LLMOBS_ML_APP", "travel-planner")
+_EVAL_API_URL = f"https://api.{_DD_SITE}/api/v2/llm-obs/v1/eval-metric"
+
+
+async def _submit_eval_http(
+    span_context: dict,
+    label: str,
+    value: float,
+    assessment: str,
+    reasoning: str,
+) -> None:
+    """Submit a hallucination evaluation via the Datadog external evaluations HTTP API.
+
+    Uses POST /api/v2/llm-obs/v1/eval-metric to associate the score with the
+    specific LLM span that produced the response being evaluated.
+    """
+    if not _DD_API_KEY or not _DD_APP_KEY:
+        logger.warning(
+            "Skipping hallucination eval submission for label=%s: missing DD_API_KEY or DD_APP_KEY",
+            label,
+        )
+        return
+
+    payload = {
+        "data": {
+            "type": "evaluation_metric",
+            "attributes": {
+                "ml_app": _ML_APP,
+                "span_id": str(span_context["span_id"]),
+                "trace_id": str(span_context["trace_id"]),
+                "timestamp_ms": int(time.time() * 1000),
+                "metric_type": "score",
+                "label": label,
+                "score_value": value,
+                "assessment": assessment,
+                "reasoning": reasoning,
+            },
+        }
+    }
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        resp = await client.post(
+            _EVAL_API_URL,
+            json=payload,
+            headers={
+                "DD-API-KEY": _DD_API_KEY,
+                "DD-APPLICATION-KEY": _DD_APP_KEY,
+                "Content-Type": "application/json",
+            },
+        )
+        if resp.status_code not in (200, 202):
+            logger.warning(
+                "External eval API returned %d for label=%s: %s",
+                resp.status_code, label, resp.text[:200],
+            )
 
 # ── Judge model ──────────────────────────────────────────────────────
 # Use the same Gemini model the agents use (fast + cheap for judging).
@@ -80,10 +140,11 @@ async def hallucination_judge(
     user_message: str,
     agent_response: str,
     tool_context: list[str],
-    workflow_span,
+    span_context: dict | None,
     agent_name: str = "concierge",
 ) -> float | None:
-    """Run the LLM-as-judge and submit evaluation to Datadog LLMObs.
+    """Run the LLM-as-judge and submit the evaluation via the Datadog external
+    evaluations API, associated with the LLM span that produced the response.
 
     Parameters
     ----------
@@ -95,8 +156,10 @@ async def hallucination_judge(
         Raw JSON strings from function_response parts captured during
         the agent turn.  Each entry is the serialised return value of
         one tool call.
-    workflow_span
-        The active ``LLMObs.workflow()`` span to attach the evaluation to.
+    span_context : dict | None
+        Exported LLMObs span context (from ``LLMObs.export_span()``) of the
+        ``llm``-type span that generated the response.  The evaluation is
+        attached to this span via the external evaluations HTTP API.
     agent_name : str
         Label suffix for the Datadog evaluation metric.
 
@@ -136,16 +199,22 @@ async def hallucination_judge(
         score = float(result["score"])
         hallucinated = result.get("hallucinated_claims", [])
         reasoning = result.get("reasoning", "")
+        reasoning_full = reasoning + (f" | Hallucinated: {hallucinated}" if hallucinated else "")
 
-        # Submit to Datadog LLMObs
-        exported = LLMObs.export_span(span=workflow_span)
-        if exported:
-            LLMObs.submit_evaluation(
-                span_context=exported,
-                label=f"hallucination_score.{agent_name}",
-                metric_type="score",
-                value=score,
-            )
+        # Submit via the Datadog external evaluations HTTP API
+        if span_context:
+            try:
+                await _submit_eval_http(
+                    span_context=span_context,
+                    label=f"hallucination_score.{agent_name}",
+                    value=score,
+                    assessment="pass" if score >= 0.75 else "fail",
+                    reasoning=reasoning_full,
+                )
+            except Exception:
+                logger.exception(
+                    "Failed to submit hallucination eval via HTTP API (agent=%s)", agent_name
+                )
 
         if hallucinated:
             logger.warning(

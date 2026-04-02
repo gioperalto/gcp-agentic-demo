@@ -7,6 +7,7 @@ from .jenny import search_flights, compare_flight_prices
 from .marcus import search_accommodations, get_accommodation_reviews
 from .sofia import search_attractions, create_daily_itinerary, check_operating_hours
 from .luca import get_restaurant_recommendations
+from .ralph import audit_all_travel_options, cross_reference_availability, compile_travel_brief
 
 __all__ = [
     # Jenny's tools
@@ -20,4 +21,8 @@ __all__ = [
     'create_daily_itinerary',
     'check_operating_hours',
     'get_restaurant_recommendations',
+    # Ralph's tools
+    'audit_all_travel_options',
+    'cross_reference_availability',
+    'compile_travel_brief',
 ]

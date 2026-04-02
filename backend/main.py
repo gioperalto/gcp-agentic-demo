@@ -1,7 +1,7 @@
 """
 FastAPI backend for Travel Planner with streaming support
 """
-import os, json, asyncio, sys, logging, logging.config
+import os, json, asyncio, sys, logging, logging.config, time
 from datetime import datetime, timezone
 from dotenv import load_dotenv
 
@@ -121,6 +121,18 @@ legionnaire_runner = InMemoryRunner(agent=legionnaire_agent, app_name="legionnai
 insecure_runner = InMemoryRunner(agent=insecure_agent, app_name="insecure-concierge")
 live_runner = InMemoryRunner(agent=live_root_agent, app_name="tribune-concierge-live")
 
+# Workflow names for each sub-agent.  Each sub-agent's LLM spans are grouped
+# under a dedicated workflow span nested inside the top-level tribune_concierge
+# workflow (which represents Sam).  Ralph is a multi-domain utility agent and
+# uses plan_coordination by default; this can be refined based on context.
+SUBAGENT_WORKFLOW_NAMES: dict[str, str] = {
+    "Jenny": "plan_flights",
+    "Marcus": "plan_accommodations",
+    "Luca": "plan_dining",
+    "Sofia": "plan_experiences",
+    "Ralph": "plan_coordination",
+}
+
 app = FastAPI(title="Travel Planner API")
 
 # Configure CORS
@@ -224,6 +236,36 @@ async def traced_sse_stream(
 _genai_model = os.getenv("GOOGLE_GENAI_MODEL", "gemini-2.0-flash")
 
 
+def _record_text_llm_span(
+    *,
+    span_name: str,
+    user_message: str,
+    assistant_message: str,
+) -> "dict[str, str] | None":
+    """Create an LLMObs llm-type span and return its exported context.
+
+    The span context (span_id + trace_id) is captured inside the ``with`` block
+    while the span is still open, then returned so callers can attach external
+    evaluations via the Datadog eval-metric HTTP API.
+
+    Returns None if the message is empty (nothing to record).
+    """
+    assistant_message = assistant_message.strip()
+    if not assistant_message:
+        return None
+    with LLMObs.llm(
+        model_name=_genai_model,
+        model_provider="google",
+        name=span_name,
+    ) as llm_span:
+        LLMObs.annotate(
+            span=llm_span,
+            input_data=[{"content": user_message, "role": "user"}],
+            output_data=[{"content": assistant_message, "role": "assistant"}],
+        )
+        return LLMObs.export_span(span=llm_span)  # must be inside the with block
+
+
 async def stream_legionnaire_response(message: str, session_id: str) -> AsyncGenerator[str, None]:
     """
     Stream legionnaire agent responses (basic concierge without subagents)
@@ -319,26 +361,24 @@ async def stream_legionnaire_response(message: str, session_id: str) -> AsyncGen
             async for event in run_legionnaire_agent(message, session_id):
                 yield event
 
-            # Flush an agent span with the full input/output for this turn
-            with LLMObs.agent(
-                name="text_agent.legionnaire",
-            ) as llm_span:
-                LLMObs.annotate(
-                    span=llm_span,
-                    input_data=[{"content": message, "role": "user"}],
-                    output_data=[{"content": "".join(response_parts), "role": "assistant"}],
-                    metadata={"model": _genai_model, "model_provider": "google"},
-                )
+            # Record an LLM-type span for the full turn input/output and capture
+            # its context so the hallucination eval can be joined to it via the
+            # Datadog external evaluations HTTP API.
+            full_response = "".join(response_parts)
+            turn_span_context = _record_text_llm_span(
+                span_name="text_turn.legionnaire",
+                user_message=message,
+                assistant_message=full_response,
+            )
 
-            # Run hallucination detection asynchronously (non-blocking)
+            # Run hallucination detection asynchronously (non-blocking).
             if hallucination_judge is not None:
-                full_response = "".join(response_parts)
                 asyncio.create_task(
                     hallucination_judge(
                         user_message=message,
                         agent_response=full_response,
                         tool_context=tool_context,
-                        workflow_span=workflow_span,
+                        span_context=turn_span_context,
                         agent_name="legionnaire",
                     )
                 )
@@ -438,16 +478,12 @@ async def stream_insecure_response(message: str, session_id: str) -> AsyncGenera
             async for event in run_insecure_agent(message, session_id):
                 yield event
 
-            # Flush an agent span with the full input/output for this turn
-            with LLMObs.agent(
-                name="text_agent.insecure",
-            ) as llm_span:
-                LLMObs.annotate(
-                    span=llm_span,
-                    input_data=[{"content": message, "role": "user"}],
-                    output_data=[{"content": "".join(response_parts), "role": "assistant"}],
-                    metadata={"model": _genai_model, "model_provider": "google"},
-                )
+            # Record an LLM-type span for the full turn input/output.
+            _record_text_llm_span(
+                span_name="text_turn.insecure",
+                user_message=message,
+                assistant_message="".join(response_parts),
+            )
 
     except Exception as e:
         import traceback
@@ -474,22 +510,63 @@ async def stream_agent_response(message: str, session_id: str) -> AsyncGenerator
     tool_context: list[str] = []          # ground truth from tool calls
     current_agent = "Sam"
 
+    # Sub-agent workflow span tracking for LLMObs nesting.
+    # Each sub-agent's LLM spans nest under their named workflow (plan_flights,
+    # plan_accommodations, …) which itself nests under tribune_concierge (Sam).
+    _subagent_wf_ctx: object | None = None
+    _subagent_wf_span: object | None = None
+
     def _flush_text_turn_span(agent_name: str) -> None:
-        """Create an LLMObs agent span for the text accumulated by the current agent."""
+        """Create a per-agent LLM span for the text accumulated by that agent.
+
+        These spans provide per-agent tracing granularity.  A separate
+        turn-level span is created at the end of the full turn and used as
+        the anchor for the hallucination evaluation.
+        """
         nonlocal agent_response_parts
-        agent_text = "".join(agent_response_parts).strip()
-        if not agent_text:
-            return
-        with LLMObs.agent(
-            name=f"text_agent.{agent_name}",
-        ) as span:
-            LLMObs.annotate(
-                span=span,
-                input_data=[{"content": message, "role": "user"}],
-                output_data=[{"content": agent_text, "role": "assistant"}],
-                metadata={"model": _genai_model, "model_provider": "google"},
-            )
+        agent_text = "".join(agent_response_parts)
         agent_response_parts = []
+        if not agent_text.strip():
+            return
+        # Activate the right parent workflow so the LLM span nests correctly:
+        # sub-agent workflow for Jenny/Marcus/Luca/Sofia/Ralph, or the
+        # tribune_concierge span (already active in its with-block) for Sam.
+        if _subagent_wf_span is not None:
+            tracer.context_provider.activate(_subagent_wf_span)
+        _record_text_llm_span(
+            span_name=f"text_agent.{agent_name}",
+            user_message=message,
+            assistant_message=agent_text,
+        )
+
+    def _open_subagent_workflow(agent_name: str) -> None:
+        """Open a named workflow span for a sub-agent, nested under tribune_concierge.
+
+        LLMObs.workflow() creates *and* activates the span on the current context
+        immediately (confirmed by ddtrace source inspection).  The returned span is
+        stored so it can be explicitly re-activated inside async tasks/closures.
+        """
+        nonlocal _subagent_wf_ctx, _subagent_wf_span
+        wf_name = SUBAGENT_WORKFLOW_NAMES.get(agent_name)
+        if not wf_name:
+            return
+        # LLMObs.workflow() creates the span and makes it active; __enter__ is a no-op
+        # that returns self.  We call it anyway so __exit__ can be used for cleanup.
+        span = LLMObs.workflow(name=wf_name).__enter__()
+        LLMObs.annotate(span=span, tags={"session.id": session_id, "agent.name": agent_name})
+        _subagent_wf_ctx = span   # ctx == span (same object in ddtrace)
+        _subagent_wf_span = span
+
+    def _close_subagent_workflow() -> None:
+        """Close the active sub-agent workflow span, if any."""
+        nonlocal _subagent_wf_ctx, _subagent_wf_span
+        span, _subagent_wf_ctx = _subagent_wf_ctx, None
+        _subagent_wf_span = None
+        if span is not None:
+            try:
+                span.__exit__(None, None, None)  # finishes the span
+            except Exception:
+                pass
 
     async def run_agent(message: str, session_id: str, sub_agents: set) -> AsyncGenerator[str, None]:
         """
@@ -576,7 +653,11 @@ async def stream_agent_response(message: str, session_id: str) -> AsyncGenerator
             if event_agent and event_agent != current_agent:
                 # Flush LLMObs span for the outgoing agent before switching
                 _flush_text_turn_span(current_agent)
+                # Close the outgoing sub-agent workflow (no-op for Sam)
+                _close_subagent_workflow()
                 current_agent = event_agent
+                # Open a workflow span for the incoming sub-agent (no-op for Sam)
+                _open_subagent_workflow(current_agent)
                 transfer_msg = ChatMessage(
                     type="agent_transfer",
                     data={
@@ -597,8 +678,9 @@ async def stream_agent_response(message: str, session_id: str) -> AsyncGenerator
                 yield f"data: {content_msg.model_dump_json()}\n\n"
                 await asyncio.sleep(0.01)  # Small delay to avoid overwhelming client
 
-        # Flush the final agent's LLM span
+        # Flush the final agent's LLM span and close its workflow span
         _flush_text_turn_span(current_agent)
+        _close_subagent_workflow()
 
         # Send completion message
         done_msg = ChatMessage(
@@ -609,7 +691,7 @@ async def stream_agent_response(message: str, session_id: str) -> AsyncGenerator
 
     try:
         current_agent = "Sam"  # Start with root agent
-        sub_agents = {"Jenny", "Marcus", "Sofia", "Luca"}  # Known sub-agents
+        sub_agents = {"Jenny", "Marcus", "Sofia", "Luca", "Ralph"}  # Known sub-agents
 
         # Ensure session exists before running the agent
         existing_session = await runner.session_service.get_session(
@@ -633,15 +715,23 @@ async def stream_agent_response(message: str, session_id: str) -> AsyncGenerator
             async for event in run_agent(message, session_id, sub_agents):
                 yield event
 
-            # Run hallucination detection asynchronously (non-blocking)
+            # Create a turn-level LLM span for the full concatenated response
+            # (which may span multiple agents).  Use this span — not the last
+            # per-agent span — as the anchor for the hallucination evaluation so
+            # the judged text and the associated span always match.
             if hallucination_judge is not None:
                 full_response = "".join(all_response_parts)
+                turn_span_context = _record_text_llm_span(
+                    span_name="text_turn.tribune",
+                    user_message=message,
+                    assistant_message=full_response,
+                )
                 asyncio.create_task(
                     hallucination_judge(
                         user_message=message,
                         agent_response=full_response,
                         tool_context=tool_context,
-                        workflow_span=workflow_span,
+                        span_context=turn_span_context,
                         agent_name=f"tribune.{current_agent}",
                     )
                 )
@@ -763,27 +853,18 @@ async def voice_websocket(websocket: WebSocket, session_id: str = "default"):
 
     await websocket.accept()
 
-    # Ensure session exists
-    existing_session = await live_runner.session_service.get_session(
-        app_name="tribune-concierge-live",
-        user_id=session_id,
-        session_id=session_id,
-    )
-    if existing_session is None:
-        existing_session = await live_runner.session_service.create_session(
-            app_name="tribune-concierge-live",
-            user_id=session_id,
-            session_id=session_id,
-        )
-
     voice_logger = logging.getLogger("voice_ws")
+    voice_runner = InMemoryRunner(agent=live_root_agent, app_name="tribune-concierge-live")
 
     last_author = None
     current_agent_name: str = "Sam"
+    current_live_session_id: str = f"{session_id}:0:{current_agent_name}"
+    transfer_count = 0
 
     # Transcription accumulators for LLMObs spans
     user_transcript_parts: list[str] = []
     agent_transcript_parts: list[str] = []
+    conversation_history: list[dict[str, str]] = []
     # Deferred-flush flag: set on turnComplete, cleared at the top of the next
     # event iteration after absorbing any trailing transcription frames that
     # arrive after the turnComplete signal (inputTranscription.finished often
@@ -798,10 +879,14 @@ async def voice_websocket(websocket: WebSocket, session_id: str = "default"):
     # Captured by the workflow context manager and reactivated inside
     # asyncio tasks so that child spans nest under the workflow trace.
     _workflow_span_ref = None
+    # Per-agent sub-workflow span (plan_flights, plan_accommodations, etc.)
+    # opened at the start of each agent stint and closed when the agent exits.
+    _subagent_wf_ctx: object | None = None
+    _subagent_wf_span_ref: object | None = None
 
     def _flush_voice_turn_span(*, interrupted: bool = False) -> None:
         """Create an LLMObs span for the completed voice turn and reset accumulators."""
-        nonlocal user_transcript_parts, agent_transcript_parts
+        nonlocal user_transcript_parts, agent_transcript_parts, conversation_history
         user_text = "".join(user_transcript_parts).strip()
         agent_text = "".join(agent_transcript_parts).strip()
         if not user_text and not agent_text:
@@ -810,9 +895,12 @@ async def voice_websocket(websocket: WebSocket, session_id: str = "default"):
         if interrupted:
             span_name += ".interrupted"
 
-        # Reactivate the workflow span so this LLM span becomes its child.
-        if _workflow_span_ref is not None:
-            tracer.context_provider.activate(_workflow_span_ref)
+        # Activate the most specific open workflow span so this LLM span nests
+        # correctly: sub-agent workflow (plan_flights, etc.) takes priority over
+        # the top-level tribune_concierge span (used for Sam's own turns).
+        _voice_parent = _subagent_wf_span_ref if _subagent_wf_span_ref is not None else _workflow_span_ref
+        if _voice_parent is not None:
+            tracer.context_provider.activate(_voice_parent)
 
         with LLMObs.llm(
             model_name=live_model_name,
@@ -824,6 +912,18 @@ async def voice_websocket(websocket: WebSocket, session_id: str = "default"):
                 input_data=[{"content": user_text or "(audio-only)", "role": "user"}],
                 output_data=[{"content": agent_text or "(audio-only)", "role": "assistant"}],
             )
+        if user_text:
+            conversation_history.append({
+                "role": "user",
+                "agent_name": current_agent_name,
+                "text": user_text,
+            })
+        if agent_text:
+            conversation_history.append({
+                "role": "agent",
+                "agent_name": current_agent_name,
+                "text": agent_text,
+            })
         user_transcript_parts = []
         agent_transcript_parts = []
 
@@ -833,23 +933,26 @@ async def voice_websocket(websocket: WebSocket, session_id: str = "default"):
         Returns the name of the agent to transfer to, or None if the
         conversation ended normally / client disconnected.
         """
-        nonlocal last_author, user_transcript_parts, agent_transcript_parts, pending_turn_complete, current_agent_name, transfer_audio_muted
+        nonlocal last_author, user_transcript_parts, agent_transcript_parts, pending_turn_complete, current_agent_name, transfer_audio_muted, transfer_audio_muted_since, current_live_session_id
 
-        # Reactivate the workflow span in this async task so all child
-        # spans (created by _flush_voice_turn_span) nest under it.
-        if _workflow_span_ref is not None:
-            tracer.context_provider.activate(_workflow_span_ref)
+        # Reactivate the most specific open workflow span in this async task so all
+        # child spans (created by _flush_voice_turn_span) nest correctly under it.
+        _fwd_parent = _subagent_wf_span_ref if _subagent_wf_span_ref is not None else _workflow_span_ref
+        if _fwd_parent is not None:
+            tracer.context_provider.activate(_fwd_parent)
 
         pending_transfer_target: str | None = None
         conversation_ended = False
         # If audio was muted (transfer in progress), re-enable after
         # the first turnComplete so the user can speak to the new agent.
         reenable_audio_on_turn = transfer_audio_muted
+        # Deduplicate tool result messages within this run (tool may emit twice)
+        seen_tool_messages: set[tuple[str, str]] = set()
 
         try:
-            async for event in live_runner.run_live(
+            async for event in voice_runner.run_live(
                 user_id=session_id,
-                session_id=session_id,
+                session_id=current_live_session_id,
                 live_request_queue=live_request_queue,
                 run_config=run_config,
             ):
@@ -862,7 +965,8 @@ async def voice_websocket(websocket: WebSocket, session_id: str = "default"):
                     last_author = author
                     current_agent_name = author
 
-                # Detect transfer_to / end_conversation function calls
+                # Detect transfer_to / end_conversation function calls;
+                # also forward tool result messages to the chat as voiceToolResult.
                 content_parts = event_dict.get("content", {}).get("parts", [])
                 for part in content_parts:
                     fc = part.get("functionCall")
@@ -874,6 +978,24 @@ async def voice_websocket(websocket: WebSocket, session_id: str = "default"):
                         elif fc.get("name") == "end_conversation":
                             conversation_ended = True
                             voice_logger.info("Conversation ended by agent (session %s)", session_id)
+
+                    fr = part.get("functionResponse")
+                    if fr:
+                        resp = fr.get("response") if isinstance(fr, dict) else None
+                        if isinstance(resp, dict):
+                            msg = resp.get("message")
+                            tool_name = fr.get("name", "")
+                            if isinstance(msg, str) and msg.strip():
+                                key = (tool_name, msg)
+                                if key not in seen_tool_messages:
+                                    seen_tool_messages.add(key)
+                                    await websocket.send_text(json.dumps({
+                                        "voiceToolResult": {
+                                            "agent": current_agent_name,
+                                            "toolName": tool_name,
+                                            "message": msg,
+                                        }
+                                    }))
 
                 # Accumulate output transcription (agent speaking)
                 out_t = event_dict.get("outputTranscription")
@@ -916,7 +1038,7 @@ async def voice_websocket(websocket: WebSocket, session_id: str = "default"):
                     # Re-enable incoming audio after the new agent's priming
                     # response completes (first turnComplete post-transfer).
                     if reenable_audio_on_turn:
-                        transfer_audio_muted = False
+                        _clear_transfer_audio_mute("turn_complete")
                         reenable_audio_on_turn = False
                         voice_logger.info("Audio re-enabled after new agent greeting turn (session %s)", session_id)
 
@@ -929,6 +1051,7 @@ async def voice_websocket(websocket: WebSocket, session_id: str = "default"):
                         # Mute incoming audio until the new agent's first
                         # turnComplete — event-based, not time-based.
                         transfer_audio_muted = True
+                        transfer_audio_muted_since = time.monotonic()
                         await websocket.send_text(
                             event.model_dump_json(exclude_none=True, by_alias=True)
                         )
@@ -978,8 +1101,17 @@ async def voice_websocket(websocket: WebSocket, session_id: str = "default"):
 
     # When True, incoming audio frames are silently dropped (used during transfers
     # to discard in-flight mic data and prevent echo of the new agent's greeting).
-    # Cleared on the new agent's first turnComplete — NOT on a timer.
+    # Normally cleared on the new agent's first turnComplete, with a timeout
+    # fallback so a stalled transfer cannot block user speech indefinitely.
     transfer_audio_muted = False
+    transfer_audio_muted_since: float | None = None
+
+    def _clear_transfer_audio_mute(reason: str) -> None:
+        nonlocal transfer_audio_muted, transfer_audio_muted_since
+        if transfer_audio_muted:
+            voice_logger.info("Clearing transfer audio mute (%s) for session %s", reason, session_id)
+        transfer_audio_muted = False
+        transfer_audio_muted_since = None
 
     async def process_messages(live_request_queue: LiveRequestQueue):
         """Receive JSON LiveRequest frames from browser and feed to queue."""
@@ -990,9 +1122,11 @@ async def voice_websocket(websocket: WebSocket, session_id: str = "default"):
                 try:
                     # During transfers, drop audio-only frames to prevent residual
                     # mic data from triggering a second greeting on the new agent.
-                    if transfer_audio_muted:
-                        parsed = json.loads(data)
-                        if "blob" in parsed:
+                    parsed = json.loads(data)
+                    if transfer_audio_muted and "blob" in parsed:
+                        if transfer_audio_muted_since is not None and time.monotonic() - transfer_audio_muted_since > 15:
+                            _clear_transfer_audio_mute("timeout")
+                        else:
                             continue
                     live_request_queue.send(LiveRequest.model_validate_json(data))
                 except Exception as e:
@@ -1006,15 +1140,47 @@ async def voice_websocket(websocket: WebSocket, session_id: str = "default"):
     keepalive_task = asyncio.create_task(keepalive())
 
     try:
-        with LLMObs.workflow(name="voice_session") as _workflow_span:
+        with LLMObs.workflow(name="tribune_concierge") as _workflow_span:
             _workflow_span_ref = _workflow_span
             LLMObs.annotate(span=_workflow_span, tags={"session.id": session_id})
             priming_message: str | None = None
 
             while not client_disconnected:
-                # Swap the agent on the shared runner
-                live_runner.agent = LIVE_AGENT_MAP[current_agent_name]
+                # Use a fresh ADK live session for each agent stint so transfer
+                # tool calls cannot leak into the next agent's history.
+                voice_runner.agent = LIVE_AGENT_MAP[current_agent_name]
+                existing_session = await voice_runner.session_service.get_session(
+                    app_name="tribune-concierge-live",
+                    user_id=session_id,
+                    session_id=current_live_session_id,
+                )
+                if existing_session is None:
+                    await voice_runner.session_service.create_session(
+                        app_name="tribune-concierge-live",
+                        user_id=session_id,
+                        session_id=current_live_session_id,
+                    )
                 run_config = _make_voice_run_config(current_agent_name)
+
+                # Open a named workflow span for this agent's stint so all LLM
+                # spans from this agent nest under it inside tribune_concierge.
+                # Sam has no entry in SUBAGENT_WORKFLOW_NAMES so he uses the
+                # root workflow directly.
+                _subagent_wf_ctx = None
+                _subagent_wf_span_ref = None
+                _voice_wf_name = SUBAGENT_WORKFLOW_NAMES.get(current_agent_name)
+                if _voice_wf_name and _workflow_span_ref is not None:
+                    # Ensure tribune_concierge is the active parent before opening
+                    # the sub-agent workflow (LLMObs.workflow parents to current active span).
+                    tracer.context_provider.activate(_workflow_span_ref)
+                    # __enter__ is a no-op in ddtrace; returns the span itself.
+                    _subagent_wf_span_ref = LLMObs.workflow(name=_voice_wf_name).__enter__()
+                    _subagent_wf_ctx = _subagent_wf_span_ref  # same object
+                    LLMObs.annotate(
+                        span=_subagent_wf_span_ref,
+                        tags={"session.id": session_id, "agent.name": current_agent_name},
+                    )
+
                 live_request_queue = LiveRequestQueue()
 
                 # Send priming message for transferred agents
@@ -1050,13 +1216,33 @@ async def voice_websocket(websocket: WebSocket, session_id: str = "default"):
                     task.cancel()
                 await asyncio.gather(*pending, return_exceptions=True)
 
+                # Close the sub-agent workflow span for this stint — all child
+                # LLM spans have been created by now.
+                if _subagent_wf_ctx is not None:
+                    try:
+                        _subagent_wf_ctx.__exit__(None, None, None)
+                    except Exception:
+                        pass
+                    finally:
+                        _subagent_wf_ctx = None
+                        _subagent_wf_span_ref = None
+
                 if transfer_target and not client_disconnected:
                     old_agent = current_agent_name
                     current_agent_name = transfer_target
+                    transfer_count += 1
+                    current_live_session_id = f"{session_id}:{transfer_count}:{current_agent_name}"
+                    history_lines = []
+                    for entry in conversation_history:
+                        speaker = entry["agent_name"] if entry["role"] == "agent" else "Customer"
+                        compact_text = " ".join(entry["text"].split())
+                        history_lines.append(f'  {speaker}: {json.dumps(compact_text)}')
+                    history_block = "\n".join(history_lines) if history_lines else '  Customer: "(no prior conversation captured)"'
                     priming_message = (
-                        f"The customer was just transferred to you from {old_agent}. "
-                        f"Greet them briefly, then STOP and wait silently for the user to speak. "
-                        f"Do NOT continue talking or ask follow-up questions until the user responds."
+                        f"The customer was just transferred to you from {old_agent}.\n"
+                        f"Here is a summary of the conversation so far:\n"
+                        f"{history_block}\n"
+                        f"Reply with exactly one brief greeting sentence acknowledging the context, then wait silently for the user."
                     )
                     voice_logger.info("Agent switch: %s → %s (session %s)", old_agent, current_agent_name, session_id)
                     continue
@@ -1072,6 +1258,13 @@ async def voice_websocket(websocket: WebSocket, session_id: str = "default"):
         except Exception:
             pass
     finally:
+        # Ensure any open sub-agent workflow span is closed on all exit paths
+        # (disconnect, cancellation, unhandled exception).
+        if _subagent_wf_ctx is not None:
+            try:
+                _subagent_wf_ctx.__exit__(None, None, None)
+            except Exception:
+                pass
         keepalive_task.cancel()
         await asyncio.gather(keepalive_task, return_exceptions=True)
 

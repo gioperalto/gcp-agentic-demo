@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { getAccommodations, bookAccommodation } from '../utils/api';
 import { getCachedUser, fetchCurrentUser } from '../utils/auth';
 import type { Accommodation, AccommodationFilters, AccommodationType, BookingRequest } from '../types/accommodation';
@@ -9,6 +9,7 @@ const POINTS_TO_DOLLAR_RATE = 100; // 100 points = $1
 
 export const Accommodations = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [accommodations, setAccommodations] = useState<Accommodation[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -46,6 +47,21 @@ export const Accommodations = () => {
   useEffect(() => {
     loadAccommodations();
   }, [selectedCountry, selectedType, minPrice, maxPrice, minRating]);
+
+  // Auto-select accommodation from query param — mirrors the same pattern used
+  // by Restaurants and Experiences.  Depends on user so it re-fires after auth
+  // hydration completes in a new tab (getCachedUser() returns null on fresh
+  // page load; fetchCurrentUser() populates it asynchronously).
+  // Calls handleCardClick to ensure all form state is properly initialized.
+  useEffect(() => {
+    const id = searchParams.get('id');
+    if (id && user && accommodations.length > 0) {
+      const accommodation = accommodations.find(a => a.id === id);
+      if (accommodation) {
+        handleCardClick(accommodation);
+      }
+    }
+  }, [accommodations, searchParams, user]);
 
   const loadAccommodations = async () => {
     try {

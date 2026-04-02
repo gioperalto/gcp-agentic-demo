@@ -117,6 +117,16 @@ export function Concierge() {
     currentAgentRef.current = agentName;
   }, []);
 
+  const handleVoiceToolResult = useCallback((agentName: string, message: string) => {
+    setMessages(prev => [...prev, {
+      id: Date.now().toString() + '_voice_tool',
+      type: 'agent' as const,
+      content: message,
+      agent: agentName,
+      timestamp: new Date(),
+    }]);
+  }, []);
+
   const handleVoiceError = useCallback((error: string) => {
     console.error('Voice mode error:', error);
     setMessages(prev => [
@@ -130,29 +140,48 @@ export function Concierge() {
     ]);
   }, []);
 
+  const handleVoiceConversationEnd = useCallback(() => {
+    setMessages(prev => [
+      ...prev,
+      {
+        id: Date.now().toString() + '_ended',
+        type: 'agent' as const,
+        content: 'Voice session ended. Tap the microphone to continue.',
+        agent: currentAgentRef.current,
+        timestamp: new Date(),
+      },
+    ]);
+  }, []);
+
   const voiceMode = useVoiceMode(sessionIdRef.current, {
     onAgentTranscript: handleVoiceAgentTranscript,
     onUserTranscript: handleVoiceUserTranscript,
     onAgentTransfer: handleVoiceAgentTransfer,
+    onToolResult: handleVoiceToolResult,
+    onConversationEnd: handleVoiceConversationEnd,
     onError: handleVoiceError,
   });
 
   const handleToggleVoiceMode = useCallback(() => {
     if (voiceMode.isActive || voiceMode.isConnecting) {
       voiceMode.stopVoiceMode();
-    } else {
-      // On first activation, send the welcome message as a text prompt so the
-      // Live API (Sam) speaks it aloud in the Puck voice.  The mic stays
-      // muted until Sam's greeting finishes (turnComplete).
-      let greeting: string | undefined;
-      if (!hasUsedVoiceRef.current) {
-        hasUsedVoiceRef.current = true;
-        const welcomeMsg = messages.find(m => m.id?.startsWith('initial_'));
-        if (welcomeMsg) {
-          greeting = `Greet the user with something like: "${welcomeMsg.content}"`;
-        }
-      }
+    } else if (!hasUsedVoiceRef.current) {
+      // First activation — have Sam read out the welcome message
+      hasUsedVoiceRef.current = true;
+      const welcomeMsg = messages.find(m => m.id?.startsWith('initial_'));
+      const greeting = welcomeMsg
+        ? `Greet the user with something like: "${welcomeMsg.content}"`
+        : undefined;
       voiceMode.startVoiceMode(greeting);
+    } else {
+      // Resume — inject recent conversation as context so Sam can pick up where things left off
+      const recentMessages = messages
+        .filter(m => m.type !== 'transfer')
+        .slice(-15)
+        .map(m => `${m.type === 'user' ? 'User' : (m.agent || 'Agent')}: ${m.content}`)
+        .join('\n');
+      const resumePrompt = `The user is resuming the voice conversation. Here is the recent chat history:\n\n${recentMessages}\n\nGreet them briefly and ask how you can continue helping.`;
+      voiceMode.startVoiceMode(resumePrompt, true);
     }
   }, [voiceMode, messages]);
 

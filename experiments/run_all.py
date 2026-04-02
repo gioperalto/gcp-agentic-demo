@@ -13,6 +13,7 @@ Usage:
     python -m experiments.run_all --agent green
     python -m experiments.run_all --agent orange
     python -m experiments.run_all --agent purple
+    python -m experiments.run_all --agent gray
 
 Environment variables required:
     DATADOG_API_KEY          — Datadog API key
@@ -37,19 +38,20 @@ def main():
     parser = argparse.ArgumentParser(description="Run Datadog LLM Observability Experiments")
     parser.add_argument(
         "--agent",
-        choices=["red", "blue", "yellow", "green", "orange", "purple", "hallucination", "all"],
+        choices=["red", "blue", "yellow", "green", "orange", "purple", "gray", "hallucination", "all"],
         default="all",
         help="Which specialist to evaluate (default: all)",
     )
     args = parser.parse_args()
 
     runners = {
-        "red": ("Red (Flights)", "experiments.red_flights"),
-        "blue": ("Blue (Accommodations)", "experiments.blue_accommodations"),
-        "yellow": ("Yellow (Experiences)", "experiments.yellow_experiences"),
-        "green": ("Green (Restaurants)", "experiments.green_restaurants"),
+        "red": ("Red (Flights — Jenny)", "experiments.red_flights"),
+        "blue": ("Blue (Accommodations — Marcus)", "experiments.blue_accommodations"),
+        "yellow": ("Yellow (Experiences — Sofia)", "experiments.yellow_experiences"),
+        "green": ("Green (Restaurants — Luca)", "experiments.green_restaurants"),
         "orange": ("Orange (Legionnaire Concierge)", "experiments.orange_legionnaire"),
         "purple": ("Purple (Insecure Concierge)", "experiments.purple_insecure"),
+        "gray": ("Gray (Utility Infielder — Ralph)", "experiments.gray_ralph"),
         "hallucination": ("Hallucination Detection (LLM-as-Judge)", "experiments.hallucination_experiment"),
     }
 

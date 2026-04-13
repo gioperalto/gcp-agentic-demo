@@ -46,11 +46,16 @@ BACKEND_URL = os.getenv(
 )
 USERS_FILE = Path(os.getenv("LOAD_GEN_USERS_FILE", str(Path(__file__).with_name("users.json"))))
 HEADLESS = os.getenv("LOAD_GEN_HEADLESS", "true").lower() != "false"
-SESSION_PAUSE_SECONDS = float(os.getenv("LOAD_GEN_SESSION_PAUSE_SECONDS", "2"))
+# Default: 90s base pause + up to 30s jitter → average ~1.5–2 min between sessions
+SESSION_PAUSE_SECONDS = float(os.getenv("LOAD_GEN_SESSION_PAUSE_SECONDS", "90"))
 STEP_DELAY_SECONDS = float(os.getenv("LOAD_GEN_STEP_DELAY_SECONDS", "0.5"))
 CONCURRENCY = max(1, int(os.getenv("LOAD_GEN_CONCURRENCY", "1")))
 REQUEST_TIMEOUT_MS = int(os.getenv("LOAD_GEN_TIMEOUT_MS", "60000"))
 AGENT_REPLY_TIMEOUT_MS = int(os.getenv("LOAD_GEN_AGENT_REPLY_TIMEOUT_MS", "120000"))
+# Datadog feature flag that gates load generation; defaults on if flag/backend unavailable
+LOAD_GEN_ENABLED_FLAG = os.getenv("LOAD_GEN_ENABLED_FLAG", "load-gen-enabled")
+# How long to wait (seconds) before re-checking when load gen is disabled
+FLAG_POLL_INTERVAL_SECONDS = float(os.getenv("LOAD_GEN_FLAG_POLL_INTERVAL_SECONDS", "60"))
 
 
 # ---------------------------------------------------------------------------
@@ -145,6 +150,24 @@ INSECURE_MESSAGES = [
 # ---------------------------------------------------------------------------
 def jitter(lo: float = 0.1, hi: float = 0.6) -> float:
     return random.uniform(lo, hi)
+
+
+def is_load_gen_enabled() -> bool:
+    """Check the Datadog feature flag via the backend API.
+
+    Returns True (enabled) when the flag is on, the backend is unreachable,
+    or any error occurs — so transient failures never silently stop load gen.
+    """
+    try:
+        url = f"{BACKEND_URL}/api/flags/evaluate/{LOAD_GEN_ENABLED_FLAG}"
+        with urllib.request.urlopen(
+            urllib.request.Request(url, method="GET"), timeout=5
+        ) as resp:
+            body = json.loads(resp.read().decode())
+            return bool(body.get("enabled", True))
+    except Exception:
+        # Default to enabled if we can't reach the backend
+        return True
 
 
 async def pause(multiplier: float = 1.0) -> None:
@@ -625,7 +648,8 @@ async def run_session(browser: Browser, user: UserCredential, worker_id: int) ->
                 scenario=scenario_name,
                 page_url=FRONTEND_URL,
             )
-            await asyncio.sleep(SESSION_PAUSE_SECONDS + jitter(0.5, 2.0))
+            # Spread sessions across the pause window with a wide random offset
+            await asyncio.sleep(SESSION_PAUSE_SECONDS + jitter(10, 30))
 
 
 # ---------------------------------------------------------------------------
@@ -634,6 +658,21 @@ async def run_session(browser: Browser, user: UserCredential, worker_id: int) ->
 async def worker(browser: Browser, users: list[UserCredential], worker_id: int) -> None:
     index = worker_id % len(users)
     while True:
+        # Check feature flag before each session; if disabled, poll until re-enabled
+        enabled = await asyncio.to_thread(is_load_gen_enabled)
+        if not enabled:
+            logger.info(
+                "Load gen disabled via feature flag — sleeping before retry",
+                extra={
+                    "session_id": "worker",
+                    "user_id": "system",
+                    "page_url": FRONTEND_URL,
+                    "flag": LOAD_GEN_ENABLED_FLAG,
+                },
+            )
+            await asyncio.sleep(FLAG_POLL_INTERVAL_SECONDS)
+            continue
+
         user = users[index % len(users)]
         await run_session(browser, user, worker_id)
         index += 1

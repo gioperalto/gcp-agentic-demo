@@ -38,7 +38,7 @@ def main():
     parser = argparse.ArgumentParser(description="Run Datadog LLM Observability Experiments")
     parser.add_argument(
         "--agent",
-        choices=["red", "blue", "yellow", "green", "orange", "purple", "gray", "hallucination", "all"],
+        choices=["red", "blue", "yellow", "green", "orange", "purple", "gray", "hallucination", "jenny-model-cmp", "all"],
         default="all",
         help="Which specialist to evaluate (default: all)",
     )
@@ -53,6 +53,7 @@ def main():
         "purple": ("Purple (Insecure Concierge)", "experiments.purple_insecure"),
         "gray": ("Gray (Utility Infielder — Ralph)", "experiments.gray_ralph"),
         "hallucination": ("Hallucination Detection (LLM-as-Judge)", "experiments.hallucination_experiment"),
+        "jenny-model-cmp": ("Jenny — Gemini Model Comparison", "experiments.jenny_model_comparison"),
     }
 
     agents_to_run = list(runners.keys()) if args.agent == "all" else [args.agent]

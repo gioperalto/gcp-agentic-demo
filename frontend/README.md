@@ -1,73 +1,56 @@
-# React + TypeScript + Vite
+# Meridian Frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+React 18 + TypeScript single-page application built with Vite. Provides the traveler-facing UI for browsing travel options, managing membership cards, and chatting with AI concierge agents.
 
-Currently, two official plugins are available:
+## Pages
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+| Route | Page | Description |
+|-------|------|-------------|
+| `/` | Home | Landing page |
+| `/login` | Login | JWT authentication |
+| `/flights` | Flights | Browse and purchase flights |
+| `/accommodations` | Accommodations | Browse and book hotels, villas, airbnbs |
+| `/restaurants` | Restaurants | Browse and reserve restaurants |
+| `/experiences` | Experiences | Browse and book local experiences |
+| `/concierge` | Concierge | Chat with Legionnaire or Tribune AI concierge |
+| `/cards` | Cards | View membership cards |
+| `/apply` | Apply | Apply for Legionnaire or Tribune membership |
+| `/benefits` | Benefits | Membership benefits and rewards info |
+| `/account` | Account | User account and booking history |
 
-## React Compiler
+## Key Components
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+- **ChatInput** (`src/components/ChatInput.tsx`): Concierge chat input with voice toggle — microphone is gated to Tribune members only
+- **Datadog RUM**: Browser SDK is initialized at app startup for Real User Monitoring (page views, actions, errors)
 
-## Expanding the ESLint configuration
+## Development
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+npm install
+npm run dev       # Start Vite dev server at http://localhost:5173
+npm run build     # Production build
+npm run lint      # ESLint
+npm run preview   # Preview production build locally
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+## Environment Variables
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+Set these in a `.env` file at the project root (they are passed in by Docker Compose or Vite's env loading):
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+| Variable | Description |
+|----------|-------------|
+| `VITE_API_BASE_URL` | Backend API base URL (default: `http://localhost:8000`) |
+| `VITE_DD_APP_ID` | Datadog RUM application ID |
+| `VITE_DD_CLIENT_TOKEN` | Datadog RUM client token |
+| `VITE_DD_SERVICE` | Datadog RUM service name |
+| `VITE_DD_VERSION` | Datadog RUM version tag |
+| `VITE_DD_SITE` | Datadog site (e.g. `datadoghq.com`) |
+| `VITE_DD_ENV` | Datadog environment tag |
+
+## Tech Stack
+
+- **React 18** — UI library
+- **TypeScript** — Type-safe JavaScript
+- **React Router** — Client-side routing
+- **Vite** — Build tool with HMR
+- **Datadog Browser SDK** — Real User Monitoring

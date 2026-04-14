@@ -5,93 +5,107 @@ A full-stack travel platform featuring AI-powered concierge services built with 
 ## Features
 
 - **AI Concierge Services**
-  - **Legionnaire Concierge**: 24/7 AI chat assistant for travel recommendations and support
+  - **Legionnaire Concierge**: 24/7 AI chat assistant for affordable travel recommendations
   - **Tribune AI Travel Team**: Premium multi-agent system with specialized travel planning agents
 
 - **Voice Integration**: Real-time bidirectional voice via Gemini Live API (Tribune members only)
 
-- **Travel Discovery**: Browse and book flights, accommodations, restaurants, and local experiences
+- **Travel Discovery**: Browse and book flights, accommodations, restaurants, and local experiences across 6 countries
 
-- **User Authentication**: JWT-based authentication system
+- **User Authentication**: JWT-based authentication with membership tiers
 
-- **Membership Tiers**: Apply for Legionnaire or Tribune membership cards with tiered benefits
+- **Membership Cards**: Apply for Legionnaire or Tribune membership cards with tiered credit limits and reward points
 
-- **Benefits Portal**: Comprehensive benefits and rewards information for members
+- **Feature Flags**: Datadog-backed remote feature flags control agent availability and load generation
 
-- **Observability**: Datadog LLM Observability, APM, logs, and CSPM via Docker Compose
+- **Load Generation**: Automated Playwright-based traffic simulation instrumented with Datadog APM
+
+- **Observability**: Datadog LLM Observability, APM, RUM, logs, and CSPM via Docker Compose
 
 ## Architecture Overview
 
 ```
-┌─────────────────┐         ┌──────────────────┐       ┌──────────────┐
-│                 │         │                  │       │  Datadog     │
-│  React Frontend │◄────────┤  FastAPI Backend │──────►│  Agent       │
-│  (Port 5173)    │   SSE   │  (Port 8000)     │       │  (APM/Logs)  │
-│                 │         │                  │       └──────────────┘
+┌─────────────────┐         ┌──────────────────┐       ┌──────────────────┐
+│                 │         │                  │       │  Datadog         │
+│  React Frontend │◄────────┤  FastAPI Backend │──────►│  APM / LLM Obs   │
+│  (Port 5173)    │   SSE   │  (Port 8000)     │       │  RUM / Logs      │
+│                 │         │                  │       └──────────────────┘
 └─────────────────┘         └────────┬─────────┘
-                                     │
-                    ┌────────────────┴──────────────────┐
-                    │                                   │
-           ┌────────▼──────────┐           ┌───────────▼─────────┐
-           │  Tribune Premium  │           │ Legionnaire Basic   │
-           │  (Multi-Agent)    │           │  (Single Agent)     │
-           └────────┬──────────┘           └─────────────────────┘
-                    │
-             ┌──────▼───────┐
-             │     Sam      │
-             │(Coordinator) │
-             └──────┬───────┘
-                    │
-    ┌───────────────┼───────────────┐
-    │               │               │
-┌───▼───┐     ┌─────▼────┐    ┌────▼────┐
-│ Jenny │     │  Marcus  │    │  Sofia  │
-│(Flight│     │ (Hotels) │    │(Itiner.)│
-└───────┘     └──────────┘    └─────────┘
-    │
-┌───▼───┐
-│ Luca  │
-│(Dining│
-└───────┘
+         ▲                           │
+         │                ┌──────────┴─────────────────┐
+┌────────┴───────┐         │                           │
+│  Load Gen      │  ┌──────▼────────────┐   ┌──────────▼──────────┐
+│  (Playwright)  │  │  Tribune Premium  │   │  Legionnaire Basic  │
+│  DD APM traces │  │  (Multi-Agent)    │   │  (Single Agent)     │
+└────────────────┘  └──────┬────────────┘   └─────────────────────┘
+                           │
+                    ┌──────▼───────┐
+                    │     Sam      │
+                    │(Coordinator) │
+                    └──────┬───────┘
+                           │
+           ┌───────────────┼───────────────┐
+           │               │               │
+       ┌───▼───┐     ┌─────▼────┐    ┌────▼────┐
+       │ Jenny │     │  Marcus  │    │  Sofia  │
+       │(Flight│     │ (Hotels) │    │(Itiner.)│
+       └───┬───┘     └──────────┘    └─────────┘
+           │
+       ┌───▼───┐
+       │ Luca  │
+       │(Dining│
+       └───────┘
 ```
+
+## Services
+
+| Directory | Description | README |
+|-----------|-------------|--------|
+| `backend/` | FastAPI API, data, routers, feature flags | [backend/README.md](backend/README.md) |
+| `frontend/` | React + TypeScript + Vite SPA | [frontend/README.md](frontend/README.md) |
+| `tribune_concierge/` | Multi-agent premium travel team | [tribune_concierge/README.md](tribune_concierge/README.md) |
+| `legionnaire_concierge/` | Single-agent budget concierge | [legionnaire_concierge/README.md](legionnaire_concierge/README.md) |
+| `load-gen/` | Playwright load generator with Datadog APM | [load-gen/README.md](load-gen/README.md) |
 
 ## Tech Stack
 
 ### Backend
-- **FastAPI**: Web framework for building APIs
+- **FastAPI**: Web framework with SSE streaming
 - **Google ADK**: Agent Development Kit for building AI agents
 - **Google Vertex AI**: Gemini models for conversational AI
 - **Gemini Live API**: Real-time bidirectional voice conversations
-- **Datadog**: LLM Observability, APM, and log monitoring
+- **Datadog ddtrace**: LLM Observability, APM, log injection, and remote feature flags
 - **Python 3.10+**
 
 ### Frontend
-- **React 18**: UI library
-- **TypeScript**: Type-safe JavaScript
-- **React Router**: Client-side routing
-- **Vite**: Build tool and dev server
+- **React 18 + TypeScript**: UI library
+- **Vite**: Build tool and dev server with HMR
+- **Datadog Browser SDK**: Real User Monitoring (RUM)
+
+### Load Generator
+- **Playwright**: Browser automation for realistic user sessions
+- **ddtrace**: APM traces correlated with backend spans
+- **Datadog Feature Flags**: `load-gen-enabled` flag gates load generation remotely
 
 ---
 
 ## Quick Start (Docker Compose)
 
-The recommended way to run the full stack (backend, frontend, and Datadog agent) is via Docker Compose.
+The recommended way to run the full stack is via Docker Compose — it starts the backend, frontend, Datadog agent, and load generator together.
 
 ### Prerequisites
 
 - [Docker](https://docs.docker.com/get-docker/) and [Docker Compose](https://docs.docker.com/compose/install/)
 - A GCP service account JSON file with Vertex AI access
-- (Optional) A [Datadog API key](https://app.datadoghq.com/organization-settings/api-keys) for observability
+- A [Datadog API key](https://app.datadoghq.com/organization-settings/api-keys) for observability and feature flags
 
 ### 1. Configure Environment
-
-Copy the example env file and fill in your values:
 
 ```bash
 cp .env.example .env
 ```
 
-Edit `.env` with your actual credentials:
+Edit `.env` with your credentials:
 
 ```bash
 DD_ENV=dev
@@ -104,9 +118,13 @@ GOOGLE_GENAI_LIVE_MODEL=gemini-live-2.5-flash-native-audio
 GOOGLE_CLOUD_LOCATION=us-central1
 JWT_SECRET_KEY=change-me-in-production
 VITE_API_URL=http://localhost:8000
+# Datadog RUM (optional, for frontend observability)
+VITE_DD_APP_ID=your-dd-app-id
+VITE_DD_CLIENT_TOKEN=your-dd-client-token
+VITE_DD_SITE=datadoghq.com
 ```
 
-`GOOGLE_APPLICATION_CREDENTIALS` must be an **absolute path** to the service account JSON file on your host machine. Docker Compose mounts it into the container automatically.
+`GOOGLE_APPLICATION_CREDENTIALS` must be an **absolute path** to the service account JSON on your host — Docker Compose mounts it into the container automatically.
 
 ### 2. Build and Start
 
@@ -114,13 +132,14 @@ VITE_API_URL=http://localhost:8000
 docker compose up --build
 ```
 
-This starts three services:
+This starts four services:
 
 | Service | URL | Description |
 |---------|-----|-------------|
 | **frontend** | http://localhost:5173 | React app (Vite dev server) |
-| **backend** | http://localhost:8000 | FastAPI (with ddtrace APM) |
+| **backend** | http://localhost:8000 | FastAPI with ddtrace APM |
 | **dd-agent** | localhost:8125/udp, :8126/tcp | Datadog Agent (logs, APM, CSPM) |
+| **load-gen** | — | Playwright traffic simulator |
 
 ### 3. Verify
 
@@ -139,6 +158,7 @@ Source directories are volume-mounted for live reloading:
 
 - **Backend**: Edit files in `backend/`, `tribune_concierge/`, or `legionnaire_concierge/` — uvicorn auto-reloads
 - **Frontend**: Edit files in `frontend/src/` — Vite HMR updates the browser instantly
+- **Load Gen**: Edit files in `load-gen/` — restart the container to pick up changes
 
 ### 5. Stop
 
@@ -153,50 +173,36 @@ docker compose down
 ### 1. Install Dependencies
 
 ```bash
-# Python dependencies for backend
-cd backend
+# Python dependencies (backend + agents)
 python -m venv .venv
-source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+source .venv/bin/activate
 pip install -r requirements.txt
-cd ..
 
-# Node.js dependencies for frontend
-cd frontend
-npm install
-cd ..
+# Node.js dependencies (frontend)
+cd frontend && npm install && cd ..
 ```
 
-### 2. Configure Environment
-
-Create a `.env` file in the project root (see `.env.example`) with your GCP and Datadog credentials. The backend loads env vars via `dotenv`.
-
-### 3. Start the Backend
+### 2. Start the Backend
 
 ```bash
 cd backend
 python main.py
 ```
 
-The backend starts on http://localhost:8000
-- API docs: http://localhost:8000/docs
-- Health check: http://localhost:8000/api/health
+Backend: http://localhost:8000 — API docs at http://localhost:8000/docs
 
-### 4. Start the Frontend
-
-In a new terminal:
+### 3. Start the Frontend
 
 ```bash
 cd frontend
 npm run dev
 ```
 
-The frontend starts on http://localhost:5173
+Frontend: http://localhost:5173
 
 ---
 
 ## Mock Users
-
-For testing purposes, the following mock users are available:
 
 | Username | Password | Membership | Credit Limit | Reward Multiplier |
 |----------|----------|------------|-------------|-------------------|
@@ -206,14 +212,45 @@ For testing purposes, the following mock users are available:
 
 ---
 
-## Environment Variables
+## Feature Flags
 
-All environment variables are consolidated in a single root `.env` file. See `.env.example` for reference.
+Feature flags are managed via **Datadog Feature Management** and evaluated remotely by the backend at runtime using `DD_EXPERIMENTAL_FLAGGING_PROVIDER_ENABLED`. No redeployment is needed to toggle them.
+
+| Flag Key | Default | Description |
+|----------|---------|-------------|
+| `insecure_profile_agent` | `false` | Enables the insecure profile agent (demo/security testing only) |
+| `ralph_agent` | `false` | Enables the Ralph experimental agent |
+| `load-gen-enabled` | `true` | Gates whether the load generator runs sessions |
+
+The flag registry lives in `backend/feature_flags/__init__.py`. Add new flags there — one entry per flag with its default fallback value.
+
+See the [Datadog Feature Management docs](https://docs.datadoghq.com/service_management/feature_management/) for setup.
+
+---
+
+## Observability (Datadog)
+
+All services ship telemetry to the Datadog Agent container (`dd-agent`) running in the same Docker network.
+
+| Signal | Service(s) | Details |
+|--------|-----------|---------|
+| **APM traces** | backend, load-gen | `ddtrace-run` auto-instruments FastAPI and Playwright sessions |
+| **LLM Observability** | backend | Agent interactions traced via `DD_LLMOBS_ENABLED=1` under ML app `travel-planner` |
+| **Logs** | all | JSON logs with trace/span ID injection for correlated log-to-trace links |
+| **RUM** | frontend | Browser SDK tracks page views, actions, and errors |
+| **CSPM** | dd-agent | Cloud Security Posture Management enabled |
+| **Remote Config** | backend | Powers feature flag evaluation (`DD_REMOTE_CONFIGURATION_ENABLED=true`) |
+
+Unified service tagging (`env`, `service`, `version`) is applied via Docker labels and environment variables so all signals are correlated in Datadog.
+
+---
+
+## Environment Variables
 
 | Variable | Description | Required |
 |----------|-------------|----------|
 | `DD_ENV` | Datadog environment tag | No (default: `dev`) |
-| `DATADOG_API_KEY` | Datadog API key for observability | No |
+| `DATADOG_API_KEY` | Datadog API key | No (observability disabled without it) |
 | `GOOGLE_GENAI_MODEL` | Gemini model name | Yes |
 | `GOOGLE_GENAI_USE_VERTEXAI` | Use Vertex AI endpoints | Yes |
 | `GOOGLE_APPLICATION_CREDENTIALS` | Path to GCP service account JSON | Yes |
@@ -222,24 +259,9 @@ All environment variables are consolidated in a single root `.env` file. See `.e
 | `GOOGLE_GENAI_LIVE_MODEL` | Gemini Live model for voice | Yes |
 | `JWT_SECRET_KEY` | Secret key for JWT tokens | Yes |
 | `VITE_API_URL` | Backend API URL for the frontend | No (default: `http://localhost:8000`) |
-
----
-
-## AI Concierge System
-
-### Tribune Premium (Multi-Agent Travel Team)
-Located in `tribune_concierge/agent.py`
-
-- **Sam** — Lead travel coordinator who understands your needs and delegates to specialists
-- **Jenny** — Flight search specialist
-- **Marcus** — Accommodation booking expert
-- **Sofia** — Itinerary planning and local attractions specialist
-- **Luca** — Restaurant and dining recommendations specialist
-
-### Legionnaire (Personal Travel Assistant)
-Located in `legionnaire_concierge/agent.py`
-
-- **Concierge** — AI travel assistant for general recommendations and support
+| `VITE_DD_APP_ID` | Datadog RUM application ID | No |
+| `VITE_DD_CLIENT_TOKEN` | Datadog RUM client token | No |
+| `VITE_DD_SITE` | Datadog site (e.g. `datadoghq.com`) | No |
 
 ---
 
@@ -266,7 +288,7 @@ Located in `legionnaire_concierge/agent.py`
 | `GET` | `/api/travel/restaurants` | Browse restaurants |
 | `GET` | `/api/travel/experiences` | Browse experiences |
 
-Interactive API docs available at http://localhost:8000/docs when the backend is running.
+Interactive API docs: http://localhost:8000/docs
 
 ---
 
@@ -274,61 +296,35 @@ Interactive API docs available at http://localhost:8000/docs when the backend is
 
 ```
 meridian/
-├── backend/
-│   ├── main.py                 # FastAPI application
-│   ├── Dockerfile              # Backend container image
-│   ├── requirements.txt        # Python dependencies
-│   ├── data/                   # JSON seed data
-│   │   ├── users.json
-│   │   ├── flights.json
-│   │   ├── accommodations.json
-│   │   ├── restaurants.json
-│   │   └── experiences.json
-│   ├── models/                 # Pydantic models
-│   │   ├── auth.py
-│   │   ├── user.py
-│   │   ├── travel.py
-│   │   └── application.py
-│   ├── routers/                # API route handlers
-│   │   ├── auth.py
-│   │   ├── cards.py
-│   │   ├── travel.py
-│   │   ├── flights.py
-│   │   └── accommodations.py
-│   ├── services/               # Business logic
-│   │   ├── auth_service.py
-│   │   ├── user_service.py
-│   │   ├── travel_service.py
-│   │   └── application_service.py
-│   └── test_api.py             # API tests
-├── frontend/
-│   ├── Dockerfile              # Frontend container image
-│   ├── src/
-│   │   ├── components/         # React components
-│   │   ├── pages/              # Page components
-│   │   │   ├── Flights.tsx
-│   │   │   ├── Accommodations.tsx
-│   │   │   ├── Restaurants.tsx
-│   │   │   ├── Experiences.tsx
-│   │   │   ├── Concierge.tsx
-│   │   │   └── ...
-│   │   ├── utils/
-│   │   └── types/
-│   ├── package.json
-│   └── vite.config.ts
-├── tribune_concierge/          # Tribune multi-agent travel team
+├── backend/                        # FastAPI application
+│   ├── main.py
+│   ├── Dockerfile
+│   ├── requirements.txt
+│   ├── data/                       # JSON seed data
+│   ├── feature_flags/              # Datadog feature flag registry
+│   ├── models/                     # Pydantic models
+│   ├── routers/                    # API route handlers
+│   └── services/                   # Business logic
+├── frontend/                       # React + TypeScript SPA
+│   ├── Dockerfile
+│   └── src/
+│       ├── components/
+│       ├── pages/
+│       ├── utils/
+│       └── types/
+├── tribune_concierge/              # Tribune multi-agent travel team
 │   ├── agent.py
 │   └── tools/
-│       ├── jenny.py            # Flight tools
-│       ├── marcus.py           # Accommodation tools
-│       ├── sofia.py            # Itinerary tools
-│       ├── luca.py             # Restaurant tools
-│       └── ...
-├── legionnaire_concierge/      # Legionnaire personal assistant
-│   └── agent.py
-├── docker-compose.yml          # Full stack orchestration
-├── .dockerignore
-├── .env.example                # Environment variable template
+├── legionnaire_concierge/          # Legionnaire personal assistant
+│   ├── agent.py
+│   └── tools.py
+├── load-gen/                       # Playwright load generator
+│   ├── main.py
+│   ├── users.json
+│   ├── Dockerfile
+│   └── entrypoint.sh
+├── docker-compose.yml
+├── .env.example
 └── README.md
 ```
 
@@ -337,36 +333,23 @@ meridian/
 ## Testing
 
 ```bash
+# API integration tests
 cd backend
 pytest test_api.py -v
 ```
 
 ---
 
-## Monitoring
-
-The Docker Compose setup includes a Datadog Agent with:
-
-- **APM**: Automatic tracing via `ddtrace-run` (backend)
-- **Logs**: Container log collection with source/service tagging
-- **CSPM**: Cloud Security Posture Management
-- **LLM Observability**: Agent interaction tracing
-
-Unified service tagging is applied via env vars, Docker labels, and autodiscovery annotations. Services appear in Datadog as `travel-planner-api` and `travel-planner-frontend`.
-
----
-
 ## Troubleshooting
 
 ### Docker Compose issues
-- Ensure `GOOGLE_APPLICATION_CREDENTIALS` in `.env` is an absolute path to a file that exists on your host
-- If the Datadog agent fails, verify `DATADOG_API_KEY` is set (or remove the `dd-agent` service to run without it)
+- `GOOGLE_APPLICATION_CREDENTIALS` must be an absolute path to a file that exists on the host
+- If the Datadog agent fails, verify `DATADOG_API_KEY` is set (or remove `dd-agent` to run without observability)
 - Run `docker compose logs <service>` to inspect individual service logs
 
 ### Backend won't start
-- Check that port 8000 is available
-- Verify your `.env` file has all required GCP variables
-- Make sure all Python dependencies are installed
+- Check port 8000 is free
+- Verify all required GCP variables are in `.env`
 
 ### Frontend shows connection error
 - Verify the backend is running on port 8000
@@ -374,33 +357,18 @@ Unified service tagging is applied via env vars, Docker labels, and autodiscover
 - Look for CORS errors in the browser console
 
 ### Agents not responding
-- Check the backend logs for errors
-- Verify your GCP service account has Vertex AI access
-- Ensure `GOOGLE_GENAI_MODEL` is set correctly
+- Check backend logs for Vertex AI errors
+- Verify the GCP service account has Vertex AI access
+- Ensure `GOOGLE_GENAI_MODEL` is set
 
 ### Voice input not working
 - Voice is available to Tribune members only
-- Ensure microphone permissions are granted in the browser
-- Check that `GOOGLE_GENAI_LIVE_MODEL` is set in your `.env`
+- Grant microphone permissions in the browser
+- Check `GOOGLE_GENAI_LIVE_MODEL` is set in `.env`
 
----
-
-## Development
-
-### Adding New Agents
-
-To add a new agent to the Tribune system:
-
-1. Create agent tools in `tribune_concierge/tools/`
-2. Define the agent in `tribune_concierge/agent.py`
-3. Add the agent to the `root_agent.sub_agents` list
-4. Update the agent transfer messages in `backend/main.py`
-
-### Adding New API Endpoints
-
-1. Create route handler in `backend/routers/`
-2. Include router in `backend/main.py`
-3. Add tests in `backend/test_api.py`
+### Load generator not running
+- Check the `load-gen-enabled` feature flag in Datadog Feature Management — the service polls this flag and skips sessions when it is off
+- Inspect logs: `docker compose logs load-gen`
 
 ---
 

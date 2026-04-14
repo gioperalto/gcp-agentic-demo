@@ -1,5 +1,5 @@
 terraform {
-  required_version = ">= 1.5"
+  required_version = ">= 1.10"
 
   required_providers {
     google = {
@@ -87,6 +87,7 @@ module "cloud_run" {
     GOOGLE_GENAI_MODEL        = var.google_genai_model
     GOOGLE_GENAI_USE_VERTEXAI = "True"
     GOOGLE_CLOUD_LOCATION     = var.region
+    GOOGLE_CLOUD_VOICE_REGION = var.region
     GOOGLE_CLOUD_PROJECT      = var.project_id
     GOOGLE_GENAI_LIVE_MODEL   = var.google_genai_live_model
     ALLOWED_ORIGINS           = "https://${var.domain}"

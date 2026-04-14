@@ -203,7 +203,7 @@ Deploy the full stack to Google Cloud Platform using the included Terraform conf
 
 ### Prerequisites
 
-- [Terraform](https://developer.hashicorp.com/terraform/install) >= 1.5
+- [Terraform](https://developer.hashicorp.com/terraform/install) >= 1.10
 - [Google Cloud SDK](https://cloud.google.com/sdk/docs/install) (`gcloud`)
 - A GCP project with billing enabled
 - A domain name you control (for DNS + SSL)

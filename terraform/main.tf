@@ -56,6 +56,7 @@ module "secrets" {
     DATADOG_API_KEY      = var.datadog_api_key
     DD_APPLICATION_KEY   = var.dd_application_key
     VITE_DD_CLIENT_TOKEN = var.vite_dd_client_token
+    VITE_DD_APP_ID       = var.vite_dd_app_id
   }
 
   depends_on = [module.project_services]
@@ -89,6 +90,7 @@ module "cloud_run" {
     GOOGLE_CLOUD_PROJECT      = var.project_id
     GOOGLE_GENAI_LIVE_MODEL   = var.google_genai_live_model
     ALLOWED_ORIGINS           = "https://${var.domain}"
+    API_BASE_URL              = "http://localhost:8080"
   })
 
   secret_env_vars = merge(module.datadog.secret_env_vars, {
@@ -138,17 +140,47 @@ module "dns" {
 module "cicd" {
   source = "./modules/cicd"
 
-  project_id                 = var.project_id
-  region                     = var.region
-  environment                = var.environment
-  github_app_installation_id = var.github_app_installation_id
-  github_owner               = var.github_owner
-  github_repo                = var.github_repo
-  artifact_registry_repo_url = module.artifact_registry.repository_url
-  cloud_run_service_name     = module.cloud_run.service_name
-  frontend_bucket_name       = module.frontend_bucket.bucket_name
-  url_map_name               = module.load_balancer.url_map_name
-  domain                     = var.domain
+  project_id                    = var.project_id
+  region                        = var.region
+  environment                   = var.environment
+  github_app_installation_id    = var.github_app_installation_id
+  github_owner                  = var.github_owner
+  github_repo                   = var.github_repo
+  artifact_registry_repo_url    = module.artifact_registry.repository_url
+  cloud_run_service_name        = module.cloud_run.service_name
+  frontend_bucket_name          = module.frontend_bucket.bucket_name
+  url_map_name                  = module.load_balancer.url_map_name
+  domain                        = var.domain
+  vite_dd_client_token_secret_id = module.secrets.secret_ids["VITE_DD_CLIENT_TOKEN"]
+  vite_dd_app_id_secret_id      = module.secrets.secret_ids["VITE_DD_APP_ID"]
+
+  depends_on = [module.project_services]
+}
+
+# ---------------------------------------------------------------------------
+# Load Generator (Cloud Run Job)
+# ---------------------------------------------------------------------------
+module "load_gen" {
+  source     = "./modules/load_gen"
+  project_id = var.project_id
+  region     = var.region
+  environment = var.environment
+  image      = "${module.artifact_registry.repository_url}/travel-planner-load-gen:latest"
+  service_account_email = module.service_accounts.cloud_run_sa_email
+
+  env_vars = {
+    DD_ENV                   = var.environment
+    DD_SERVICE               = "travel-planner-load-gen"
+    DD_LLMOBS_AGENTLESS_ENABLED = "1"
+    DD_TRACE_PROPAGATION_STYLE = "datadog,tracecontext"
+    LOAD_GEN_FRONTEND_URL    = "https://${var.domain}"
+    LOAD_GEN_BACKEND_URL     = "https://${var.domain}"
+    LOAD_GEN_HEADLESS        = "true"
+  }
+
+  secret_env_vars = {
+    DD_API_KEY = module.secrets.secret_ids["DATADOG_API_KEY"]
+  }
 
   depends_on = [module.project_services]
 }

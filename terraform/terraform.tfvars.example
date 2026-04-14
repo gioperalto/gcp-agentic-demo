@@ -12,3 +12,6 @@ cloud_run_max_instances = 10
 github_app_installation_id = ""
 github_owner               = ""
 github_repo                = ""
+
+# Datadog RUM (baked into frontend bundle)
+# vite_dd_app_id = "" # set via TF_VAR_vite_dd_app_id

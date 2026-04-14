@@ -19,8 +19,10 @@ output "env_vars" {
     DD_RUNTIME_METRICS_ENABLED  = "true"
     DD_LLMOBS_ENABLED           = "1"
     DD_LLMOBS_ML_APP            = "travel-planner"
-    DD_LLMOBS_AGENTLESS_ENABLED = "1"
-    DD_TRACE_PROPAGATION_STYLE  = "datadog,tracecontext"
+    DD_LLMOBS_AGENTLESS_ENABLED                = "1"
+    DD_TRACE_PROPAGATION_STYLE                 = "datadog,tracecontext"
+    DD_REMOTE_CONFIG_ENABLED                   = "true"
+    DD_EXPERIMENTAL_FLAGGING_PROVIDER_ENABLED  = "true"
   }
 }
 

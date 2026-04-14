@@ -80,3 +80,9 @@ variable "vite_dd_client_token" {
   type        = string
   sensitive   = true
 }
+
+variable "vite_dd_app_id" {
+  description = "Datadog RUM application ID (baked into frontend JS bundle)"
+  type        = string
+  sensitive   = true
+}

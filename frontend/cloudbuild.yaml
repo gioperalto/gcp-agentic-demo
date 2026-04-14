@@ -12,6 +12,10 @@ steps:
     args: ['run', 'build']
     env:
       - 'VITE_API_BASE_URL=${_VITE_API_BASE_URL}'
+      - 'VITE_DD_SITE=datadoghq.com'
+    secretEnv:
+      - 'VITE_DD_CLIENT_TOKEN'
+      - 'VITE_DD_APP_ID'
 
   # Sync build output to GCS bucket
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
@@ -34,6 +38,13 @@ steps:
       - '${_URL_MAP_NAME}'
       - '--path=/index.html'
       - '--async'
+
+availableSecrets:
+  secretManager:
+    - versionName: '$_VITE_DD_CLIENT_TOKEN_SECRET'
+      env: 'VITE_DD_CLIENT_TOKEN'
+    - versionName: '$_VITE_DD_APP_ID_SECRET'
+      env: 'VITE_DD_APP_ID'
 
 options:
   logging: CLOUD_LOGGING_ONLY

@@ -44,6 +44,16 @@ variable "domain" {
   type = string
 }
 
+variable "vite_dd_client_token_secret_id" {
+  description = "Secret Manager secret ID for VITE_DD_CLIENT_TOKEN"
+  type        = string
+}
+
+variable "vite_dd_app_id_secret_id" {
+  description = "Secret Manager secret ID for VITE_DD_APP_ID"
+  type        = string
+}
+
 # ---------------------------------------------------------------------------
 # GitHub Connection (Cloud Build 2nd-gen)
 # ---------------------------------------------------------------------------
@@ -125,6 +135,12 @@ resource "google_project_iam_member" "frontend_build_log_writer" {
   member  = "serviceAccount:${google_service_account.frontend_build.email}"
 }
 
+resource "google_project_iam_member" "frontend_build_secret_accessor" {
+  project = var.project_id
+  role    = "roles/secretmanager.secretAccessor"
+  member  = "serviceAccount:${google_service_account.frontend_build.email}"
+}
+
 # ---------------------------------------------------------------------------
 # Backend Trigger
 # ---------------------------------------------------------------------------
@@ -140,7 +156,7 @@ resource "google_cloudbuild_trigger" "backend" {
     }
   }
 
-  included_files = ["backend/**", "tribune_concierge/**", "legionnaire_concierge/**"]
+  included_files = ["backend/**", "tribune_concierge/**", "legionnaire_concierge/**", "insecure_concierge/**"]
   filename       = "backend/cloudbuild.yaml"
 
   substitutions = {
@@ -173,10 +189,52 @@ resource "google_cloudbuild_trigger" "frontend" {
   filename       = "frontend/cloudbuild.yaml"
 
   substitutions = {
-    _DEPLOY_BUCKET     = var.frontend_bucket_name
-    _URL_MAP_NAME      = var.url_map_name
-    _VITE_API_BASE_URL = "https://${var.domain}"
+    _DEPLOY_BUCKET                 = var.frontend_bucket_name
+    _URL_MAP_NAME                  = var.url_map_name
+    _VITE_API_BASE_URL             = "https://${var.domain}"
+    _VITE_DD_CLIENT_TOKEN_SECRET   = "${var.vite_dd_client_token_secret_id}/versions/latest"
+    _VITE_DD_APP_ID_SECRET         = "${var.vite_dd_app_id_secret_id}/versions/latest"
   }
 
   service_account = google_service_account.frontend_build.id
+}
+
+# ---------------------------------------------------------------------------
+# Load-Gen Trigger (build image only — job execution is on-demand)
+# ---------------------------------------------------------------------------
+resource "google_cloudbuild_trigger" "load_gen" {
+  project  = var.project_id
+  location = var.region
+  name     = "load-gen-build-${var.environment}"
+
+  repository_event_config {
+    repository = google_cloudbuildv2_repository.repo.id
+    push {
+      branch = "^main$"
+    }
+  }
+
+  included_files = ["load-gen/**"]
+
+  build {
+    step {
+      name = "gcr.io/cloud-builders/docker"
+      args = [
+        "build",
+        "-t", "${var.artifact_registry_repo_url}/travel-planner-load-gen:$SHORT_SHA",
+        "-t", "${var.artifact_registry_repo_url}/travel-planner-load-gen:latest",
+        "-f", "load-gen/Dockerfile",
+        ".",
+      ]
+    }
+    step {
+      name = "gcr.io/cloud-builders/docker"
+      args = ["push", "--all-tags", "${var.artifact_registry_repo_url}/travel-planner-load-gen"]
+    }
+    options {
+      logging = "CLOUD_LOGGING_ONLY"
+    }
+  }
+
+  service_account = google_service_account.backend_build.id
 }

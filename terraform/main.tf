@@ -91,13 +91,54 @@ module "cloud_run" {
     GOOGLE_GENAI_LIVE_MODEL   = var.google_genai_live_model
     ALLOWED_ORIGINS           = "https://${var.domain}"
     API_BASE_URL              = "http://localhost:8080"
+    MEDIA_BUCKET_NAME         = module.media_bucket.bucket_name
+    SIGNED_URL_TTL_MINUTES    = tostring(var.signed_url_ttl_minutes)
   })
 
   secret_env_vars = merge(module.datadog.secret_env_vars, {
     JWT_SECRET_KEY = module.secrets.secret_ids["JWT_SECRET_KEY"]
   })
 
+  depends_on = [module.project_services, module.media_bucket]
+}
+
+# ---------------------------------------------------------------------------
+# Media GCS Bucket (private — images served via signed URLs)
+# ---------------------------------------------------------------------------
+module "media_bucket" {
+  source             = "./modules/media_bucket"
+  project_id         = var.project_id
+  region             = var.region
+  environment        = var.environment
+  cloud_run_sa_email = module.service_accounts.cloud_run_sa_email
+
+  depends_on = [module.project_services, module.service_accounts]
+}
+
+# ---------------------------------------------------------------------------
+# Firestore Database (native mode)
+# ---------------------------------------------------------------------------
+module "firestore" {
+  source             = "./modules/firestore"
+  project_id         = var.project_id
+  firestore_location = var.firestore_location
+
   depends_on = [module.project_services]
+}
+
+# ---------------------------------------------------------------------------
+# Firestore Seeder Job
+# ---------------------------------------------------------------------------
+module "seeder_job" {
+  source                = "./modules/seeder_job"
+  project_id            = var.project_id
+  region                = var.region
+  environment           = var.environment
+  image                 = "${module.artifact_registry.repository_url}/travel-planner-api:latest"
+  service_account_email = module.service_accounts.cloud_run_sa_email
+  media_bucket_name     = module.media_bucket.bucket_name
+
+  depends_on = [module.project_services, module.media_bucket, module.firestore]
 }
 
 # ---------------------------------------------------------------------------
@@ -153,8 +194,10 @@ module "cicd" {
   domain                        = var.domain
   vite_dd_client_token_secret_id = module.secrets.secret_ids["VITE_DD_CLIENT_TOKEN"]
   vite_dd_app_id_secret_id      = module.secrets.secret_ids["VITE_DD_APP_ID"]
+  media_bucket_name              = module.media_bucket.bucket_name
+  seeder_job_name                = module.seeder_job.job_name
 
-  depends_on = [module.project_services]
+  depends_on = [module.project_services, module.media_bucket, module.seeder_job]
 }
 
 # ---------------------------------------------------------------------------

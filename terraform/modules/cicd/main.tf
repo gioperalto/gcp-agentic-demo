@@ -54,6 +54,16 @@ variable "vite_dd_app_id_secret_id" {
   type        = string
 }
 
+variable "media_bucket_name" {
+  description = "Private GCS bucket name for travel images"
+  type        = string
+}
+
+variable "seeder_job_name" {
+  description = "Cloud Run Job name for Firestore seeder"
+  type        = string
+}
+
 # ---------------------------------------------------------------------------
 # GitHub Connection (Cloud Build 2nd-gen)
 # ---------------------------------------------------------------------------
@@ -139,6 +149,39 @@ resource "google_project_iam_member" "frontend_build_secret_accessor" {
   project = var.project_id
   role    = "roles/secretmanager.secretAccessor"
   member  = "serviceAccount:${google_service_account.frontend_build.email}"
+}
+
+# ---------------------------------------------------------------------------
+# Content Build Service Account (image sync + Firestore seeder)
+# ---------------------------------------------------------------------------
+resource "google_service_account" "content_build" {
+  project      = var.project_id
+  account_id   = "cb-content-build"
+  display_name = "Cloud Build - Content (images + Firestore seed)"
+}
+
+resource "google_storage_bucket_iam_member" "content_build_media_admin" {
+  bucket = var.media_bucket_name
+  role   = "roles/storage.objectAdmin"
+  member = "serviceAccount:${google_service_account.content_build.email}"
+}
+
+resource "google_project_iam_member" "content_build_run_developer" {
+  project = var.project_id
+  role    = "roles/run.developer"
+  member  = "serviceAccount:${google_service_account.content_build.email}"
+}
+
+resource "google_project_iam_member" "content_build_log_writer" {
+  project = var.project_id
+  role    = "roles/logging.logWriter"
+  member  = "serviceAccount:${google_service_account.content_build.email}"
+}
+
+resource "google_project_iam_member" "content_build_sa_user" {
+  project = var.project_id
+  role    = "roles/iam.serviceAccountUser"
+  member  = "serviceAccount:${google_service_account.content_build.email}"
 }
 
 # ---------------------------------------------------------------------------
@@ -237,4 +280,35 @@ resource "google_cloudbuild_trigger" "load_gen" {
   }
 
   service_account = google_service_account.backend_build.id
+}
+
+# ---------------------------------------------------------------------------
+# Content Trigger (image upload + Firestore reseed)
+# ---------------------------------------------------------------------------
+resource "google_cloudbuild_trigger" "content" {
+  project  = var.project_id
+  location = var.region
+  name     = "content-seed-${var.environment}"
+
+  repository_event_config {
+    repository = google_cloudbuildv2_repository.repo.id
+    push {
+      branch = "^main$"
+    }
+  }
+
+  included_files = [
+    "backend/data/**",
+    "frontend/public/img/**",
+    "backend/scripts/**",
+  ]
+  filename = "backend/cloudbuild.content.yaml"
+
+  substitutions = {
+    _MEDIA_BUCKET    = var.media_bucket_name
+    _SEEDER_JOB_NAME = var.seeder_job_name
+    _RUN_REGION      = var.region
+  }
+
+  service_account = google_service_account.content_build.id
 }

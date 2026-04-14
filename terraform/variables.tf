@@ -38,6 +38,18 @@ variable "cloud_run_max_instances" {
   default     = 10
 }
 
+variable "firestore_location" {
+  description = "Firestore location (e.g., nam5 for US multi-region, us-central for Iowa)"
+  type        = string
+  default     = "nam5"
+}
+
+variable "signed_url_ttl_minutes" {
+  description = "TTL in minutes for GCS signed image URLs returned by the API"
+  type        = number
+  default     = 60
+}
+
 variable "github_app_installation_id" {
   description = "GitHub App installation ID for Cloud Build connection"
   type        = string

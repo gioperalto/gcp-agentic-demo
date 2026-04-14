@@ -22,3 +22,18 @@ output "dns_name_servers" {
   description = "Name servers for the DNS zone (configure at your registrar)"
   value       = module.dns.name_servers
 }
+
+output "media_bucket_name" {
+  description = "Name of the private GCS bucket holding travel images"
+  value       = module.media_bucket.bucket_name
+}
+
+output "firestore_database" {
+  description = "Firestore database name"
+  value       = module.firestore.database_name
+}
+
+output "seeder_job_name" {
+  description = "Cloud Run Job name for Firestore seeding"
+  value       = module.seeder_job.job_name
+}

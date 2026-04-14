@@ -20,6 +20,19 @@ resource "google_project_iam_member" "secret_accessor" {
   member  = "serviceAccount:${google_service_account.cloud_run.email}"
 }
 
+resource "google_project_iam_member" "firestore_user" {
+  project = var.project_id
+  role    = "roles/datastore.user"
+  member  = "serviceAccount:${google_service_account.cloud_run.email}"
+}
+
+# Allows the SA to sign GCS blob URLs (needed for v4 signed URLs on Cloud Run)
+resource "google_service_account_iam_member" "token_creator_self" {
+  service_account_id = google_service_account.cloud_run.name
+  role               = "roles/iam.serviceAccountTokenCreator"
+  member             = "serviceAccount:${google_service_account.cloud_run.email}"
+}
+
 output "cloud_run_sa_email" {
   value = google_service_account.cloud_run.email
 }

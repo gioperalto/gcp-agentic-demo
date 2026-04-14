@@ -42,7 +42,10 @@ _BACKEND_DIR = Path(__file__).resolve().parent.parent
 if str(_BACKEND_DIR) not in sys.path:
     sys.path.insert(0, str(_BACKEND_DIR))
 
+from argon2 import PasswordHasher
 from google.cloud import firestore
+
+_ph = PasswordHasher()
 
 USERS_COLLECTION = "users"
 
@@ -242,10 +245,11 @@ def cmd_change_password(args, db: firestore.Client) -> None:
         print("Aborted.")
         return
 
-    write_user(db, user_id, {"password": new_password}, dry_run=False)
-
-    # Zero out after write
+    hashed = _ph.hash(new_password)
+    # Zero out plaintext immediately after hashing
     new_password = ""
+
+    write_user(db, user_id, {"password": hashed}, dry_run=False)
 
     print("Password updated successfully.")
 

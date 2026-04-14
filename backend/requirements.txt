@@ -10,6 +10,7 @@ python-dotenv
 pydantic
 pydantic[email]
 python-jose[cryptography]
+argon2-cffi>=23.1.0
 pytest
 pytest-asyncio
 httpx

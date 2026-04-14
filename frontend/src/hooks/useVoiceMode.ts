@@ -51,7 +51,7 @@ interface VoiceModeCallbacks {
   onError?: (error: string) => void;
 }
 
-export function useVoiceMode(sessionId: string, callbacks?: VoiceModeCallbacks) {
+export function useVoiceMode(getSessionId: () => string, callbacks?: VoiceModeCallbacks) {
   const [state, setState] = useState<VoiceModeState>({
     isActive: false,
     isConnecting: false,
@@ -194,7 +194,7 @@ export function useVoiceMode(sessionId: string, callbacks?: VoiceModeCallbacks) 
 
     try {
       // 1. Open WebSocket
-      const wsUrl = `${getWsUrl()}/ws/voice?session_id=${encodeURIComponent(sessionId)}`;
+      const wsUrl = `${getWsUrl()}/ws/voice?session_id=${encodeURIComponent(getSessionId())}`;
       const ws = new WebSocket(wsUrl);
       wsRef.current = ws;
 
@@ -524,7 +524,7 @@ export function useVoiceMode(sessionId: string, callbacks?: VoiceModeCallbacks) 
       callbacks?.onError?.(message);
       cleanup();
     }
-  }, [sessionId, state.isActive, state.isConnecting, callbacks, cleanup]);
+  }, [getSessionId, state.isActive, state.isConnecting, callbacks, cleanup]);
 
   const stopVoiceMode = useCallback(() => {
     console.log('[voice] Stopping voice mode');

@@ -220,7 +220,7 @@ async def traced_sse_stream(
         resource=resource,
     ) as span:
         span.set_tag("sse.endpoint", resource)
-        span.set_tag("session.id", session_id)
+        span.set_tag("session_id", session_id)
         try:
             async for chunk in generator:
                 yield chunk
@@ -240,6 +240,7 @@ _genai_model = os.getenv("GOOGLE_GENAI_MODEL", "gemini-2.0-flash")
 def _record_text_llm_span(
     *,
     span_name: str,
+    session_id: str,
     user_message: str,
     assistant_message: str,
 ) -> "dict[str, str] | None":
@@ -261,6 +262,7 @@ def _record_text_llm_span(
     ) as llm_span:
         LLMObs.annotate(
             span=llm_span,
+            tags={"session_id": session_id},
             input_data=[{"content": user_message, "role": "user"}],
             output_data=[{"content": assistant_message, "role": "assistant"}],
         )
@@ -356,7 +358,7 @@ async def stream_legionnaire_response(message: str, session_id: str) -> AsyncGen
             )
 
         with LLMObs.workflow(name="legionnaire_concierge") as workflow_span:
-            LLMObs.annotate(span=workflow_span, tags={"session.id": session_id})
+            LLMObs.annotate(span=workflow_span, tags={"session_id": session_id})
 
             # Run the agent and stream responses
             async for event in run_legionnaire_agent(message, session_id):
@@ -368,6 +370,7 @@ async def stream_legionnaire_response(message: str, session_id: str) -> AsyncGen
             full_response = "".join(response_parts)
             turn_span_context = _record_text_llm_span(
                 span_name="text_turn.legionnaire",
+                session_id=session_id,
                 user_message=message,
                 assistant_message=full_response,
             )
@@ -473,7 +476,7 @@ async def stream_insecure_response(message: str, session_id: str) -> AsyncGenera
             )
 
         with LLMObs.workflow(name="insecure_concierge") as workflow_span:
-            LLMObs.annotate(span=workflow_span, tags={"session.id": session_id})
+            LLMObs.annotate(span=workflow_span, tags={"session_id": session_id})
 
             # Run the agent and stream responses
             async for event in run_insecure_agent(message, session_id):
@@ -482,6 +485,7 @@ async def stream_insecure_response(message: str, session_id: str) -> AsyncGenera
             # Record an LLM-type span for the full turn input/output.
             _record_text_llm_span(
                 span_name="text_turn.insecure",
+                session_id=session_id,
                 user_message=message,
                 assistant_message="".join(response_parts),
             )
@@ -536,6 +540,7 @@ async def stream_agent_response(message: str, session_id: str) -> AsyncGenerator
             tracer.context_provider.activate(_subagent_wf_span)
         _record_text_llm_span(
             span_name=f"text_agent.{agent_name}",
+            session_id=session_id,
             user_message=message,
             assistant_message=agent_text,
         )
@@ -554,7 +559,7 @@ async def stream_agent_response(message: str, session_id: str) -> AsyncGenerator
         # LLMObs.workflow() creates the span and makes it active; __enter__ is a no-op
         # that returns self.  We call it anyway so __exit__ can be used for cleanup.
         span = LLMObs.workflow(name=wf_name).__enter__()
-        LLMObs.annotate(span=span, tags={"session.id": session_id, "agent.name": agent_name})
+        LLMObs.annotate(span=span, tags={"session_id": session_id, "agent.name": agent_name})
         _subagent_wf_ctx = span   # ctx == span (same object in ddtrace)
         _subagent_wf_span = span
 
@@ -726,7 +731,7 @@ async def stream_agent_response(message: str, session_id: str) -> AsyncGenerator
             )
 
         with LLMObs.workflow(name="tribune_concierge") as workflow_span:
-            LLMObs.annotate(span=workflow_span, tags={"session.id": session_id})
+            LLMObs.annotate(span=workflow_span, tags={"session_id": session_id})
 
             # Run the agent and stream responses
             async for event in run_agent(message, session_id, sub_agents):
@@ -740,6 +745,7 @@ async def stream_agent_response(message: str, session_id: str) -> AsyncGenerator
                 full_response = "".join(all_response_parts)
                 turn_span_context = _record_text_llm_span(
                     span_name="text_turn.tribune",
+                    session_id=session_id,
                     user_message=message,
                     assistant_message=full_response,
                 )
@@ -926,6 +932,7 @@ async def voice_websocket(websocket: WebSocket, session_id: str = "default"):
         ) as span:
             LLMObs.annotate(
                 span=span,
+                tags={"session_id": session_id},
                 input_data=[{"content": user_text or "(audio-only)", "role": "user"}],
                 output_data=[{"content": agent_text or "(audio-only)", "role": "assistant"}],
             )
@@ -1159,7 +1166,7 @@ async def voice_websocket(websocket: WebSocket, session_id: str = "default"):
     try:
         with LLMObs.workflow(name="tribune_concierge") as _workflow_span:
             _workflow_span_ref = _workflow_span
-            LLMObs.annotate(span=_workflow_span, tags={"session.id": session_id})
+            LLMObs.annotate(span=_workflow_span, tags={"session_id": session_id})
             priming_message: str | None = None
 
             while not client_disconnected:
@@ -1195,7 +1202,7 @@ async def voice_websocket(websocket: WebSocket, session_id: str = "default"):
                     _subagent_wf_ctx = _subagent_wf_span_ref  # same object
                     LLMObs.annotate(
                         span=_subagent_wf_span_ref,
-                        tags={"session.id": session_id, "agent.name": current_agent_name},
+                        tags={"session_id": session_id, "agent.name": current_agent_name},
                     )
 
                 live_request_queue = LiveRequestQueue()

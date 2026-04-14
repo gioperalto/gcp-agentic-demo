@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { datadogRum } from '@datadog/browser-rum';
 import { ulid } from 'ulid';
 import type { Message } from '../types/chat';
 import { streamChatResponse, streamLegionnaireChatResponse, streamInsecureChatResponse } from '../utils/api';
@@ -33,7 +34,14 @@ export function Concierge() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const currentMessageRef = useRef<string>('');
   const currentAgentRef = useRef<string>('Sam');
-  const sessionIdRef = useRef<string>(ulid());
+  const sessionIdFallbackRef = useRef<string>(ulid());
+
+  const getSessionId = useCallback(() => {
+    // RUM is initialized in main.tsx before the app mounts. Keep a ULID only as
+    // a last-resort fallback for local/dev runs where RUM is disabled or context
+    // is temporarily unavailable.
+    return datadogRum.getInternalContext()?.session_id ?? sessionIdFallbackRef.current;
+  }, []);
 
   // Track whether voice has been activated this session (for TTS on transfers)
   const hasUsedVoiceRef = useRef(false);
@@ -154,7 +162,7 @@ export function Concierge() {
     ]);
   }, []);
 
-  const voiceMode = useVoiceMode(sessionIdRef.current, {
+  const voiceMode = useVoiceMode(getSessionId, {
     onAgentTranscript: handleVoiceAgentTranscript,
     onUserTranscript: handleVoiceUserTranscript,
     onAgentTransfer: handleVoiceAgentTransfer,
@@ -274,7 +282,7 @@ export function Concierge() {
         ? streamInsecureChatResponse
         : streamLegionnaireChatResponse;
 
-      for await (const event of streamFunction(content, sessionIdRef.current)) {
+      for await (const event of streamFunction(content, getSessionId())) {
         if (event.type === 'agent_transfer') {
           const transferContent = event.data.message || '';
           const transferMessage: Message = {
@@ -361,7 +369,6 @@ export function Concierge() {
   const handleTierSelect = (tier: 'tribune' | 'legionnaire' | 'debug') => {
     setSelectedTier(tier);
     setMessages([]);
-    sessionIdRef.current = ulid(); // New session for new tier
   };
 
   // Show loading state while checking authentication

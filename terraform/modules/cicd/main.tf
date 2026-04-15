@@ -64,6 +64,10 @@ variable "seeder_job_name" {
   type        = string
 }
 
+variable "app_name" {
+  type = string
+}
+
 # ---------------------------------------------------------------------------
 # GitHub Connection (Cloud Build 2nd-gen)
 # ---------------------------------------------------------------------------
@@ -205,7 +209,7 @@ resource "google_cloudbuild_trigger" "backend" {
   substitutions = {
     _AR_HOST      = "${var.region}-docker.pkg.dev"
     _AR_REPO      = var.artifact_registry_repo_url
-    _IMAGE_NAME   = "travel-planner-api"
+    _IMAGE_NAME   = "${var.app_name}-api"
     _SERVICE_NAME = var.cloud_run_service_name
     _RUN_REGION   = var.region
   }
@@ -264,15 +268,15 @@ resource "google_cloudbuild_trigger" "load_gen" {
       name = "gcr.io/cloud-builders/docker"
       args = [
         "build",
-        "-t", "${var.artifact_registry_repo_url}/travel-planner-load-gen:$SHORT_SHA",
-        "-t", "${var.artifact_registry_repo_url}/travel-planner-load-gen:latest",
+        "-t", "${var.artifact_registry_repo_url}/${var.app_name}-load-gen:$SHORT_SHA",
+        "-t", "${var.artifact_registry_repo_url}/${var.app_name}-load-gen:latest",
         "-f", "load-gen/Dockerfile",
         ".",
       ]
     }
     step {
       name = "gcr.io/cloud-builders/docker"
-      args = ["push", "--all-tags", "${var.artifact_registry_repo_url}/travel-planner-load-gen"]
+      args = ["push", "--all-tags", "${var.artifact_registry_repo_url}/${var.app_name}-load-gen"]
     }
     options {
       logging = "CLOUD_LOGGING_ONLY"

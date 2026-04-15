@@ -20,12 +20,16 @@ variable "cloud_run_service_name" {
   type        = string
 }
 
+variable "app_name" {
+  type = string
+}
+
 # ---------------------------------------------------------------------------
 # Static IP
 # ---------------------------------------------------------------------------
 resource "google_compute_global_address" "default" {
   project = var.project_id
-  name    = "travel-planner-lb-ip"
+  name    = "${var.app_name}-lb-ip"
 }
 
 # ---------------------------------------------------------------------------
@@ -33,7 +37,7 @@ resource "google_compute_global_address" "default" {
 # ---------------------------------------------------------------------------
 resource "google_compute_managed_ssl_certificate" "default" {
   project = var.project_id
-  name    = "travel-planner-cert"
+  name    = "${var.app_name}-cert"
 
   managed {
     domains = [var.domain]
@@ -45,7 +49,7 @@ resource "google_compute_managed_ssl_certificate" "default" {
 # ---------------------------------------------------------------------------
 resource "google_compute_backend_bucket" "frontend" {
   project     = var.project_id
-  name        = "travel-planner-frontend"
+  name        = "${var.app_name}-frontend"
   bucket_name = var.frontend_bucket_name
   enable_cdn  = true
 
@@ -63,7 +67,7 @@ resource "google_compute_backend_bucket" "frontend" {
 # ---------------------------------------------------------------------------
 resource "google_compute_region_network_endpoint_group" "cloud_run" {
   project               = var.project_id
-  name                  = "travel-planner-neg"
+  name                  = "${var.app_name}-neg"
   region                = var.region
   network_endpoint_type = "SERVERLESS"
 
@@ -74,7 +78,7 @@ resource "google_compute_region_network_endpoint_group" "cloud_run" {
 
 resource "google_compute_backend_service" "backend" {
   project               = var.project_id
-  name                  = "travel-planner-backend"
+  name                  = "${var.app_name}-backend"
   protocol              = "HTTPS"
   load_balancing_scheme = "EXTERNAL_MANAGED"
   timeout_sec           = 3600
@@ -89,7 +93,7 @@ resource "google_compute_backend_service" "backend" {
 # ---------------------------------------------------------------------------
 resource "google_compute_url_map" "default" {
   project         = var.project_id
-  name            = "travel-planner-url-map"
+  name            = "${var.app_name}-url-map"
   default_service = google_compute_backend_bucket.frontend.id
 
   host_rule {
@@ -118,14 +122,14 @@ resource "google_compute_url_map" "default" {
 # ---------------------------------------------------------------------------
 resource "google_compute_target_https_proxy" "default" {
   project          = var.project_id
-  name             = "travel-planner-https-proxy"
+  name             = "${var.app_name}-https-proxy"
   url_map          = google_compute_url_map.default.id
   ssl_certificates = [google_compute_managed_ssl_certificate.default.id]
 }
 
 resource "google_compute_global_forwarding_rule" "https" {
   project               = var.project_id
-  name                  = "travel-planner-https-rule"
+  name                  = "${var.app_name}-https-rule"
   load_balancing_scheme = "EXTERNAL_MANAGED"
   target                = google_compute_target_https_proxy.default.id
   ip_address            = google_compute_global_address.default.address
@@ -137,7 +141,7 @@ resource "google_compute_global_forwarding_rule" "https" {
 # ---------------------------------------------------------------------------
 resource "google_compute_url_map" "http_redirect" {
   project = var.project_id
-  name    = "travel-planner-http-redirect"
+  name    = "${var.app_name}-http-redirect"
 
   default_url_redirect {
     https_redirect = true
@@ -147,13 +151,13 @@ resource "google_compute_url_map" "http_redirect" {
 
 resource "google_compute_target_http_proxy" "redirect" {
   project = var.project_id
-  name    = "travel-planner-http-proxy"
+  name    = "${var.app_name}-http-proxy"
   url_map = google_compute_url_map.http_redirect.id
 }
 
 resource "google_compute_global_forwarding_rule" "http" {
   project               = var.project_id
-  name                  = "travel-planner-http-rule"
+  name                  = "${var.app_name}-http-rule"
   load_balancing_scheme = "EXTERNAL_MANAGED"
   target                = google_compute_target_http_proxy.redirect.id
   ip_address            = google_compute_global_address.default.address

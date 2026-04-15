@@ -39,9 +39,13 @@ variable "secret_env_vars" {
   default     = {}
 }
 
+variable "app_name" {
+  type = string
+}
+
 resource "google_cloud_run_v2_service" "backend" {
   project  = var.project_id
-  name     = "travel-planner-api-${var.environment}"
+  name     = "${var.app_name}-api-${var.environment}"
   location = var.region
   ingress  = "INGRESS_TRAFFIC_INTERNAL_LOAD_BALANCER"
 

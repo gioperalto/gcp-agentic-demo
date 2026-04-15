@@ -1,5 +1,5 @@
 terraform {
-  required_version = ">= 1.10"
+  required_version = ">= 1.09"
 
   required_providers {
     google = {
@@ -30,6 +30,7 @@ module "artifact_registry" {
   project_id  = var.project_id
   region      = var.region
   environment = var.environment
+  app_name    = var.app_name
 
   depends_on = [module.project_services]
 }
@@ -40,6 +41,7 @@ module "artifact_registry" {
 module "service_accounts" {
   source     = "./modules/service_accounts"
   project_id = var.project_id
+  app_name   = var.app_name
 
   depends_on = [module.project_services]
 }
@@ -68,6 +70,7 @@ module "secrets" {
 module "datadog" {
   source               = "./modules/datadog"
   environment          = var.environment
+  app_name             = var.app_name
   dd_api_key_secret_id = module.secrets.secret_ids["DATADOG_API_KEY"]
 }
 
@@ -79,9 +82,11 @@ module "cloud_run" {
   project_id            = var.project_id
   region                = var.region
   environment           = var.environment
-  image                 = "${module.artifact_registry.repository_url}/travel-planner-api:latest"
+  image                 = "${module.artifact_registry.repository_url}/${var.app_name}-api:latest"
   service_account_email = module.service_accounts.cloud_run_sa_email
   max_instance_count    = var.cloud_run_max_instances
+
+  app_name = var.app_name
 
   env_vars = merge(module.datadog.env_vars, {
     GOOGLE_GENAI_MODEL        = var.google_genai_model
@@ -109,6 +114,7 @@ module "cloud_run" {
 module "media_bucket" {
   source             = "./modules/media_bucket"
   project_id         = var.project_id
+  app_name           = var.app_name
   region             = var.region
   environment        = var.environment
   cloud_run_sa_email = module.service_accounts.cloud_run_sa_email
@@ -135,7 +141,7 @@ module "seeder_job" {
   project_id            = var.project_id
   region                = var.region
   environment           = var.environment
-  image                 = "${module.artifact_registry.repository_url}/travel-planner-api:latest"
+  image                 = "${module.artifact_registry.repository_url}/${var.app_name}-api:latest"
   service_account_email = module.service_accounts.cloud_run_sa_email
   media_bucket_name     = module.media_bucket.bucket_name
 
@@ -148,6 +154,7 @@ module "seeder_job" {
 module "frontend_bucket" {
   source      = "./modules/frontend_bucket"
   project_id  = var.project_id
+  app_name    = var.app_name
   region      = var.region
   environment = var.environment
 
@@ -162,6 +169,7 @@ module "load_balancer" {
   project_id             = var.project_id
   region                 = var.region
   domain                 = var.domain
+  app_name               = var.app_name
   frontend_bucket_name   = module.frontend_bucket.bucket_name
   cloud_run_service_name = module.cloud_run.service_name
 }
@@ -185,6 +193,7 @@ module "cicd" {
   project_id                    = var.project_id
   region                        = var.region
   environment                   = var.environment
+  app_name                      = var.app_name
   github_app_installation_id    = var.github_app_installation_id
   github_owner                  = var.github_owner
   github_repo                   = var.github_repo
@@ -209,12 +218,13 @@ module "load_gen" {
   project_id = var.project_id
   region     = var.region
   environment = var.environment
-  image      = "${module.artifact_registry.repository_url}/travel-planner-load-gen:latest"
+  app_name   = var.app_name
+  image      = "${module.artifact_registry.repository_url}/${var.app_name}-load-gen:latest"
   service_account_email = module.service_accounts.cloud_run_sa_email
 
   env_vars = {
     DD_ENV                   = var.environment
-    DD_SERVICE               = "travel-planner-load-gen"
+    DD_SERVICE               = "${var.app_name}-load-gen"
     DD_LLMOBS_AGENTLESS_ENABLED = "1"
     DD_TRACE_PROPAGATION_STYLE = "datadog,tracecontext"
     LOAD_GEN_FRONTEND_URL    = "https://${var.domain}"

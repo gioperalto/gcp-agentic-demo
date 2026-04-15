@@ -33,9 +33,13 @@ variable "secret_env_vars" {
   default     = {}
 }
 
+variable "app_name" {
+  type = string
+}
+
 resource "google_cloud_run_v2_job" "load_gen" {
   project  = var.project_id
-  name     = "travel-planner-load-gen-${var.environment}"
+  name     = "${var.app_name}-load-gen-${var.environment}"
   location = var.region
 
   template {

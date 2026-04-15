@@ -2,10 +2,14 @@ variable "project_id" {
   type = string
 }
 
+variable "app_name" {
+  type = string
+}
+
 resource "google_service_account" "cloud_run" {
   project      = var.project_id
-  account_id   = "travel-planner-run"
-  display_name = "Travel Planner Cloud Run Runtime"
+  account_id   = "${var.app_name}-run"
+  display_name = "${var.app_name} Cloud Run Runtime"
 }
 
 resource "google_project_iam_member" "vertex_ai_user" {

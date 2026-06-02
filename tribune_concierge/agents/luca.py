@@ -15,7 +15,10 @@ restaurant_agent = Agent(
     name="Luca",
     description="Agent specialized in high-end dining experiences for Tribune cardholders.",
     instruction=LUCA_INSTRUCTION,
-    tools=[FunctionTool(get_restaurant_recommendations), FunctionTool(get_restaurant_details)],
+    tools=[
+        FunctionTool(get_restaurant_recommendations), 
+        FunctionTool(get_restaurant_details)
+    ],
 )
 
 live_restaurant_agent = Agent(
@@ -23,5 +26,10 @@ live_restaurant_agent = Agent(
     name="Luca",
     description="Voice agent specialized in high-end dining experiences for Tribune cardholders.",
     instruction=LIVE_LUCA_INSTRUCTION,
-    tools=[FunctionTool(get_restaurant_recommendations), FunctionTool(get_restaurant_details), _transfer_tool, _end_tool],
+    tools=[
+        FunctionTool(get_restaurant_recommendations), 
+        FunctionTool(get_restaurant_details), 
+        _transfer_tool, 
+        _end_tool
+    ],
 )

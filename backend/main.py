@@ -102,7 +102,7 @@ from google.genai import types
 # Add parent directory to path to import tribune_concierge
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from tribune_concierge.agent import root_agent, live_root_agent, AGENT_VOICE_MAP, LIVE_AGENT_MAP
+from tribune_concierge.agents import root_agent, live_root_agent, AGENT_VOICE_MAP, LIVE_AGENT_MAP
 from legionnaire_concierge.agent import legionnaire_agent
 from insecure_concierge.agent import insecure_agent
 from services.feature_flag_service import evaluate_flag, init_feature_flags

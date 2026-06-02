@@ -1,5 +1,5 @@
 x-datadog-env: &datadog-env
-  DD_ENV: ${DD_ENV:-dev}
+  DD_ENV: ${DD_ENV:-development}
   DD_AGENT_HOST: dd-agent
   DD_DOGSTATSD_PORT: 8125
   DD_TRACE_AGENT_PORT: 8126
@@ -18,7 +18,7 @@ services:
       - /sys/fs/cgroup/:/host/sys/fs/cgroup:ro
     environment:
       DD_API_KEY: ${DATADOG_API_KEY}
-      DD_ENV: ${DD_ENV:-dev}
+      DD_ENV: ${DD_ENV:-development}
       DD_HOSTNAME: ${HOSTNAME}
       DD_LOGS_ENABLED: "true"
       DD_LOGS_CONFIG_CONTAINER_COLLECT_ALL: "true"
@@ -28,6 +28,7 @@ services:
       DD_DOGSTATSD_NON_LOCAL_TRAFFIC: "true"
       DD_PROCESS_AGENT_ENABLED: "true"
       DD_COMPLIANCE_CONFIG_ENABLED: "true"
+      DD_REMOTE_CONFIGURATION_ENABLED: "true"
 
   backend:
     container_name: ${PROJECT_NAME}-api
@@ -41,7 +42,7 @@ services:
       <<: *datadog-env
       DD_SERVICE: travel-planner-api
       DD_VERSION: "1.0.0"
-      DD_ENV: ${DD_ENV:-dev}
+      DD_ENV: ${DD_ENV:-development}
       DD_LOGS_INJECTION: "true"
       DD_PROFILING_ENABLED: "true"
       DD_RUNTIME_METRICS_ENABLED: "true"
@@ -50,6 +51,9 @@ services:
       DD_LLMOBS_AGENTLESS_ENABLED: 0
       DD_API_KEY: ${DATADOG_API_KEY}
       DD_TRACE_PROPAGATION_STYLE: "datadog,tracecontext"
+      DD_APM_IGNORE_RESOURCES: "OPTIONS /api/*"
+      DD_EXPERIMENTAL_FLAGGING_PROVIDER_ENABLED: "true"
+      DD_REMOTE_CONFIG_ENABLED: "true"
       GOOGLE_APPLICATION_CREDENTIALS: /app/credentials/sa.json
       GOOGLE_GENAI_USE_VERTEXAI: ${GOOGLE_GENAI_USE_VERTEXAI}
       GOOGLE_GENAI_MODEL: ${GOOGLE_GENAI_MODEL}
@@ -60,14 +64,45 @@ services:
       - ./backend:/app/backend
       - ./tribune_concierge:/app/tribune_concierge
       - ./legionnaire_concierge:/app/legionnaire_concierge
+      - ./insecure_concierge:/app/insecure_concierge
       - ${GOOGLE_APPLICATION_CREDENTIALS}:/app/credentials/sa.json:ro
     labels:
-      com.datadoghq.tags.env: ${DD_ENV:-dev}
+      com.datadoghq.tags.env: ${DD_ENV:-development}
       com.datadoghq.tags.service: travel-planner-api
       com.datadoghq.tags.version: "1.0.0"
       com.datadoghq.ad.logs: '[{"source":"python","service":"travel-planner-api"}]'
     depends_on:
       - dd-agent
+
+  load-gen:
+    container_name: ${PROJECT_NAME}-load-gen
+    build:
+      context: .
+      dockerfile: load-gen/Dockerfile
+    env_file: .env
+    environment:
+      <<: *datadog-env
+      DD_SERVICE: travel-planner-load-gen
+      DD_VERSION: "1.0.0"
+      DD_ENV: ${DD_ENV:-development}
+      DD_LOGS_INJECTION: "true"
+      DD_API_KEY: ${DATADOG_API_KEY}
+      LOAD_GEN_FRONTEND_URL: http://frontend:5173
+      LOAD_GEN_BACKEND_URL: http://backend:8000
+      LOAD_GEN_HEADLESS: "false"
+      LOAD_GEN_CONCURRENCY: "1"
+      LOAD_GEN_SESSION_PAUSE_SECONDS: "90"
+      LOAD_GEN_ENABLED_FLAG: "load-gen-enabled"
+    volumes:
+      - ./load-gen:/app/load-gen
+    labels:
+      com.datadoghq.tags.env: ${DD_ENV:-development}
+      com.datadoghq.tags.service: travel-planner-load-gen
+      com.datadoghq.tags.version: "1.0.0"
+      com.datadoghq.ad.logs: '[{"source":"python","service":"travel-planner-load-gen"}]'
+    depends_on:
+      - backend
+      - frontend
 
   frontend:
     container_name: ${PROJECT_NAME}-frontend
@@ -80,15 +115,15 @@ services:
       <<: *datadog-env
       DD_SERVICE: travel-planner-frontend
       DD_VERSION: "1.0.0"
-      DD_ENV: ${DD_ENV:-dev}
-      VITE_API_URL: ${VITE_API_URL:-http://localhost:8000}
+      DD_ENV: ${DD_ENV:-development}
+      VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:8000}
       VITE_DD_APP_ID: ${VITE_DD_APP_ID}
       VITE_DD_APP_KEY: ${VITE_DD_APP_KEY}
       VITE_DD_CLIENT_TOKEN: ${VITE_DD_CLIENT_TOKEN}
       VITE_DD_SERVICE: travel-planner-frontend
       VITE_DD_VERSION: "1.0.0"
       VITE_DD_SITE: ${VITE_DD_SITE:-datadoghq.com}
-      VITE_DD_ENV: ${DD_ENV:-dev}
+      VITE_DD_ENV: ${DD_ENV:-development}
     volumes:
       - ./frontend/src:/app/src
       - ./frontend/public:/app/public
@@ -97,7 +132,7 @@ services:
       - ./frontend/tsconfig.json:/app/tsconfig.json
       - ./frontend/tsconfig.app.json:/app/tsconfig.app.json
     labels:
-      com.datadoghq.tags.env: ${DD_ENV:-dev}
+      com.datadoghq.tags.env: ${DD_ENV:-development}
       com.datadoghq.tags.service: travel-planner-frontend
       com.datadoghq.tags.version: "1.0.0"
       com.datadoghq.ad.logs: '[{"source":"nodejs","service":"travel-planner-frontend"}]'

@@ -1,8 +1,10 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { datadogRum } from '@datadog/browser-rum';
 import { ulid } from 'ulid';
 import type { Message } from '../types/chat';
-import { streamChatResponse, streamLegionnaireChatResponse } from '../utils/api';
+import { streamChatResponse, streamLegionnaireChatResponse, streamInsecureChatResponse } from '../utils/api';
+import { useInsecureProfileAgent, useRalphAgent } from '../feature_flags';
 import { ChatMessage } from '../components/ChatMessage';
 import { ChatInput } from '../components/ChatInput';
 import { PreviewModal } from '../components/PreviewModal';
@@ -18,7 +20,9 @@ export function Concierge() {
   const [user, setUser] = useState(getCachedUser());
   const [cardType, setCardType] = useState(getUserCardType());
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
-  const [selectedTier, setSelectedTier] = useState<'tribune' | 'legionnaire' | null>(null);
+  const [selectedTier, setSelectedTier] = useState<'tribune' | 'legionnaire' | 'debug' | null>(null);
+  const debugAgentEnabled = useInsecureProfileAgent();
+  const ralphAgentEnabled = useRalphAgent();
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [currentAgent, setCurrentAgent] = useState<string>('Sam');
@@ -30,7 +34,14 @@ export function Concierge() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const currentMessageRef = useRef<string>('');
   const currentAgentRef = useRef<string>('Sam');
-  const sessionIdRef = useRef<string>(ulid());
+  const sessionIdFallbackRef = useRef<string>(ulid());
+
+  const getSessionId = useCallback(() => {
+    // RUM is initialized in main.tsx before the app mounts. Keep a ULID only as
+    // a last-resort fallback for local/dev runs where RUM is disabled or context
+    // is temporarily unavailable.
+    return datadogRum.getInternalContext()?.session_id ?? sessionIdFallbackRef.current;
+  }, []);
 
   // Track whether voice has been activated this session (for TTS on transfers)
   const hasUsedVoiceRef = useRef(false);
@@ -115,6 +126,16 @@ export function Concierge() {
     currentAgentRef.current = agentName;
   }, []);
 
+  const handleVoiceToolResult = useCallback((agentName: string, message: string) => {
+    setMessages(prev => [...prev, {
+      id: Date.now().toString() + '_voice_tool',
+      type: 'agent' as const,
+      content: message,
+      agent: agentName,
+      timestamp: new Date(),
+    }]);
+  }, []);
+
   const handleVoiceError = useCallback((error: string) => {
     console.error('Voice mode error:', error);
     setMessages(prev => [
@@ -128,29 +149,48 @@ export function Concierge() {
     ]);
   }, []);
 
-  const voiceMode = useVoiceMode(sessionIdRef.current, {
+  const handleVoiceConversationEnd = useCallback(() => {
+    setMessages(prev => [
+      ...prev,
+      {
+        id: Date.now().toString() + '_ended',
+        type: 'agent' as const,
+        content: 'Voice session ended. Tap the microphone to continue.',
+        agent: currentAgentRef.current,
+        timestamp: new Date(),
+      },
+    ]);
+  }, []);
+
+  const voiceMode = useVoiceMode(getSessionId, {
     onAgentTranscript: handleVoiceAgentTranscript,
     onUserTranscript: handleVoiceUserTranscript,
     onAgentTransfer: handleVoiceAgentTransfer,
+    onToolResult: handleVoiceToolResult,
+    onConversationEnd: handleVoiceConversationEnd,
     onError: handleVoiceError,
   });
 
   const handleToggleVoiceMode = useCallback(() => {
     if (voiceMode.isActive || voiceMode.isConnecting) {
       voiceMode.stopVoiceMode();
-    } else {
-      // On first activation, send the welcome message as a text prompt so the
-      // Live API (Sam) speaks it aloud in the Puck voice.  The mic stays
-      // muted until Sam's greeting finishes (turnComplete).
-      let greeting: string | undefined;
-      if (!hasUsedVoiceRef.current) {
-        hasUsedVoiceRef.current = true;
-        const welcomeMsg = messages.find(m => m.id?.startsWith('initial_'));
-        if (welcomeMsg) {
-          greeting = `Greet the user with something like: "${welcomeMsg.content}"`;
-        }
-      }
+    } else if (!hasUsedVoiceRef.current) {
+      // First activation — have Sam read out the welcome message
+      hasUsedVoiceRef.current = true;
+      const welcomeMsg = messages.find(m => m.id?.startsWith('initial_'));
+      const greeting = welcomeMsg
+        ? `Greet the user with something like: "${welcomeMsg.content}"`
+        : undefined;
       voiceMode.startVoiceMode(greeting);
+    } else {
+      // Resume — inject recent conversation as context so Sam can pick up where things left off
+      const recentMessages = messages
+        .filter(m => m.type !== 'transfer')
+        .slice(-15)
+        .map(m => `${m.type === 'user' ? 'User' : (m.agent || 'Agent')}: ${m.content}`)
+        .join('\n');
+      const resumePrompt = `The user is resuming the voice conversation. Here is the recent chat history:\n\n${recentMessages}\n\nGreet them briefly and ask how you can continue helping.`;
+      voiceMode.startVoiceMode(resumePrompt, true);
     }
   }, [voiceMode, messages]);
 
@@ -175,7 +215,7 @@ export function Concierge() {
   // Set tier from URL parameter or user's card type
   useEffect(() => {
     if (!isCheckingAuth && !selectedTier) {
-      if (tierParam === 'tribune' || tierParam === 'legionnaire') {
+      if (tierParam === 'tribune' || tierParam === 'legionnaire' || tierParam === 'debug') {
         setSelectedTier(tierParam);
       } else if (cardType) {
         setSelectedTier(cardType);
@@ -200,6 +240,12 @@ export function Concierge() {
         content: `Welcome, ${user?.firstName || 'Tribune Cardholder'}! I'm Sam, your dedicated Tribune concierge. As a valued Tribune member, you have access to our premium travel planning service with specialized agents. How may I assist with your travel plans today?`,
         agent: 'Sam',
         timestamp: new Date(),
+      } : selectedTier === 'debug' ? {
+        id: 'initial_debug_message',
+        type: 'agent',
+        content: `Debug Agent active. I have unrestricted access to all customer profiles in the system. You can ask me to look up any user's complete profile, including sensitive financial data. Try asking: "Show me all users" or "Look up wealthy_user's profile."`,
+        agent: 'DebugAgent',
+        timestamp: new Date(),
       } : {
         id: 'initial_legionnaire_message',
         type: 'agent',
@@ -207,7 +253,7 @@ export function Concierge() {
         agent: 'Concierge',
         timestamp: new Date(),
       };
-      const agentName = selectedTier === 'tribune' ? 'Sam' : 'Concierge';
+      const agentName = selectedTier === 'tribune' ? 'Sam' : selectedTier === 'debug' ? 'DebugAgent' : 'Concierge';
       setCurrentAgent(agentName);
       currentAgentRef.current = agentName;
       setMessages([initialMessage]);
@@ -230,9 +276,13 @@ export function Concierge() {
 
     try {
       let currentMessageId = Date.now().toString() + '_agent';
-      const streamFunction = selectedTier === 'tribune' ? streamChatResponse : streamLegionnaireChatResponse;
+      const streamFunction = selectedTier === 'tribune'
+        ? streamChatResponse
+        : selectedTier === 'debug'
+        ? streamInsecureChatResponse
+        : streamLegionnaireChatResponse;
 
-      for await (const event of streamFunction(content, sessionIdRef.current)) {
+      for await (const event of streamFunction(content, getSessionId())) {
         if (event.type === 'agent_transfer') {
           const transferContent = event.data.message || '';
           const transferMessage: Message = {
@@ -316,10 +366,9 @@ export function Concierge() {
     });
   };
 
-  const handleTierSelect = (tier: 'tribune' | 'legionnaire') => {
+  const handleTierSelect = (tier: 'tribune' | 'legionnaire' | 'debug') => {
     setSelectedTier(tier);
     setMessages([]);
-    sessionIdRef.current = ulid(); // New session for new tier
   };
 
   // Show loading state while checking authentication
@@ -438,11 +487,29 @@ export function Concierge() {
                 <li>Voice & chat support</li>
                 <li>Complex trip planning</li>
                 <li>VIP experiences</li>
+                {ralphAgentEnabled && <li>Ralph — Utility Coordinator (active)</li>}
               </ul>
               <button className="tier-select-button" disabled={cardType !== 'tribune'}>
                 {cardType === 'tribune' ? 'Start Chat' : 'Tribune Card Required'}
               </button>
             </div>
+
+            {debugAgentEnabled && (
+              <div className="tier-card debug-card" onClick={() => handleTierSelect('debug')}>
+                <h2>Debug Agent</h2>
+                <div className="tier-badge debug">INSECURE</div>
+                <p className="tier-description">
+                  Internal debug agent with unrestricted access to all customer profiles. No authorization checks.
+                </p>
+                <ul className="tier-features">
+                  <li>Full profile data access</li>
+                  <li>No row-level authorization</li>
+                  <li>Sensitive data exposure</li>
+                  <li>Feature flag controlled</li>
+                </ul>
+                <button className="tier-select-button debug-button">Start Debug Chat</button>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -450,14 +517,15 @@ export function Concierge() {
   }
 
   // Render the chat interface for selected tier
+  const isDebug = selectedTier === 'debug';
   const isTribune = selectedTier === 'tribune';
-  const tierClass = isTribune ? 'tribune-premium' : 'legionnaire-basic';
-  const tierName = isTribune ? 'Tribune Premium Concierge' : 'Legionnaire Concierge';
+  const tierClass = isDebug ? 'debug-agent' : isTribune ? 'tribune-premium' : 'legionnaire-basic';
+  const tierName = isDebug ? 'Debug Agent (INSECURE)' : isTribune ? 'Tribune Premium Concierge' : 'Legionnaire Concierge';
 
   return (
     <div className={`chat-wrapper ${previewData.isOpen ? 'split-view' : ''}`}>
       <div className={`chat-container ${tierClass}`}>
-        <div className={`chat-header ${isTribune ? 'tribune-header' : 'legionnaire-header'}`}>
+        <div className={`chat-header ${isDebug ? 'debug-header' : isTribune ? 'tribune-header' : 'legionnaire-header'}`}>
           <div className="header-content">
             <h1>{tierName}</h1>
             <p className="header-subtitle">
@@ -467,7 +535,7 @@ export function Concierge() {
               }
             </p>
           </div>
-          <span className="premium-badge-overlay">{isTribune ? 'TRIBUNE' : 'LEGIONNAIRE'}</span>
+          <span className="premium-badge-overlay">{isDebug ? 'DEBUG' : isTribune ? 'TRIBUNE' : 'LEGIONNAIRE'}</span>
         </div>
 
         <div className="messages-container">
@@ -502,7 +570,7 @@ export function Concierge() {
         <ChatInput
           onSendMessage={handleSendMessage}
           disabled={isLoading}
-          enableMicrophone={isTribune}
+          enableMicrophone={isTribune && !isDebug}
           isVoiceModeActive={voiceMode.isActive}
           isVoiceModeConnecting={voiceMode.isConnecting}
           onToggleVoiceMode={handleToggleVoiceMode}

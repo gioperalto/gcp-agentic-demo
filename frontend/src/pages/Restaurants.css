@@ -6,6 +6,38 @@
   padding: var(--space-xl);
 }
 
+.restaurants-hero-bg {
+  background: url('/img/restaurants/american.png') center/cover no-repeat;
+  padding: 0;
+}
+
+.restaurants-hero-overlay {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(10, 10, 10, 0.7);
+  padding: var(--space-xl);
+}
+
+.restaurants-hero-overlay .gate-title {
+  color: var(--m-cream);
+}
+
+.restaurants-hero-overlay .gate-subtitle {
+  color: var(--m-text-secondary);
+}
+
+.restaurants-hero-overlay .gate-button.secondary {
+  color: var(--m-text-secondary);
+  border-color: var(--m-border-strong);
+}
+
+.restaurants-hero-overlay .gate-button.secondary:hover {
+  border-color: var(--m-gold);
+  color: var(--m-gold);
+}
+
 .restaurants-header {
   text-align: center;
   margin-bottom: var(--space-xl);
@@ -405,6 +437,77 @@
 }
 
 /* ═══ Reservation Modal ═══ */
+
+.reservation-modal .modal-image {
+  height: 240px;
+  background-size: cover;
+  background-position: center;
+  background-color: var(--m-surface-raised);
+  border-radius: var(--radius-md);
+  margin-bottom: var(--space-lg);
+}
+
+.reservation-modal .modal-details {
+  margin-bottom: var(--space-lg);
+}
+
+.reservation-modal .detail-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.65rem 0;
+  border-bottom: 1px solid var(--m-border);
+}
+
+.reservation-modal .detail-label {
+  font-weight: 500;
+  color: var(--m-text-muted);
+  font-size: 0.9rem;
+}
+
+.reservation-modal .detail-value {
+  color: var(--m-text-primary);
+  font-weight: 500;
+  font-size: 0.9rem;
+}
+
+.reservation-modal .price-highlight {
+  color: var(--m-gold);
+  font-family: var(--font-display);
+  font-size: 1.2rem;
+  font-weight: 500;
+}
+
+.reservation-modal .description {
+  margin-bottom: var(--space-lg);
+}
+
+.reservation-modal .description h3 {
+  font-family: var(--font-display);
+  font-size: 1.3rem;
+  color: var(--m-cream);
+  margin-bottom: var(--space-sm);
+  font-weight: 500;
+}
+
+.reservation-modal .description p {
+  color: var(--m-text-secondary);
+  line-height: 1.65;
+  font-size: 0.9rem;
+}
+
+.modal-specialties {
+  margin-bottom: var(--space-lg);
+}
+
+.modal-specialties h3 {
+  font-family: var(--font-display);
+  font-size: 1.3rem;
+  color: var(--m-cream);
+  margin-bottom: var(--space-sm);
+  font-weight: 500;
+}
+
 .modal-overlay {
   position: fixed;
   top: 0;
@@ -424,7 +527,7 @@
   background: var(--m-surface);
   border: 1px solid var(--m-border);
   border-radius: var(--radius-xl);
-  max-width: 600px;
+  max-width: 800px;
   width: 100%;
   max-height: 90vh;
   overflow-y: auto;

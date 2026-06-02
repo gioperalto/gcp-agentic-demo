@@ -21,12 +21,283 @@
     "rejectionDate": null,
     "interestRate": 17.17,
     "creditLimit": 15000.0,
-    "availableCredit": 15000.0,
-    "rewardPoints": 0.0,
+    "availableCredit": 60.0,
+    "rewardPoints": 14940.0,
     "rewardPointsMultiplier": 1.0,
-    "reservations": [],
+    "reservations": [
+      {
+        "id": "906098a1-c74f-48c2-bffa-74a47811622c",
+        "type": "accommodation",
+        "itemId": "acc-arg-001",
+        "itemName": "Alvear Palace Hotel (Buenos Aires, Argentina)",
+        "amount": 1300.0,
+        "date": "2026-04-03",
+        "participants": 1,
+        "status": "confirmed"
+      },
+      {
+        "id": "d2919530-bbc3-459a-bdc2-16c410f9b6de",
+        "type": "accommodation",
+        "itemId": "acc-arg-001",
+        "itemName": "Alvear Palace Hotel (Buenos Aires, Argentina)",
+        "amount": 1300.0,
+        "date": "2026-04-03",
+        "participants": 1,
+        "status": "confirmed"
+      },
+      {
+        "id": "3e8f127b-3f27-421f-b69f-8a799e4ce2a2",
+        "type": "experience",
+        "itemId": "exp-arg-001",
+        "itemName": "Iguazu Falls Hiking Adventure",
+        "amount": 85.0,
+        "date": "2026-04-02T16:33:30.093611",
+        "participants": 1,
+        "status": "confirmed"
+      },
+      {
+        "id": "b5163736-61aa-4704-8339-b13f2276f93e",
+        "type": "accommodation",
+        "itemId": "acc-arg-001",
+        "itemName": "Alvear Palace Hotel (Buenos Aires, Argentina)",
+        "amount": 1300.0,
+        "date": "2026-04-03",
+        "participants": 1,
+        "status": "confirmed"
+      },
+      {
+        "id": "b359b77f-16ed-49b6-8506-765d3de4091f",
+        "type": "experience",
+        "itemId": "exp-arg-001",
+        "itemName": "Iguazu Falls Hiking Adventure",
+        "amount": 85.0,
+        "date": "2026-04-02T16:39:33.903117",
+        "participants": 1,
+        "status": "confirmed"
+      },
+      {
+        "id": "1c24a953-bb02-4bb1-9449-fd9f2ac1376d",
+        "type": "experience",
+        "itemId": "exp-arg-001",
+        "itemName": "Iguazu Falls Hiking Adventure",
+        "amount": 85.0,
+        "date": "2026-04-02T16:41:43.348553",
+        "participants": 1,
+        "status": "confirmed"
+      },
+      {
+        "id": "f4b16dcb-ebab-48bc-a286-e426f649973c",
+        "type": "accommodation",
+        "itemId": "acc-arg-001",
+        "itemName": "Alvear Palace Hotel (Buenos Aires, Argentina)",
+        "amount": 1300.0,
+        "date": "2026-04-03",
+        "participants": 1,
+        "status": "confirmed"
+      },
+      {
+        "id": "8d8d504d-8f49-45ab-8298-d27742f9ea3c",
+        "type": "experience",
+        "itemId": "exp-arg-001",
+        "itemName": "Iguazu Falls Hiking Adventure",
+        "amount": 85.0,
+        "date": "2026-04-02T16:56:15.166854",
+        "participants": 1,
+        "status": "confirmed"
+      },
+      {
+        "id": "8929e95b-f90f-4994-aa5e-7913a5b79a2b",
+        "type": "experience",
+        "itemId": "exp-arg-001",
+        "itemName": "Iguazu Falls Hiking Adventure",
+        "amount": 85.0,
+        "date": "2026-04-02T16:57:36.693401",
+        "participants": 1,
+        "status": "confirmed"
+      },
+      {
+        "id": "eefb4432-9c1f-40dd-88c2-db783fffc693",
+        "type": "flight",
+        "itemId": "flt-arg-001",
+        "itemName": "Delta DL1025 (JFK \u2192 EZE)",
+        "amount": 850.0,
+        "date": "2026-03-15T22:00:00Z",
+        "participants": 1,
+        "status": "confirmed"
+      },
+      {
+        "id": "1cf3549e-1060-4b6e-9c0d-f66aa03fd6fc",
+        "type": "flight",
+        "itemId": "flt-arg-001",
+        "itemName": "Delta DL1025 (JFK \u2192 EZE)",
+        "amount": 850.0,
+        "date": "2026-03-15T22:00:00Z",
+        "participants": 1,
+        "status": "confirmed"
+      },
+      {
+        "id": "d1fb8bd5-530f-4b0e-a50b-dfe1c4f0f630",
+        "type": "experience",
+        "itemId": "exp-arg-001",
+        "itemName": "Iguazu Falls Hiking Adventure",
+        "amount": 85.0,
+        "date": "2026-04-02T18:36:59.875942",
+        "participants": 1,
+        "status": "confirmed"
+      },
+      {
+        "id": "a3503371-79cf-4ca7-a838-a5af5a5e9ca8",
+        "type": "flight",
+        "itemId": "flt-arg-001",
+        "itemName": "Delta DL1025 (JFK \u2192 EZE)",
+        "amount": 850.0,
+        "date": "2026-03-15T22:00:00Z",
+        "participants": 1,
+        "status": "confirmed"
+      },
+      {
+        "id": "b9729461-fede-4644-9d99-190a53aa09b6",
+        "type": "experience",
+        "itemId": "exp-arg-001",
+        "itemName": "Iguazu Falls Hiking Adventure",
+        "amount": 85.0,
+        "date": "2026-04-02T18:42:34.991265",
+        "participants": 1,
+        "status": "confirmed"
+      },
+      {
+        "id": "fad5590c-a326-48f4-a9a7-b10147301460",
+        "type": "flight",
+        "itemId": "flt-arg-001",
+        "itemName": "Delta DL1025 (JFK \u2192 EZE)",
+        "amount": 850.0,
+        "date": "2026-03-15T22:00:00Z",
+        "participants": 1,
+        "status": "confirmed"
+      },
+      {
+        "id": "3951cb7a-9e3f-4f08-8353-d77124c320cb",
+        "type": "experience",
+        "itemId": "exp-arg-001",
+        "itemName": "Iguazu Falls Hiking Adventure",
+        "amount": 85.0,
+        "date": "2026-04-02T18:46:48.370046",
+        "participants": 1,
+        "status": "confirmed"
+      },
+      {
+        "id": "2742ed25-80ca-4cf3-8412-075b4ff91395",
+        "type": "experience",
+        "itemId": "exp-arg-001",
+        "itemName": "Iguazu Falls Hiking Adventure",
+        "amount": 85.0,
+        "date": "2026-04-02T18:48:36.750761",
+        "participants": 1,
+        "status": "confirmed"
+      },
+      {
+        "id": "0b606816-a4e5-4107-a978-03a32ec8dd45",
+        "type": "flight",
+        "itemId": "flt-arg-001",
+        "itemName": "Delta DL1025 (JFK \u2192 EZE)",
+        "amount": 850.0,
+        "date": "2026-03-15T22:00:00Z",
+        "participants": 1,
+        "status": "confirmed"
+      },
+      {
+        "id": "504d1f65-4e3c-425b-b300-250d168ccdd1",
+        "type": "flight",
+        "itemId": "flt-arg-001",
+        "itemName": "Delta DL1025 (JFK \u2192 EZE)",
+        "amount": 850.0,
+        "date": "2026-03-15T22:00:00Z",
+        "participants": 1,
+        "status": "confirmed"
+      },
+      {
+        "id": "730f096a-ad57-402f-81cb-5f107ea5ce5b",
+        "type": "experience",
+        "itemId": "exp-arg-001",
+        "itemName": "Iguazu Falls Hiking Adventure",
+        "amount": 85.0,
+        "date": "2026-04-02T18:56:30.278820",
+        "participants": 1,
+        "status": "confirmed"
+      },
+      {
+        "id": "42ad3251-6372-4fff-a3b1-6d98afabb376",
+        "type": "accommodation",
+        "itemId": "acc-arg-001",
+        "itemName": "Alvear Palace Hotel (Buenos Aires, Argentina)",
+        "amount": 1300.0,
+        "date": "2026-04-11",
+        "participants": 1,
+        "status": "confirmed"
+      },
+      {
+        "id": "1713b374-7b5b-4228-afda-0f29e02af8ca",
+        "type": "experience",
+        "itemId": "exp-arg-001",
+        "itemName": "Iguazu Falls Hiking Adventure",
+        "amount": 85.0,
+        "date": "2026-04-10T16:50:34.681216",
+        "participants": 1,
+        "status": "confirmed"
+      },
+      {
+        "id": "ba584a5f-c40f-41de-bf35-0f1ecacc55d6",
+        "type": "experience",
+        "itemId": "exp-arg-001",
+        "itemName": "Iguazu Falls Hiking Adventure",
+        "amount": 85.0,
+        "date": "2026-04-10T21:52:35.035892",
+        "participants": 1,
+        "status": "confirmed"
+      },
+      {
+        "id": "8a1eb280-9ed9-41b1-951b-da9b473b2955",
+        "type": "flight",
+        "itemId": "flt-arg-001",
+        "itemName": "Delta DL1025 (JFK \u2192 EZE)",
+        "amount": 850.0,
+        "date": "2026-03-15T22:00:00Z",
+        "participants": 1,
+        "status": "confirmed"
+      },
+      {
+        "id": "4900ece7-7067-401d-8094-0761c22d6657",
+        "type": "accommodation",
+        "itemId": "acc-arg-001",
+        "itemName": "Alvear Palace Hotel (Buenos Aires, Argentina)",
+        "amount": 1300.0,
+        "date": "2026-04-11",
+        "participants": 1,
+        "status": "confirmed"
+      },
+      {
+        "id": "8adf7923-bbaa-4474-accc-b5bb707c2d3c",
+        "type": "experience",
+        "itemId": "exp-arg-001",
+        "itemName": "Iguazu Falls Hiking Adventure",
+        "amount": 85.0,
+        "date": "2026-04-10T22:06:03.029398",
+        "participants": 1,
+        "status": "confirmed"
+      },
+      {
+        "id": "76b68c00-b5e7-4cd8-8811-64f57c11c945",
+        "type": "experience",
+        "itemId": "exp-arg-001",
+        "itemName": "Iguazu Falls Hiking Adventure",
+        "amount": 85.0,
+        "date": "2026-04-10T22:11:22.892016",
+        "participants": 1,
+        "status": "confirmed"
+      }
+    ],
     "createdAt": "2026-01-01T00:00:00Z",
-    "updatedAt": "2026-01-07T19:24:33.712514"
+    "updatedAt": "2026-04-10T22:11:22.893179"
   },
   {
     "id": "660e8400-e29b-41d4-a716-446655440001",
@@ -50,12 +321,533 @@
     "rejectionDate": null,
     "interestRate": 5.48,
     "creditLimit": 100000.0,
-    "availableCredit": 100000.0,
-    "rewardPoints": 0.0,
+    "availableCredit": 61165.0,
+    "rewardPoints": 97087.5,
     "rewardPointsMultiplier": 2.5,
-    "reservations": [],
+    "reservations": [
+      {
+        "id": "a3b3cdbb-676b-4fc0-84d3-8f2c5230315b",
+        "type": "accommodation",
+        "itemId": "acc-jpn-001",
+        "itemName": "The Ritz-Carlton Tokyo (Tokyo, Japan)",
+        "amount": 1700.0,
+        "date": "2026-03-10",
+        "participants": 1,
+        "status": "confirmed"
+      },
+      {
+        "id": "fc8c236e-307d-43b3-a67f-7f76dc0fa84c",
+        "type": "accommodation",
+        "itemId": "acc-arg-001",
+        "itemName": "Alvear Palace Hotel (Buenos Aires, Argentina)",
+        "amount": 1300.0,
+        "date": "2026-03-10",
+        "participants": 1,
+        "status": "confirmed"
+      },
+      {
+        "id": "0608b1a4-cfac-4c18-ac28-5ee79fec9d86",
+        "type": "flight",
+        "itemId": "flt-arg-001",
+        "itemName": "Delta DL1025 (JFK \u2192 EZE)",
+        "amount": 850.0,
+        "date": "2026-03-15T22:00:00Z",
+        "participants": 1,
+        "status": "confirmed"
+      },
+      {
+        "id": "79cf6506-8843-4ec3-a987-13a1a2eadfed",
+        "type": "experience",
+        "itemId": "exp-arg-001",
+        "itemName": "Iguazu Falls Hiking Adventure",
+        "amount": 170.0,
+        "date": "2026-03-09T20:42:59.637026",
+        "participants": 2,
+        "status": "confirmed"
+      },
+      {
+        "id": "ff95cb85-eaca-42df-a9d6-e3d550837ea1",
+        "type": "accommodation",
+        "itemId": "acc-arg-001",
+        "itemName": "Alvear Palace Hotel (Buenos Aires, Argentina)",
+        "amount": 1300.0,
+        "date": "2026-04-03",
+        "participants": 1,
+        "status": "confirmed"
+      },
+      {
+        "id": "e0c7cabb-941a-45cc-9673-5d668343c4cf",
+        "type": "accommodation",
+        "itemId": "acc-arg-001",
+        "itemName": "Alvear Palace Hotel (Buenos Aires, Argentina)",
+        "amount": 1300.0,
+        "date": "2026-04-03",
+        "participants": 1,
+        "status": "confirmed"
+      },
+      {
+        "id": "763754fe-4ecf-4fa6-a6de-81ed329fb34c",
+        "type": "flight",
+        "itemId": "flt-arg-001",
+        "itemName": "Delta DL1025 (JFK \u2192 EZE)",
+        "amount": 850.0,
+        "date": "2026-03-15T22:00:00Z",
+        "participants": 1,
+        "status": "confirmed"
+      },
+      {
+        "id": "c8ca2445-2c94-4932-8cf6-7bea92784620",
+        "type": "experience",
+        "itemId": "exp-arg-001",
+        "itemName": "Iguazu Falls Hiking Adventure",
+        "amount": 85.0,
+        "date": "2026-04-02T16:31:54.469353",
+        "participants": 1,
+        "status": "confirmed"
+      },
+      {
+        "id": "e384aac4-fb58-4177-a354-e5894b2ee864",
+        "type": "accommodation",
+        "itemId": "acc-arg-001",
+        "itemName": "Alvear Palace Hotel (Buenos Aires, Argentina)",
+        "amount": 1300.0,
+        "date": "2026-04-03",
+        "participants": 1,
+        "status": "confirmed"
+      },
+      {
+        "id": "6d678c03-b8c4-467c-ac23-398c2b90fff2",
+        "type": "accommodation",
+        "itemId": "acc-arg-001",
+        "itemName": "Alvear Palace Hotel (Buenos Aires, Argentina)",
+        "amount": 1300.0,
+        "date": "2026-04-03",
+        "participants": 1,
+        "status": "confirmed"
+      },
+      {
+        "id": "1e544844-af53-48f4-bcbb-2d125c052931",
+        "type": "experience",
+        "itemId": "exp-arg-001",
+        "itemName": "Iguazu Falls Hiking Adventure",
+        "amount": 85.0,
+        "date": "2026-04-02T16:37:48.044094",
+        "participants": 1,
+        "status": "confirmed"
+      },
+      {
+        "id": "2439f205-8172-4adb-a823-62f994626b56",
+        "type": "accommodation",
+        "itemId": "acc-arg-001",
+        "itemName": "Alvear Palace Hotel (Buenos Aires, Argentina)",
+        "amount": 1300.0,
+        "date": "2026-04-03",
+        "participants": 1,
+        "status": "confirmed"
+      },
+      {
+        "id": "24fa54a3-ece0-4879-bd65-177a970fa9c4",
+        "type": "experience",
+        "itemId": "exp-arg-001",
+        "itemName": "Iguazu Falls Hiking Adventure",
+        "amount": 85.0,
+        "date": "2026-04-02T16:41:54.704761",
+        "participants": 1,
+        "status": "confirmed"
+      },
+      {
+        "id": "28251a41-ccb2-4083-b0f1-49f36f281a55",
+        "type": "flight",
+        "itemId": "flt-arg-001",
+        "itemName": "Delta DL1025 (JFK \u2192 EZE)",
+        "amount": 850.0,
+        "date": "2026-03-15T22:00:00Z",
+        "participants": 1,
+        "status": "confirmed"
+      },
+      {
+        "id": "90ff577b-c8f0-4301-a302-37bd9fcb27ac",
+        "type": "experience",
+        "itemId": "exp-arg-001",
+        "itemName": "Iguazu Falls Hiking Adventure",
+        "amount": 85.0,
+        "date": "2026-04-02T16:43:33.927649",
+        "participants": 1,
+        "status": "confirmed"
+      },
+      {
+        "id": "aff25a9c-7616-484f-bd5a-cff0a05eb581",
+        "type": "experience",
+        "itemId": "exp-arg-001",
+        "itemName": "Iguazu Falls Hiking Adventure",
+        "amount": 85.0,
+        "date": "2026-04-02T16:47:07.692508",
+        "participants": 1,
+        "status": "confirmed"
+      },
+      {
+        "id": "7cfe4f38-42b6-4908-8ce7-1597b315581c",
+        "type": "flight",
+        "itemId": "flt-arg-001",
+        "itemName": "Delta DL1025 (JFK \u2192 EZE)",
+        "amount": 850.0,
+        "date": "2026-03-15T22:00:00Z",
+        "participants": 1,
+        "status": "confirmed"
+      },
+      {
+        "id": "b1e5312b-03e6-48d3-998e-a4e7866665f1",
+        "type": "experience",
+        "itemId": "exp-arg-001",
+        "itemName": "Iguazu Falls Hiking Adventure",
+        "amount": 85.0,
+        "date": "2026-04-02T16:51:29.039293",
+        "participants": 1,
+        "status": "confirmed"
+      },
+      {
+        "id": "07f30115-e625-4121-ba3b-7863ca9235fb",
+        "type": "flight",
+        "itemId": "flt-arg-001",
+        "itemName": "Delta DL1025 (JFK \u2192 EZE)",
+        "amount": 850.0,
+        "date": "2026-03-15T22:00:00Z",
+        "participants": 1,
+        "status": "confirmed"
+      },
+      {
+        "id": "907d7281-1bad-4a06-8aec-9981cf95b863",
+        "type": "experience",
+        "itemId": "exp-arg-001",
+        "itemName": "Iguazu Falls Hiking Adventure",
+        "amount": 85.0,
+        "date": "2026-04-02T16:58:07.023028",
+        "participants": 1,
+        "status": "confirmed"
+      },
+      {
+        "id": "cda72866-e185-4eb0-8da4-33f5c8545e9a",
+        "type": "experience",
+        "itemId": "exp-arg-001",
+        "itemName": "Iguazu Falls Hiking Adventure",
+        "amount": 85.0,
+        "date": "2026-04-02T16:59:38.480076",
+        "participants": 1,
+        "status": "confirmed"
+      },
+      {
+        "id": "c4e724c3-967c-414b-a155-af587653140f",
+        "type": "experience",
+        "itemId": "exp-arg-001",
+        "itemName": "Iguazu Falls Hiking Adventure",
+        "amount": 85.0,
+        "date": "2026-04-02T16:59:52.789961",
+        "participants": 1,
+        "status": "confirmed"
+      },
+      {
+        "id": "e0e7858c-a2ff-46d5-bfde-7d148931be5f",
+        "type": "accommodation",
+        "itemId": "acc-arg-001",
+        "itemName": "Alvear Palace Hotel (Buenos Aires, Argentina)",
+        "amount": 1300.0,
+        "date": "2026-04-03",
+        "participants": 1,
+        "status": "confirmed"
+      },
+      {
+        "id": "a0faa804-aa71-4ae1-be74-e7e13df67fd3",
+        "type": "accommodation",
+        "itemId": "acc-arg-001",
+        "itemName": "Alvear Palace Hotel (Buenos Aires, Argentina)",
+        "amount": 1300.0,
+        "date": "2026-04-03",
+        "participants": 1,
+        "status": "confirmed"
+      },
+      {
+        "id": "dda10bd6-4bfa-4354-8841-c9f292dba4c9",
+        "type": "accommodation",
+        "itemId": "acc-arg-001",
+        "itemName": "Alvear Palace Hotel (Buenos Aires, Argentina)",
+        "amount": 1300.0,
+        "date": "2026-04-03",
+        "participants": 1,
+        "status": "confirmed"
+      },
+      {
+        "id": "ea050c23-0e7b-4363-8924-a3b06fd71154",
+        "type": "experience",
+        "itemId": "exp-arg-001",
+        "itemName": "Iguazu Falls Hiking Adventure",
+        "amount": 85.0,
+        "date": "2026-04-02T18:34:27.979894",
+        "participants": 1,
+        "status": "confirmed"
+      },
+      {
+        "id": "7d71e441-3d24-4e78-a819-07de1365fd1c",
+        "type": "accommodation",
+        "itemId": "acc-arg-001",
+        "itemName": "Alvear Palace Hotel (Buenos Aires, Argentina)",
+        "amount": 1300.0,
+        "date": "2026-04-03",
+        "participants": 1,
+        "status": "confirmed"
+      },
+      {
+        "id": "b4823870-27b5-46bb-89eb-5fb222351879",
+        "type": "accommodation",
+        "itemId": "acc-arg-001",
+        "itemName": "Alvear Palace Hotel (Buenos Aires, Argentina)",
+        "amount": 1300.0,
+        "date": "2026-04-03",
+        "participants": 1,
+        "status": "confirmed"
+      },
+      {
+        "id": "406678d9-6822-4752-96f6-df7839874d36",
+        "type": "accommodation",
+        "itemId": "acc-arg-001",
+        "itemName": "Alvear Palace Hotel (Buenos Aires, Argentina)",
+        "amount": 1300.0,
+        "date": "2026-04-03",
+        "participants": 1,
+        "status": "confirmed"
+      },
+      {
+        "id": "804eadb9-c206-4c40-8301-a939133c13c8",
+        "type": "accommodation",
+        "itemId": "acc-arg-001",
+        "itemName": "Alvear Palace Hotel (Buenos Aires, Argentina)",
+        "amount": 1300.0,
+        "date": "2026-04-03",
+        "participants": 1,
+        "status": "confirmed"
+      },
+      {
+        "id": "fc9418aa-a832-4468-9529-045beae26339",
+        "type": "experience",
+        "itemId": "exp-arg-001",
+        "itemName": "Iguazu Falls Hiking Adventure",
+        "amount": 85.0,
+        "date": "2026-04-02T18:48:47.206089",
+        "participants": 1,
+        "status": "confirmed"
+      },
+      {
+        "id": "c9051c5b-091b-4f8d-b5d7-f0d36f96ec24",
+        "type": "experience",
+        "itemId": "exp-arg-001",
+        "itemName": "Iguazu Falls Hiking Adventure",
+        "amount": 85.0,
+        "date": "2026-04-02T18:52:30.456006",
+        "participants": 1,
+        "status": "confirmed"
+      },
+      {
+        "id": "573bbfba-a40a-47f0-99cc-9356399f5acb",
+        "type": "flight",
+        "itemId": "flt-arg-001",
+        "itemName": "Delta DL1025 (JFK \u2192 EZE)",
+        "amount": 850.0,
+        "date": "2026-03-15T22:00:00Z",
+        "participants": 1,
+        "status": "confirmed"
+      },
+      {
+        "id": "83cf26fb-fbb6-4155-bf78-360b60ca0fac",
+        "type": "accommodation",
+        "itemId": "acc-arg-001",
+        "itemName": "Alvear Palace Hotel (Buenos Aires, Argentina)",
+        "amount": 1300.0,
+        "date": "2026-04-11",
+        "participants": 1,
+        "status": "confirmed"
+      },
+      {
+        "id": "436eeafe-adfa-449c-a84c-cd13fe865791",
+        "type": "experience",
+        "itemId": "exp-arg-001",
+        "itemName": "Iguazu Falls Hiking Adventure",
+        "amount": 85.0,
+        "date": "2026-04-10T16:49:26.126581",
+        "participants": 1,
+        "status": "confirmed"
+      },
+      {
+        "id": "4ca74def-8c93-4332-823a-4146dfbe0117",
+        "type": "experience",
+        "itemId": "exp-arg-001",
+        "itemName": "Iguazu Falls Hiking Adventure",
+        "amount": 85.0,
+        "date": "2026-04-10T16:49:48.207524",
+        "participants": 1,
+        "status": "confirmed"
+      },
+      {
+        "id": "effe794b-8174-4bb9-b731-4dcdbe5e121e",
+        "type": "accommodation",
+        "itemId": "acc-arg-001",
+        "itemName": "Alvear Palace Hotel (Buenos Aires, Argentina)",
+        "amount": 1300.0,
+        "date": "2026-04-11",
+        "participants": 1,
+        "status": "confirmed"
+      },
+      {
+        "id": "482c7ce4-bdb8-484e-98af-09d13e65cbf8",
+        "type": "accommodation",
+        "itemId": "acc-arg-001",
+        "itemName": "Alvear Palace Hotel (Buenos Aires, Argentina)",
+        "amount": 1300.0,
+        "date": "2026-04-11",
+        "participants": 1,
+        "status": "confirmed"
+      },
+      {
+        "id": "c2ac3b6b-4f17-4d05-836f-386ffeba4d01",
+        "type": "experience",
+        "itemId": "exp-arg-001",
+        "itemName": "Iguazu Falls Hiking Adventure",
+        "amount": 85.0,
+        "date": "2026-04-10T21:45:57.122413",
+        "participants": 1,
+        "status": "confirmed"
+      },
+      {
+        "id": "25330564-827d-4f44-ba4d-f3ba68fb2108",
+        "type": "experience",
+        "itemId": "exp-arg-001",
+        "itemName": "Iguazu Falls Hiking Adventure",
+        "amount": 85.0,
+        "date": "2026-04-10T21:50:10.975574",
+        "participants": 1,
+        "status": "confirmed"
+      },
+      {
+        "id": "89586e91-d106-4729-bc97-7881b7da4815",
+        "type": "experience",
+        "itemId": "exp-arg-001",
+        "itemName": "Iguazu Falls Hiking Adventure",
+        "amount": 85.0,
+        "date": "2026-04-10T21:51:34.129800",
+        "participants": 1,
+        "status": "confirmed"
+      },
+      {
+        "id": "d6d1aebf-76f2-4ea4-bd08-66142e7b33e0",
+        "type": "flight",
+        "itemId": "flt-arg-001",
+        "itemName": "Delta DL1025 (JFK \u2192 EZE)",
+        "amount": 850.0,
+        "date": "2026-03-15T22:00:00Z",
+        "participants": 1,
+        "status": "confirmed"
+      },
+      {
+        "id": "11c3bcde-c861-4979-8d42-8eccb8f888f6",
+        "type": "accommodation",
+        "itemId": "acc-arg-001",
+        "itemName": "Alvear Palace Hotel (Buenos Aires, Argentina)",
+        "amount": 1300.0,
+        "date": "2026-04-11",
+        "participants": 1,
+        "status": "confirmed"
+      },
+      {
+        "id": "a8dee350-7df5-4402-b029-e9342b18869f",
+        "type": "flight",
+        "itemId": "flt-arg-001",
+        "itemName": "Delta DL1025 (JFK \u2192 EZE)",
+        "amount": 850.0,
+        "date": "2026-03-15T22:00:00Z",
+        "participants": 1,
+        "status": "confirmed"
+      },
+      {
+        "id": "00ff68d2-23ad-422f-ad34-6ece06cec787",
+        "type": "flight",
+        "itemId": "flt-arg-001",
+        "itemName": "Delta DL1025 (JFK \u2192 EZE)",
+        "amount": 850.0,
+        "date": "2026-03-15T22:00:00Z",
+        "participants": 1,
+        "status": "confirmed"
+      },
+      {
+        "id": "8c785e57-94c9-4b26-95f3-e09c475dd64b",
+        "type": "accommodation",
+        "itemId": "acc-arg-001",
+        "itemName": "Alvear Palace Hotel (Buenos Aires, Argentina)",
+        "amount": 1300.0,
+        "date": "2026-04-11",
+        "participants": 1,
+        "status": "confirmed"
+      },
+      {
+        "id": "4d2dabd2-5ac1-4aa9-bba9-c47c8377425f",
+        "type": "experience",
+        "itemId": "exp-arg-001",
+        "itemName": "Iguazu Falls Hiking Adventure",
+        "amount": 85.0,
+        "date": "2026-04-10T22:16:11.490855",
+        "participants": 1,
+        "status": "confirmed"
+      },
+      {
+        "id": "e3ba6719-ca36-42e3-a69e-d0160fe2b744",
+        "type": "flight",
+        "itemId": "flt-arg-001",
+        "itemName": "Delta DL1025 (JFK \u2192 EZE)",
+        "amount": 850.0,
+        "date": "2026-03-15T22:00:00Z",
+        "participants": 1,
+        "status": "confirmed"
+      },
+      {
+        "id": "894ddf7e-0a30-4efa-b529-112438500d32",
+        "type": "accommodation",
+        "itemId": "acc-arg-001",
+        "itemName": "Alvear Palace Hotel (Buenos Aires, Argentina)",
+        "amount": 1300.0,
+        "date": "2026-04-11",
+        "participants": 1,
+        "status": "confirmed"
+      },
+      {
+        "id": "95b255c6-5a3f-4563-9b34-6c08868e5ed2",
+        "type": "flight",
+        "itemId": "flt-arg-001",
+        "itemName": "Delta DL1025 (JFK \u2192 EZE)",
+        "amount": 850.0,
+        "date": "2026-03-15T22:00:00Z",
+        "participants": 1,
+        "status": "confirmed"
+      },
+      {
+        "id": "182f2407-dc43-4e7a-b2eb-fc92d0d642f5",
+        "type": "accommodation",
+        "itemId": "acc-arg-001",
+        "itemName": "Alvear Palace Hotel (Buenos Aires, Argentina)",
+        "amount": 1300.0,
+        "date": "2026-04-12",
+        "participants": 1,
+        "status": "confirmed"
+      },
+      {
+        "id": "d0d25fca-4845-42e2-bb6f-6ed165108a6c",
+        "type": "experience",
+        "itemId": "exp-arg-001",
+        "itemName": "Iguazu Falls Hiking Adventure",
+        "amount": 85.0,
+        "date": "2026-04-11T01:22:48.362954",
+        "participants": 1,
+        "status": "confirmed"
+      }
+    ],
     "createdAt": "2026-01-01T00:00:00Z",
-    "updatedAt": "2026-01-06T20:30:02.208566"
+    "updatedAt": "2026-04-11T01:22:48.364099"
   },
   {
     "id": "770e8400-e29b-41d4-a716-446655440002",
@@ -85,5 +877,1175 @@
     "reservations": [],
     "createdAt": "2026-01-01T00:00:00Z",
     "updatedAt": "2026-01-01T00:00:00Z"
+  },
+  {
+    "id": "880e8400-e29b-41d4-a716-446655440003",
+    "username": "victoria_chen",
+    "firstName": "Victoria",
+    "lastName": "Chen",
+    "password": "password123",
+    "email": "victoria@meridian.com",
+    "birthDate": "1982-11-04",
+    "salary": 320000.0,
+    "netWorth": 2800000.0,
+    "creditScore": 840,
+    "address": {
+      "street": "200 Central Park West",
+      "city": "New York",
+      "state": "NY",
+      "zipCode": "10024",
+      "country": "USA"
+    },
+    "currentCard": "tribune",
+    "rejectionDate": null,
+    "interestRate": 4.99,
+    "creditLimit": 150000.0,
+    "availableCredit": 113390.0,
+    "rewardPoints": 111525.0,
+    "rewardPointsMultiplier": 2.5,
+    "reservations": [
+      {
+        "id": "f7f4764f-f125-4c1c-989f-88bb39dbe5bf",
+        "type": "accommodation",
+        "itemId": "acc-arg-001",
+        "itemName": "Alvear Palace Hotel (Buenos Aires, Argentina)",
+        "amount": 1300.0,
+        "date": "2026-04-03",
+        "participants": 1,
+        "status": "confirmed"
+      },
+      {
+        "id": "f58c3dc3-cd1a-4016-b64a-8963b52a7990",
+        "type": "flight",
+        "itemId": "flt-arg-001",
+        "itemName": "Delta DL1025 (JFK \u2192 EZE)",
+        "amount": 850.0,
+        "date": "2026-03-15T22:00:00Z",
+        "participants": 1,
+        "status": "confirmed"
+      },
+      {
+        "id": "233a1423-e8aa-413c-b2d6-031a8b947d2b",
+        "type": "accommodation",
+        "itemId": "acc-arg-001",
+        "itemName": "Alvear Palace Hotel (Buenos Aires, Argentina)",
+        "amount": 1300.0,
+        "date": "2026-04-03",
+        "participants": 1,
+        "status": "confirmed"
+      },
+      {
+        "id": "a8f11767-a4e3-4473-9ed3-d29c386209d7",
+        "type": "accommodation",
+        "itemId": "acc-arg-001",
+        "itemName": "Alvear Palace Hotel (Buenos Aires, Argentina)",
+        "amount": 1300.0,
+        "date": "2026-04-03",
+        "participants": 1,
+        "status": "confirmed"
+      },
+      {
+        "id": "c55e0e41-2d2c-4edc-8245-cfe7774733b6",
+        "type": "experience",
+        "itemId": "exp-arg-001",
+        "itemName": "Iguazu Falls Hiking Adventure",
+        "amount": 85.0,
+        "date": "2026-04-02T16:40:05.403888",
+        "participants": 1,
+        "status": "confirmed"
+      },
+      {
+        "id": "7cb15d34-94d3-49f3-9341-b610f7578152",
+        "type": "accommodation",
+        "itemId": "acc-arg-001",
+        "itemName": "Alvear Palace Hotel (Buenos Aires, Argentina)",
+        "amount": 1300.0,
+        "date": "2026-04-03",
+        "participants": 1,
+        "status": "confirmed"
+      },
+      {
+        "id": "0af2cb37-184f-465b-8615-87d7ee4b1dba",
+        "type": "experience",
+        "itemId": "exp-arg-001",
+        "itemName": "Iguazu Falls Hiking Adventure",
+        "amount": 85.0,
+        "date": "2026-04-02T16:46:22.132757",
+        "participants": 1,
+        "status": "confirmed"
+      },
+      {
+        "id": "9b1b2031-95f4-41d1-b1bf-172259180f29",
+        "type": "experience",
+        "itemId": "exp-arg-001",
+        "itemName": "Iguazu Falls Hiking Adventure",
+        "amount": 85.0,
+        "date": "2026-04-02T16:48:33.555380",
+        "participants": 1,
+        "status": "confirmed"
+      },
+      {
+        "id": "0898de71-64d2-45f1-84ac-65afb69c8b26",
+        "type": "flight",
+        "itemId": "flt-arg-001",
+        "itemName": "Delta DL1025 (JFK \u2192 EZE)",
+        "amount": 850.0,
+        "date": "2026-03-15T22:00:00Z",
+        "participants": 1,
+        "status": "confirmed"
+      },
+      {
+        "id": "199319f4-d700-4b55-b0ff-094509e377db",
+        "type": "accommodation",
+        "itemId": "acc-arg-001",
+        "itemName": "Alvear Palace Hotel (Buenos Aires, Argentina)",
+        "amount": 1300.0,
+        "date": "2026-04-03",
+        "participants": 1,
+        "status": "confirmed"
+      },
+      {
+        "id": "67fc198b-c95e-4198-9e3c-7718c26b2894",
+        "type": "experience",
+        "itemId": "exp-arg-001",
+        "itemName": "Iguazu Falls Hiking Adventure",
+        "amount": 85.0,
+        "date": "2026-04-02T16:54:11.928912",
+        "participants": 1,
+        "status": "confirmed"
+      },
+      {
+        "id": "3ae87ffb-2b7e-44fa-9149-30d7fe7e8be0",
+        "type": "experience",
+        "itemId": "exp-arg-001",
+        "itemName": "Iguazu Falls Hiking Adventure",
+        "amount": 85.0,
+        "date": "2026-04-02T16:54:58.014949",
+        "participants": 1,
+        "status": "confirmed"
+      },
+      {
+        "id": "af931d0d-9fa6-4b94-b432-ff7036e4ce40",
+        "type": "experience",
+        "itemId": "exp-arg-001",
+        "itemName": "Iguazu Falls Hiking Adventure",
+        "amount": 85.0,
+        "date": "2026-04-02T16:55:34.700814",
+        "participants": 1,
+        "status": "confirmed"
+      },
+      {
+        "id": "7f4a2f3b-d348-47bc-bdd3-2bf381386e09",
+        "type": "accommodation",
+        "itemId": "acc-arg-001",
+        "itemName": "Alvear Palace Hotel (Buenos Aires, Argentina)",
+        "amount": 1300.0,
+        "date": "2026-04-03",
+        "participants": 1,
+        "status": "confirmed"
+      },
+      {
+        "id": "9f7d5d41-2d93-4637-9902-d7177df52c75",
+        "type": "experience",
+        "itemId": "exp-arg-001",
+        "itemName": "Iguazu Falls Hiking Adventure",
+        "amount": 85.0,
+        "date": "2026-04-02T16:58:18.141540",
+        "participants": 1,
+        "status": "confirmed"
+      },
+      {
+        "id": "4371873f-cbe4-4ecf-8584-0947f15e8cda",
+        "type": "experience",
+        "itemId": "exp-arg-001",
+        "itemName": "Iguazu Falls Hiking Adventure",
+        "amount": 85.0,
+        "date": "2026-04-02T18:25:56.509879",
+        "participants": 1,
+        "status": "confirmed"
+      },
+      {
+        "id": "63f55df8-71dd-4321-b164-ded8923a2a67",
+        "type": "accommodation",
+        "itemId": "acc-arg-001",
+        "itemName": "Alvear Palace Hotel (Buenos Aires, Argentina)",
+        "amount": 1300.0,
+        "date": "2026-04-03",
+        "participants": 1,
+        "status": "confirmed"
+      },
+      {
+        "id": "e8f7d05b-9c17-41a9-b705-4e28b3ebf631",
+        "type": "experience",
+        "itemId": "exp-arg-001",
+        "itemName": "Iguazu Falls Hiking Adventure",
+        "amount": 85.0,
+        "date": "2026-04-02T18:34:12.564860",
+        "participants": 1,
+        "status": "confirmed"
+      },
+      {
+        "id": "0b49984d-f610-47ca-a8de-6e4de54fe03a",
+        "type": "flight",
+        "itemId": "flt-arg-001",
+        "itemName": "Delta DL1025 (JFK \u2192 EZE)",
+        "amount": 850.0,
+        "date": "2026-03-15T22:00:00Z",
+        "participants": 1,
+        "status": "confirmed"
+      },
+      {
+        "id": "66f848db-68e5-4a8d-801c-0a40af67bf7b",
+        "type": "accommodation",
+        "itemId": "acc-arg-001",
+        "itemName": "Alvear Palace Hotel (Buenos Aires, Argentina)",
+        "amount": 1300.0,
+        "date": "2026-04-03",
+        "participants": 1,
+        "status": "confirmed"
+      },
+      {
+        "id": "7abfeaf9-b48a-4500-a2f5-43c155af1b35",
+        "type": "accommodation",
+        "itemId": "acc-arg-001",
+        "itemName": "Alvear Palace Hotel (Buenos Aires, Argentina)",
+        "amount": 1300.0,
+        "date": "2026-04-03",
+        "participants": 1,
+        "status": "confirmed"
+      },
+      {
+        "id": "1d877175-39a5-41a5-8a6c-32eef8ea4e2e",
+        "type": "flight",
+        "itemId": "flt-arg-001",
+        "itemName": "Delta DL1025 (JFK \u2192 EZE)",
+        "amount": 850.0,
+        "date": "2026-03-15T22:00:00Z",
+        "participants": 1,
+        "status": "confirmed"
+      },
+      {
+        "id": "994fc6b2-67b7-4d0b-a2f4-e9222baeda8a",
+        "type": "accommodation",
+        "itemId": "acc-arg-001",
+        "itemName": "Alvear Palace Hotel (Buenos Aires, Argentina)",
+        "amount": 1300.0,
+        "date": "2026-04-03",
+        "participants": 1,
+        "status": "confirmed"
+      },
+      {
+        "id": "8a1fc543-ba2a-4064-8797-9e2a21b265c6",
+        "type": "experience",
+        "itemId": "exp-arg-001",
+        "itemName": "Iguazu Falls Hiking Adventure",
+        "amount": 85.0,
+        "date": "2026-04-02T18:45:39.021481",
+        "participants": 1,
+        "status": "confirmed"
+      },
+      {
+        "id": "dc89683d-798b-4fc2-9394-41f265f59958",
+        "type": "accommodation",
+        "itemId": "acc-arg-001",
+        "itemName": "Alvear Palace Hotel (Buenos Aires, Argentina)",
+        "amount": 1300.0,
+        "date": "2026-04-03",
+        "participants": 1,
+        "status": "confirmed"
+      },
+      {
+        "id": "38104eda-0059-4083-97cf-b81244b41428",
+        "type": "accommodation",
+        "itemId": "acc-arg-001",
+        "itemName": "Alvear Palace Hotel (Buenos Aires, Argentina)",
+        "amount": 1300.0,
+        "date": "2026-04-03",
+        "participants": 1,
+        "status": "confirmed"
+      },
+      {
+        "id": "4c9037ea-86e2-4f57-88fc-a1655aed53b2",
+        "type": "experience",
+        "itemId": "exp-arg-001",
+        "itemName": "Iguazu Falls Hiking Adventure",
+        "amount": 85.0,
+        "date": "2026-04-02T18:57:41.786130",
+        "participants": 1,
+        "status": "confirmed"
+      },
+      {
+        "id": "d68019f2-912a-4084-8f2f-886cf8cb5b4b",
+        "type": "experience",
+        "itemId": "exp-arg-001",
+        "itemName": "Iguazu Falls Hiking Adventure",
+        "amount": 85.0,
+        "date": "2026-04-10T16:45:14.212220",
+        "participants": 1,
+        "status": "confirmed"
+      },
+      {
+        "id": "0f03611a-23b0-4a86-8718-47e8e745da0f",
+        "type": "experience",
+        "itemId": "exp-arg-001",
+        "itemName": "Iguazu Falls Hiking Adventure",
+        "amount": 85.0,
+        "date": "2026-04-10T16:47:31.660920",
+        "participants": 1,
+        "status": "confirmed"
+      },
+      {
+        "id": "cd4496de-ad12-4ec1-8b6a-42d22d426c0f",
+        "type": "accommodation",
+        "itemId": "acc-arg-001",
+        "itemName": "Alvear Palace Hotel (Buenos Aires, Argentina)",
+        "amount": 1300.0,
+        "date": "2026-04-11",
+        "participants": 1,
+        "status": "confirmed"
+      },
+      {
+        "id": "26a9327f-cfe8-4929-a9da-55a0da7774f3",
+        "type": "accommodation",
+        "itemId": "acc-arg-001",
+        "itemName": "Alvear Palace Hotel (Buenos Aires, Argentina)",
+        "amount": 1300.0,
+        "date": "2026-04-11",
+        "participants": 1,
+        "status": "confirmed"
+      },
+      {
+        "id": "fe377626-f8dc-425d-93fc-ae8c682f26e8",
+        "type": "experience",
+        "itemId": "exp-arg-001",
+        "itemName": "Iguazu Falls Hiking Adventure",
+        "amount": 85.0,
+        "date": "2026-04-10T21:52:40.609592",
+        "participants": 1,
+        "status": "confirmed"
+      },
+      {
+        "id": "f0f39f11-2ec1-49d4-bac8-8cb090cd9b13",
+        "type": "accommodation",
+        "itemId": "acc-arg-001",
+        "itemName": "Alvear Palace Hotel (Buenos Aires, Argentina)",
+        "amount": 1300.0,
+        "date": "2026-04-11",
+        "participants": 1,
+        "status": "confirmed"
+      },
+      {
+        "id": "186da45b-1a6a-48f1-a42a-d86288cb7c69",
+        "type": "flight",
+        "itemId": "flt-arg-001",
+        "itemName": "Delta DL1025 (JFK \u2192 EZE)",
+        "amount": 850.0,
+        "date": "2026-03-15T22:00:00Z",
+        "participants": 1,
+        "status": "confirmed"
+      },
+      {
+        "id": "d8542a55-b384-4459-abd7-615b1892c484",
+        "type": "accommodation",
+        "itemId": "acc-arg-001",
+        "itemName": "Alvear Palace Hotel (Buenos Aires, Argentina)",
+        "amount": 1300.0,
+        "date": "2026-04-11",
+        "participants": 1,
+        "status": "confirmed"
+      },
+      {
+        "id": "0eb7f1fe-d99e-4c3c-8344-b87475262acf",
+        "type": "accommodation",
+        "itemId": "acc-arg-001",
+        "itemName": "Alvear Palace Hotel (Buenos Aires, Argentina)",
+        "amount": 1300.0,
+        "date": "2026-04-11",
+        "participants": 1,
+        "status": "confirmed"
+      },
+      {
+        "id": "34710bd6-90cf-4ef5-a0e5-a23d4c82453f",
+        "type": "experience",
+        "itemId": "exp-arg-001",
+        "itemName": "Iguazu Falls Hiking Adventure",
+        "amount": 85.0,
+        "date": "2026-04-10T22:13:03.566916",
+        "participants": 1,
+        "status": "confirmed"
+      },
+      {
+        "id": "843b7823-1bdc-4f7c-9d34-a9d0c5989dd4",
+        "type": "accommodation",
+        "itemId": "acc-arg-001",
+        "itemName": "Alvear Palace Hotel (Buenos Aires, Argentina)",
+        "amount": 1300.0,
+        "date": "2026-04-11",
+        "participants": 1,
+        "status": "confirmed"
+      },
+      {
+        "id": "c95b04bf-7b94-4203-b858-923d6fda4f27",
+        "type": "flight",
+        "itemId": "flt-arg-001",
+        "itemName": "Delta DL1025 (JFK \u2192 EZE)",
+        "amount": 850.0,
+        "date": "2026-03-15T22:00:00Z",
+        "participants": 1,
+        "status": "confirmed"
+      },
+      {
+        "id": "8becf415-629f-49d1-90db-d55e257f294f",
+        "type": "accommodation",
+        "itemId": "acc-arg-001",
+        "itemName": "Alvear Palace Hotel (Buenos Aires, Argentina)",
+        "amount": 1300.0,
+        "date": "2026-04-11",
+        "participants": 1,
+        "status": "confirmed"
+      },
+      {
+        "id": "b633f48e-2b57-4272-853b-d3baf9397b74",
+        "type": "accommodation",
+        "itemId": "acc-arg-001",
+        "itemName": "Alvear Palace Hotel (Buenos Aires, Argentina)",
+        "amount": 1300.0,
+        "date": "2026-04-11",
+        "participants": 1,
+        "status": "confirmed"
+      },
+      {
+        "id": "cfa369b6-dd50-4f36-8769-36e7128fe815",
+        "type": "flight",
+        "itemId": "flt-arg-001",
+        "itemName": "Delta DL1025 (JFK \u2192 EZE)",
+        "amount": 850.0,
+        "date": "2026-03-15T22:00:00Z",
+        "participants": 1,
+        "status": "confirmed"
+      },
+      {
+        "id": "9cee8102-9a8c-4238-8182-1bcab62edf17",
+        "type": "accommodation",
+        "itemId": "acc-arg-001",
+        "itemName": "Alvear Palace Hotel (Buenos Aires, Argentina)",
+        "amount": 1300.0,
+        "date": "2026-04-12",
+        "participants": 1,
+        "status": "confirmed"
+      },
+      {
+        "id": "f5e4b4d9-f143-43bb-8f2f-00d2f3e75965",
+        "type": "experience",
+        "itemId": "exp-arg-001",
+        "itemName": "Iguazu Falls Hiking Adventure",
+        "amount": 85.0,
+        "date": "2026-04-11T01:19:07.406046",
+        "participants": 1,
+        "status": "confirmed"
+      }
+    ],
+    "createdAt": "2026-01-15T00:00:00Z",
+    "updatedAt": "2026-04-11T01:19:07.406911"
+  },
+  {
+    "id": "990e8400-e29b-41d4-a716-446655440004",
+    "username": "james_whitmore",
+    "firstName": "James",
+    "lastName": "Whitmore",
+    "password": "password123",
+    "email": "james@meridian.com",
+    "birthDate": "1978-06-22",
+    "salary": 480000.0,
+    "netWorth": 5200000.0,
+    "creditScore": 848,
+    "address": {
+      "street": "1 Beacon Hill",
+      "city": "Boston",
+      "state": "MA",
+      "zipCode": "02108",
+      "country": "USA"
+    },
+    "currentCard": "tribune",
+    "rejectionDate": null,
+    "interestRate": 4.25,
+    "creditLimit": 200000.0,
+    "availableCredit": 156445.0,
+    "rewardPoints": 132137.5,
+    "rewardPointsMultiplier": 2.5,
+    "reservations": [
+      {
+        "id": "7e587277-f9df-4009-923e-5fb0981a0a70",
+        "type": "experience",
+        "itemId": "exp-arg-001",
+        "itemName": "Iguazu Falls Hiking Adventure",
+        "amount": 85.0,
+        "date": "2026-04-02T16:33:29.568381",
+        "participants": 1,
+        "status": "confirmed"
+      },
+      {
+        "id": "2ed5ef03-f6e5-42ee-a0b4-e66f3cd968d6",
+        "type": "accommodation",
+        "itemId": "acc-arg-001",
+        "itemName": "Alvear Palace Hotel (Buenos Aires, Argentina)",
+        "amount": 1300.0,
+        "date": "2026-04-03",
+        "participants": 1,
+        "status": "confirmed"
+      },
+      {
+        "id": "b9f0dad4-1fe5-4be4-9941-5762b89ceea4",
+        "type": "flight",
+        "itemId": "flt-arg-001",
+        "itemName": "Delta DL1025 (JFK \u2192 EZE)",
+        "amount": 850.0,
+        "date": "2026-03-15T22:00:00Z",
+        "participants": 1,
+        "status": "confirmed"
+      },
+      {
+        "id": "c165ffef-21f7-410f-93ed-d4f616ff3d5a",
+        "type": "accommodation",
+        "itemId": "acc-arg-001",
+        "itemName": "Alvear Palace Hotel (Buenos Aires, Argentina)",
+        "amount": 1300.0,
+        "date": "2026-04-03",
+        "participants": 1,
+        "status": "confirmed"
+      },
+      {
+        "id": "a00e3326-daeb-4823-9e55-16b086910c82",
+        "type": "accommodation",
+        "itemId": "acc-arg-001",
+        "itemName": "Alvear Palace Hotel (Buenos Aires, Argentina)",
+        "amount": 1300.0,
+        "date": "2026-04-03",
+        "participants": 1,
+        "status": "confirmed"
+      },
+      {
+        "id": "97180a2b-8b6f-4852-b5e8-290542a93abd",
+        "type": "flight",
+        "itemId": "flt-arg-001",
+        "itemName": "Delta DL1025 (JFK \u2192 EZE)",
+        "amount": 850.0,
+        "date": "2026-03-15T22:00:00Z",
+        "participants": 1,
+        "status": "confirmed"
+      },
+      {
+        "id": "8f523c9e-5600-490f-82f0-b5d208773270",
+        "type": "experience",
+        "itemId": "exp-arg-001",
+        "itemName": "Iguazu Falls Hiking Adventure",
+        "amount": 85.0,
+        "date": "2026-04-02T16:47:53.282824",
+        "participants": 1,
+        "status": "confirmed"
+      },
+      {
+        "id": "aad6f265-bc7a-422e-a6b0-c7a1cfd28dc2",
+        "type": "experience",
+        "itemId": "exp-arg-001",
+        "itemName": "Iguazu Falls Hiking Adventure",
+        "amount": 85.0,
+        "date": "2026-04-02T16:50:34.023609",
+        "participants": 1,
+        "status": "confirmed"
+      },
+      {
+        "id": "1cd455dd-fd28-4156-8b32-75d8b2182617",
+        "type": "experience",
+        "itemId": "exp-arg-001",
+        "itemName": "Iguazu Falls Hiking Adventure",
+        "amount": 85.0,
+        "date": "2026-04-02T16:58:28.811851",
+        "participants": 1,
+        "status": "confirmed"
+      },
+      {
+        "id": "b4a6e68b-f626-463e-b990-e0288b05c433",
+        "type": "accommodation",
+        "itemId": "acc-arg-001",
+        "itemName": "Alvear Palace Hotel (Buenos Aires, Argentina)",
+        "amount": 1300.0,
+        "date": "2026-04-03",
+        "participants": 1,
+        "status": "confirmed"
+      },
+      {
+        "id": "ca8e45c6-2371-4547-aa8f-d88157c6de8b",
+        "type": "flight",
+        "itemId": "flt-arg-001",
+        "itemName": "Delta DL1025 (JFK \u2192 EZE)",
+        "amount": 850.0,
+        "date": "2026-03-15T22:00:00Z",
+        "participants": 1,
+        "status": "confirmed"
+      },
+      {
+        "id": "a9ed4c9c-057a-4c17-af23-e91f21db9765",
+        "type": "flight",
+        "itemId": "flt-arg-001",
+        "itemName": "Delta DL1025 (JFK \u2192 EZE)",
+        "amount": 850.0,
+        "date": "2026-03-15T22:00:00Z",
+        "participants": 1,
+        "status": "confirmed"
+      },
+      {
+        "id": "cf931ef3-6482-44e0-91c9-5de667556b59",
+        "type": "accommodation",
+        "itemId": "acc-arg-001",
+        "itemName": "Alvear Palace Hotel (Buenos Aires, Argentina)",
+        "amount": 1300.0,
+        "date": "2026-04-03",
+        "participants": 1,
+        "status": "confirmed"
+      },
+      {
+        "id": "efee7e22-cb85-4e84-975b-cdfee6288db1",
+        "type": "experience",
+        "itemId": "exp-arg-001",
+        "itemName": "Iguazu Falls Hiking Adventure",
+        "amount": 85.0,
+        "date": "2026-04-02T18:34:22.728461",
+        "participants": 1,
+        "status": "confirmed"
+      },
+      {
+        "id": "503c35d4-1f79-449d-a4c3-f303cb84ec66",
+        "type": "accommodation",
+        "itemId": "acc-arg-001",
+        "itemName": "Alvear Palace Hotel (Buenos Aires, Argentina)",
+        "amount": 1300.0,
+        "date": "2026-04-03",
+        "participants": 1,
+        "status": "confirmed"
+      },
+      {
+        "id": "d1e7d3aa-64e5-441e-a6c6-0663683c69f0",
+        "type": "accommodation",
+        "itemId": "acc-arg-001",
+        "itemName": "Alvear Palace Hotel (Buenos Aires, Argentina)",
+        "amount": 1300.0,
+        "date": "2026-04-03",
+        "participants": 1,
+        "status": "confirmed"
+      },
+      {
+        "id": "88601abe-557e-494d-b2f0-7ee15cf8adf6",
+        "type": "flight",
+        "itemId": "flt-arg-001",
+        "itemName": "Delta DL1025 (JFK \u2192 EZE)",
+        "amount": 850.0,
+        "date": "2026-03-15T22:00:00Z",
+        "participants": 1,
+        "status": "confirmed"
+      },
+      {
+        "id": "00eb8975-bd51-4094-a918-03e62ccc1101",
+        "type": "accommodation",
+        "itemId": "acc-arg-001",
+        "itemName": "Alvear Palace Hotel (Buenos Aires, Argentina)",
+        "amount": 1300.0,
+        "date": "2026-04-03",
+        "participants": 1,
+        "status": "confirmed"
+      },
+      {
+        "id": "ad595e6d-87e2-466c-8dc4-54b154b374de",
+        "type": "flight",
+        "itemId": "flt-arg-001",
+        "itemName": "Delta DL1025 (JFK \u2192 EZE)",
+        "amount": 850.0,
+        "date": "2026-03-15T22:00:00Z",
+        "participants": 1,
+        "status": "confirmed"
+      },
+      {
+        "id": "cc55bcf7-f06f-44a3-84bc-18e0a3a03621",
+        "type": "experience",
+        "itemId": "exp-arg-001",
+        "itemName": "Iguazu Falls Hiking Adventure",
+        "amount": 85.0,
+        "date": "2026-04-02T18:48:49.156150",
+        "participants": 1,
+        "status": "confirmed"
+      },
+      {
+        "id": "ded638a5-bbf9-4db3-957a-fc85b4053a0e",
+        "type": "accommodation",
+        "itemId": "acc-arg-001",
+        "itemName": "Alvear Palace Hotel (Buenos Aires, Argentina)",
+        "amount": 1300.0,
+        "date": "2026-04-03",
+        "participants": 1,
+        "status": "confirmed"
+      },
+      {
+        "id": "e5d48982-59f4-4d2a-8310-bb436fbd155b",
+        "type": "accommodation",
+        "itemId": "acc-arg-001",
+        "itemName": "Alvear Palace Hotel (Buenos Aires, Argentina)",
+        "amount": 1300.0,
+        "date": "2026-04-03",
+        "participants": 1,
+        "status": "confirmed"
+      },
+      {
+        "id": "8b626794-60b2-4c85-88e7-3aa558a7e78a",
+        "type": "experience",
+        "itemId": "exp-arg-001",
+        "itemName": "Iguazu Falls Hiking Adventure",
+        "amount": 85.0,
+        "date": "2026-04-10T16:44:24.778946",
+        "participants": 1,
+        "status": "confirmed"
+      },
+      {
+        "id": "59503adb-bb67-4741-b006-d94366a848aa",
+        "type": "experience",
+        "itemId": "exp-arg-001",
+        "itemName": "Iguazu Falls Hiking Adventure",
+        "amount": 85.0,
+        "date": "2026-04-10T16:45:50.767033",
+        "participants": 1,
+        "status": "confirmed"
+      },
+      {
+        "id": "9a48fa29-a782-41c3-99c1-ac6e177b26d5",
+        "type": "accommodation",
+        "itemId": "acc-arg-001",
+        "itemName": "Alvear Palace Hotel (Buenos Aires, Argentina)",
+        "amount": 1300.0,
+        "date": "2026-04-11",
+        "participants": 1,
+        "status": "confirmed"
+      },
+      {
+        "id": "222ae39b-727f-4c33-a8fb-de3ff82431b9",
+        "type": "experience",
+        "itemId": "exp-arg-001",
+        "itemName": "Iguazu Falls Hiking Adventure",
+        "amount": 85.0,
+        "date": "2026-04-10T21:47:57.278384",
+        "participants": 1,
+        "status": "confirmed"
+      },
+      {
+        "id": "9b85406b-e20d-436a-8351-8ab0d6a1a61b",
+        "type": "experience",
+        "itemId": "exp-arg-001",
+        "itemName": "Iguazu Falls Hiking Adventure",
+        "amount": 85.0,
+        "date": "2026-04-10T21:57:38.308465",
+        "participants": 1,
+        "status": "confirmed"
+      },
+      {
+        "id": "4811c90c-0ff5-4c68-bc48-b35f80696e0e",
+        "type": "accommodation",
+        "itemId": "acc-arg-001",
+        "itemName": "Alvear Palace Hotel (Buenos Aires, Argentina)",
+        "amount": 1300.0,
+        "date": "2026-04-11",
+        "participants": 1,
+        "status": "confirmed"
+      },
+      {
+        "id": "cc5da489-d320-4501-a100-585db9e92ac2",
+        "type": "accommodation",
+        "itemId": "acc-arg-001",
+        "itemName": "Alvear Palace Hotel (Buenos Aires, Argentina)",
+        "amount": 1300.0,
+        "date": "2026-04-11",
+        "participants": 1,
+        "status": "confirmed"
+      },
+      {
+        "id": "5c877c87-f1e4-496c-966d-b3ac15260ac2",
+        "type": "flight",
+        "itemId": "flt-arg-001",
+        "itemName": "Delta DL1025 (JFK \u2192 EZE)",
+        "amount": 850.0,
+        "date": "2026-03-15T22:00:00Z",
+        "participants": 1,
+        "status": "confirmed"
+      },
+      {
+        "id": "c6634cff-d205-4435-b3e3-d7e58b7e0453",
+        "type": "accommodation",
+        "itemId": "acc-arg-001",
+        "itemName": "Alvear Palace Hotel (Buenos Aires, Argentina)",
+        "amount": 1300.0,
+        "date": "2026-04-11",
+        "participants": 1,
+        "status": "confirmed"
+      },
+      {
+        "id": "e3a1e961-7403-4ad8-a7bb-6baf8893719f",
+        "type": "flight",
+        "itemId": "flt-arg-001",
+        "itemName": "Delta DL1025 (JFK \u2192 EZE)",
+        "amount": 850.0,
+        "date": "2026-03-15T22:00:00Z",
+        "participants": 1,
+        "status": "confirmed"
+      },
+      {
+        "id": "d61e08fb-bc97-42b5-bdf9-d14193d9b6b4",
+        "type": "accommodation",
+        "itemId": "acc-arg-001",
+        "itemName": "Alvear Palace Hotel (Buenos Aires, Argentina)",
+        "amount": 1300.0,
+        "date": "2026-04-11",
+        "participants": 1,
+        "status": "confirmed"
+      },
+      {
+        "id": "5e990e8c-3264-4e11-9c0a-03abcf6a11b8",
+        "type": "accommodation",
+        "itemId": "acc-arg-001",
+        "itemName": "Alvear Palace Hotel (Buenos Aires, Argentina)",
+        "amount": 1300.0,
+        "date": "2026-04-11",
+        "participants": 1,
+        "status": "confirmed"
+      },
+      {
+        "id": "3cdb5210-fa7f-42aa-b9f6-9f54160a08fe",
+        "type": "accommodation",
+        "itemId": "acc-arg-001",
+        "itemName": "Alvear Palace Hotel (Buenos Aires, Argentina)",
+        "amount": 1300.0,
+        "date": "2026-04-11",
+        "participants": 1,
+        "status": "confirmed"
+      },
+      {
+        "id": "aa5645ca-2efb-4e3c-9bfd-d8ad14e8c293",
+        "type": "experience",
+        "itemId": "exp-arg-001",
+        "itemName": "Iguazu Falls Hiking Adventure",
+        "amount": 85.0,
+        "date": "2026-04-10T22:32:19.740172",
+        "participants": 1,
+        "status": "confirmed"
+      },
+      {
+        "id": "bcaa9150-5fca-4d71-a691-ff1b452b2ba8",
+        "type": "experience",
+        "itemId": "exp-arg-001",
+        "itemName": "Iguazu Falls Hiking Adventure",
+        "amount": 85.0,
+        "date": "2026-04-10T22:32:49.341115",
+        "participants": 1,
+        "status": "confirmed"
+      },
+      {
+        "id": "f0ca4119-c863-4973-beb5-ced2b3506483",
+        "type": "accommodation",
+        "itemId": "acc-arg-001",
+        "itemName": "Alvear Palace Hotel (Buenos Aires, Argentina)",
+        "amount": 1300.0,
+        "date": "2026-04-11",
+        "participants": 1,
+        "status": "confirmed"
+      },
+      {
+        "id": "741c2ced-0295-4a7a-adb7-bcb4eea6f1f8",
+        "type": "accommodation",
+        "itemId": "acc-arg-001",
+        "itemName": "Alvear Palace Hotel (Buenos Aires, Argentina)",
+        "amount": 1300.0,
+        "date": "2026-04-12",
+        "participants": 1,
+        "status": "confirmed"
+      },
+      {
+        "id": "3bef1efa-e74b-4973-8669-0950c43dec8f",
+        "type": "experience",
+        "itemId": "exp-arg-001",
+        "itemName": "Iguazu Falls Hiking Adventure",
+        "amount": 85.0,
+        "date": "2026-04-11T01:19:18.164832",
+        "participants": 1,
+        "status": "confirmed"
+      },
+      {
+        "id": "fb93852d-ebfa-40ab-80e8-f9e98e5eb49c",
+        "type": "accommodation",
+        "itemId": "acc-arg-001",
+        "itemName": "Alvear Palace Hotel (Buenos Aires, Argentina)",
+        "amount": 1300.0,
+        "date": "2026-04-12",
+        "participants": 1,
+        "status": "confirmed"
+      },
+      {
+        "id": "6699e46d-c5b1-44d5-b3dc-d48c8883db1d",
+        "type": "accommodation",
+        "itemId": "acc-arg-001",
+        "itemName": "Alvear Palace Hotel (Buenos Aires, Argentina)",
+        "amount": 1300.0,
+        "date": "2026-04-12",
+        "participants": 1,
+        "status": "confirmed"
+      },
+      {
+        "id": "db44da29-6f6f-476c-a289-8ed2c538b259",
+        "type": "flight",
+        "itemId": "flt-arg-001",
+        "itemName": "Delta DL1025 (JFK \u2192 EZE)",
+        "amount": 850.0,
+        "date": "2026-03-15T22:00:00Z",
+        "participants": 1,
+        "status": "confirmed"
+      }
+    ],
+    "createdAt": "2026-01-20T00:00:00Z",
+    "updatedAt": "2026-04-11T01:24:05.982859"
+  },
+  {
+    "id": "aa0e8400-e29b-41d4-a716-446655440005",
+    "username": "sarah_mitchell",
+    "firstName": "Sarah",
+    "lastName": "Mitchell",
+    "password": "password123",
+    "email": "sarah@meridian.com",
+    "birthDate": "1994-08-17",
+    "salary": 68000.0,
+    "netWorth": 45000.0,
+    "creditScore": 720,
+    "address": {
+      "street": "4521 N Clark St",
+      "city": "Chicago",
+      "state": "IL",
+      "zipCode": "60640",
+      "country": "USA"
+    },
+    "currentCard": "legionnaire",
+    "rejectionDate": null,
+    "interestRate": 15.49,
+    "creditLimit": 12000.0,
+    "availableCredit": 30.0,
+    "rewardPoints": 10970.0,
+    "rewardPointsMultiplier": 1.0,
+    "reservations": [
+      {
+        "id": "3092a673-d68d-4746-826e-4d3a4ba534f0",
+        "type": "flight",
+        "itemId": "flt-arg-001",
+        "itemName": "Delta DL1025 (JFK \u2192 EZE)",
+        "amount": 850.0,
+        "date": "2026-03-15T22:00:00Z",
+        "participants": 1,
+        "status": "confirmed"
+      },
+      {
+        "id": "089d5337-913c-4ae5-b276-555e2f9159a5",
+        "type": "experience",
+        "itemId": "exp-arg-001",
+        "itemName": "Iguazu Falls Hiking Adventure",
+        "amount": 85.0,
+        "date": "2026-04-02T16:34:04.934331",
+        "participants": 1,
+        "status": "confirmed"
+      },
+      {
+        "id": "ebca9965-b06e-4538-baf5-4d0ff9f76c00",
+        "type": "flight",
+        "itemId": "flt-arg-001",
+        "itemName": "Delta DL1025 (JFK \u2192 EZE)",
+        "amount": 850.0,
+        "date": "2026-03-15T22:00:00Z",
+        "participants": 1,
+        "status": "confirmed"
+      },
+      {
+        "id": "9dad3065-5a62-4dbf-a593-d18c1df84c15",
+        "type": "accommodation",
+        "itemId": "acc-arg-001",
+        "itemName": "Alvear Palace Hotel (Buenos Aires, Argentina)",
+        "amount": 1300.0,
+        "date": "2026-04-03",
+        "participants": 1,
+        "status": "confirmed"
+      },
+      {
+        "id": "726ef19b-bec3-456a-b927-9c95cef3c16d",
+        "type": "experience",
+        "itemId": "exp-arg-001",
+        "itemName": "Iguazu Falls Hiking Adventure",
+        "amount": 85.0,
+        "date": "2026-04-02T16:41:04.670208",
+        "participants": 1,
+        "status": "confirmed"
+      },
+      {
+        "id": "942504e3-3af9-4339-bc51-c39610653fb1",
+        "type": "flight",
+        "itemId": "flt-arg-001",
+        "itemName": "Delta DL1025 (JFK \u2192 EZE)",
+        "amount": 850.0,
+        "date": "2026-03-15T22:00:00Z",
+        "participants": 1,
+        "status": "confirmed"
+      },
+      {
+        "id": "c5149984-dfc0-4e46-9e34-f37074d68844",
+        "type": "accommodation",
+        "itemId": "acc-arg-001",
+        "itemName": "Alvear Palace Hotel (Buenos Aires, Argentina)",
+        "amount": 1300.0,
+        "date": "2026-04-03",
+        "participants": 1,
+        "status": "confirmed"
+      },
+      {
+        "id": "543a4560-b1f8-407d-8bd7-28945b657b25",
+        "type": "flight",
+        "itemId": "flt-arg-001",
+        "itemName": "Delta DL1025 (JFK \u2192 EZE)",
+        "amount": 850.0,
+        "date": "2026-03-15T22:00:00Z",
+        "participants": 1,
+        "status": "confirmed"
+      },
+      {
+        "id": "ed9a0695-e05f-4088-8cbc-56879a766c9e",
+        "type": "accommodation",
+        "itemId": "acc-arg-001",
+        "itemName": "Alvear Palace Hotel (Buenos Aires, Argentina)",
+        "amount": 1300.0,
+        "date": "2026-04-03",
+        "participants": 1,
+        "status": "confirmed"
+      },
+      {
+        "id": "2f0cc157-0b17-463c-9d85-c74eee2187bb",
+        "type": "accommodation",
+        "itemId": "acc-arg-001",
+        "itemName": "Alvear Palace Hotel (Buenos Aires, Argentina)",
+        "amount": 1300.0,
+        "date": "2026-04-03",
+        "participants": 1,
+        "status": "confirmed"
+      },
+      {
+        "id": "3de41187-d7fa-4c13-b2bb-08d5aaa424cb",
+        "type": "flight",
+        "itemId": "flt-arg-001",
+        "itemName": "Delta DL1025 (JFK \u2192 EZE)",
+        "amount": 850.0,
+        "date": "2026-03-15T22:00:00Z",
+        "participants": 1,
+        "status": "confirmed"
+      },
+      {
+        "id": "0db59fc3-b0e2-494a-8e2d-2a003a11c40b",
+        "type": "experience",
+        "itemId": "exp-arg-001",
+        "itemName": "Iguazu Falls Hiking Adventure",
+        "amount": 85.0,
+        "date": "2026-04-02T16:58:53.687003",
+        "participants": 1,
+        "status": "confirmed"
+      },
+      {
+        "id": "25104f05-9bd1-4498-a29d-075a849fd9e0",
+        "type": "experience",
+        "itemId": "exp-arg-001",
+        "itemName": "Iguazu Falls Hiking Adventure",
+        "amount": 85.0,
+        "date": "2026-04-02T16:59:06.696259",
+        "participants": 1,
+        "status": "confirmed"
+      },
+      {
+        "id": "e4f13a73-5a9b-4579-abd9-563ef6d42c30",
+        "type": "experience",
+        "itemId": "exp-arg-001",
+        "itemName": "Iguazu Falls Hiking Adventure",
+        "amount": 85.0,
+        "date": "2026-04-02T18:29:32.404923",
+        "participants": 1,
+        "status": "confirmed"
+      },
+      {
+        "id": "92d8072c-442c-4748-8525-523cd5c5c8d5",
+        "type": "experience",
+        "itemId": "exp-arg-001",
+        "itemName": "Iguazu Falls Hiking Adventure",
+        "amount": 85.0,
+        "date": "2026-04-02T18:30:37.033649",
+        "participants": 1,
+        "status": "confirmed"
+      },
+      {
+        "id": "9ab97a64-5af3-4d05-b9c8-812592f69127",
+        "type": "experience",
+        "itemId": "exp-arg-001",
+        "itemName": "Iguazu Falls Hiking Adventure",
+        "amount": 85.0,
+        "date": "2026-04-02T18:34:51.095574",
+        "participants": 1,
+        "status": "confirmed"
+      },
+      {
+        "id": "147f61fc-10ca-4677-9cbb-419a4ecfb5df",
+        "type": "experience",
+        "itemId": "exp-arg-001",
+        "itemName": "Iguazu Falls Hiking Adventure",
+        "amount": 85.0,
+        "date": "2026-04-02T18:42:24.926387",
+        "participants": 1,
+        "status": "confirmed"
+      },
+      {
+        "id": "ceb7ed61-eca0-43f1-8f1f-5732ade9c8e9",
+        "type": "experience",
+        "itemId": "exp-arg-001",
+        "itemName": "Iguazu Falls Hiking Adventure",
+        "amount": 85.0,
+        "date": "2026-04-10T16:47:24.179961",
+        "participants": 1,
+        "status": "confirmed"
+      },
+      {
+        "id": "0c6dfe41-a321-447e-ada3-35c7a860c8a1",
+        "type": "experience",
+        "itemId": "exp-arg-001",
+        "itemName": "Iguazu Falls Hiking Adventure",
+        "amount": 85.0,
+        "date": "2026-04-10T16:49:05.225143",
+        "participants": 1,
+        "status": "confirmed"
+      },
+      {
+        "id": "b8db56f4-99e9-4fea-9233-d8f4a0ca09dc",
+        "type": "experience",
+        "itemId": "exp-arg-001",
+        "itemName": "Iguazu Falls Hiking Adventure",
+        "amount": 85.0,
+        "date": "2026-04-10T22:12:13.704878",
+        "participants": 1,
+        "status": "confirmed"
+      },
+      {
+        "id": "562b3ee9-8fd7-412a-bc96-b9eea24ba2c0",
+        "type": "experience",
+        "itemId": "exp-arg-001",
+        "itemName": "Iguazu Falls Hiking Adventure",
+        "amount": 85.0,
+        "date": "2026-04-10T22:15:42.626971",
+        "participants": 1,
+        "status": "confirmed"
+      }
+    ],
+    "createdAt": "2026-02-01T00:00:00Z",
+    "updatedAt": "2026-04-10T22:15:42.627850"
   }
 ]

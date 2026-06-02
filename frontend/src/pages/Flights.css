@@ -6,6 +6,38 @@
   padding: var(--space-xl);
 }
 
+.flights-hero-bg {
+  background: url('/img/flights/pj.png') center/cover no-repeat;
+  padding: 0;
+}
+
+.flights-hero-overlay {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(10, 10, 10, 0.7);
+  padding: var(--space-xl);
+}
+
+.flights-hero-overlay .gate-title {
+  color: var(--m-cream);
+}
+
+.flights-hero-overlay .gate-subtitle {
+  color: var(--m-text-secondary);
+}
+
+.flights-hero-overlay .gate-button.secondary {
+  color: var(--m-text-secondary);
+  border-color: var(--m-border-strong);
+}
+
+.flights-hero-overlay .gate-button.secondary:hover {
+  border-color: var(--m-gold);
+  color: var(--m-gold);
+}
+
 .flights-header {
   text-align: center;
   margin-bottom: var(--space-xl);

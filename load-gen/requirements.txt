@@ -1,0 +1,2 @@
+ddtrace>=3.19.0,<4.0.0
+playwright==1.55.0

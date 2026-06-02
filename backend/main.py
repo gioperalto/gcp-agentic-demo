@@ -1,7 +1,8 @@
 """
 FastAPI backend for Travel Planner with streaming support
 """
-import os, json, asyncio, sys, logging
+import os, json, asyncio, sys, logging, logging.config, time
+from datetime import datetime, timezone
 from dotenv import load_dotenv
 
 # Load env BEFORE any ADK imports so GOOGLE_GENAI_MODEL etc. are available
@@ -12,7 +13,83 @@ load_dotenv()
 os.environ['GOOGLE_CLOUD_LOCATION'] = 'global'
 
 from ddtrace.llmobs import LLMObs
-from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
+from ddtrace.trace import tracer
+
+# Hallucination detection (LLM-as-judge) — runs async after each concierge turn.
+# The experiments package lives outside the backend Docker image, so import is
+# optional: when unavailable the judge is silently skipped.
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+try:
+    from experiments.hallucination_evaluator import hallucination_judge
+except ImportError:
+    hallucination_judge = None  # type: ignore[assignment]
+
+
+# ---------------------------------------------------------------------------
+# JSON log formatter with Datadog trace correlation
+# ---------------------------------------------------------------------------
+# ddtrace-run (with DD_LOGS_INJECTION=true) patches every LogRecord to carry
+# dd.trace_id, dd.span_id, dd.service, dd.env, and dd.version.  Outputting
+# them as top-level JSON fields lets the Datadog agent parse and correlate
+# logs with APM traces automatically — no custom log pipeline needed.
+#
+# We also override uvicorn's loggers so its access/error lines go through the
+# same JSON formatter (uvicorn normally uses its own plain-text formatters).
+# ---------------------------------------------------------------------------
+
+_DD_LOG_ATTRS = ("dd.trace_id", "dd.span_id", "dd.service", "dd.env", "dd.version")
+
+
+class _JSONFormatter(logging.Formatter):
+    """Minimal JSON formatter that includes ddtrace correlation fields."""
+
+    def format(self, record: logging.LogRecord) -> str:
+        msg = {
+            "timestamp": datetime.fromtimestamp(record.created, tz=timezone.utc).isoformat(),
+            "level": record.levelname,
+            "logger": record.name,
+            "message": record.getMessage(),
+            "filename": record.filename,
+            "lineno": record.lineno,
+        }
+        # Append ddtrace correlation attributes (injected by ddtrace-run)
+        for attr in _DD_LOG_ATTRS:
+            val = getattr(record, attr, "")
+            if val:
+                msg[attr] = str(val)
+        # Include exception info if present
+        if record.exc_info and record.exc_info[0] is not None:
+            msg["error"] = self.formatException(record.exc_info)
+        return json.dumps(msg, default=str)
+
+
+LOGGING_CONFIG: dict = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "json": {"()": _JSONFormatter},
+    },
+    "handlers": {
+        "stdout": {
+            "class": "logging.StreamHandler",
+            "formatter": "json",
+            "stream": "ext://sys.stdout",
+        },
+    },
+    "root": {
+        "handlers": ["stdout"],
+        "level": "INFO",
+    },
+    "loggers": {
+        # Override uvicorn loggers so they also emit JSON with DD fields
+        "uvicorn": {"handlers": ["stdout"], "level": "INFO", "propagate": False},
+        "uvicorn.error": {"handlers": ["stdout"], "level": "INFO", "propagate": False},
+        "uvicorn.access": {"handlers": ["stdout"], "level": "INFO", "propagate": False},
+    },
+}
+
+logging.config.dictConfig(LOGGING_CONFIG)
+from fastapi import FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from typing import AsyncGenerator
@@ -27,7 +104,11 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from tribune_concierge.agent import root_agent, live_root_agent, AGENT_VOICE_MAP, LIVE_AGENT_MAP
 from legionnaire_concierge.agent import legionnaire_agent
+from insecure_concierge.agent import insecure_agent
+from services.feature_flag_service import evaluate_flag, init_feature_flags
+from feature_flags import FLAGS, INSECURE_PROFILE_AGENT, RALPH_AGENT
 
+logger = logging.getLogger("travel_planner")
 
 # Datadog LLM Observability is initialised by ddtrace-run (see Dockerfile CMD).
 # Do NOT call LLMObs.enable() here — combining it with ddtrace-run is unsupported
@@ -38,7 +119,20 @@ from legionnaire_concierge.agent import legionnaire_agent
 # Create runner instances
 runner = InMemoryRunner(agent=root_agent, app_name="travel-planner")
 legionnaire_runner = InMemoryRunner(agent=legionnaire_agent, app_name="legionnaire-concierge")
+insecure_runner = InMemoryRunner(agent=insecure_agent, app_name="insecure-concierge")
 live_runner = InMemoryRunner(agent=live_root_agent, app_name="tribune-concierge-live")
+
+# Workflow names for each sub-agent.  Each sub-agent's LLM spans are grouped
+# under a dedicated workflow span nested inside the top-level tribune_concierge
+# workflow (which represents Sam).  Ralph is a multi-domain utility agent and
+# uses plan_coordination by default; this can be refined based on context.
+SUBAGENT_WORKFLOW_NAMES: dict[str, str] = {
+    "Jenny": "plan_flights",
+    "Marcus": "plan_accommodations",
+    "Luca": "plan_dining",
+    "Sofia": "plan_experiences",
+    "Ralph": "plan_coordination",
+}
 
 app = FastAPI(title="Travel Planner API")
 
@@ -59,14 +153,18 @@ app.add_middleware(
     ],
 )
 
+# Initialize Datadog Feature Flags (OpenFeature SDK)
+init_feature_flags()
+
 # Include routers
-from routers import auth, cards, travel, flights, accommodations
+from routers import auth, cards, travel, flights, accommodations, feature_flags
 
 app.include_router(auth.router)
 app.include_router(cards.router)
 app.include_router(travel.router)
 app.include_router(flights.router)
 app.include_router(accommodations.router)
+app.include_router(feature_flags.router)
 
 
 class ChatRequest(BaseModel):
@@ -90,12 +188,97 @@ def get_agent_friendly_message(agent_name: str) -> str:
     return messages.get(agent_name, f"Transferring you to {agent_name}...")
 
 
+async def traced_sse_stream(
+    generator: AsyncGenerator[str, None],
+    *,
+    resource: str,
+    session_id: str,
+    http_request: Request | None = None,
+) -> AsyncGenerator[str, None]:
+    """Wrap an SSE generator with an explicit ddtrace span.
+
+    ddtrace's auto-instrumentation finishes the HTTP request span when the
+    endpoint function returns, but for ``StreamingResponse`` the actual work
+    happens *after* that — inside the async generator.  This helper creates a
+    child span that stays open for the full duration of the stream and
+    guarantees it closes in a ``finally`` block so the trace is never dropped.
+    """
+    from ddtrace.contrib.asgi import span_from_scope
+
+    # In ddtrace v4 tracer.trace() auto-parents to the active span.
+    # The SSE generator runs after the request handler returns, so the
+    # request span may no longer be active.  Re-activate it so the
+    # stream span becomes a proper child of the HTTP request trace.
+    parent_span = None
+    if http_request is not None:
+        parent_span = span_from_scope(http_request.scope)
+    if parent_span is not None:
+        tracer.context_provider.activate(parent_span)
+
+    with tracer.trace(
+        "chat.sse.stream",
+        resource=resource,
+    ) as span:
+        span.set_tag("sse.endpoint", resource)
+        span.set_tag("session_id", session_id)
+        try:
+            async for chunk in generator:
+                yield chunk
+        except asyncio.CancelledError:
+            span.set_tag("stream.cancelled", True)
+            raise
+        except Exception:
+            span.set_exc_info(*sys.exc_info())
+            raise
+        finally:
+            span.set_tag("stream.finished", True)
+
+
+_genai_model = os.getenv("GOOGLE_GENAI_MODEL", "gemini-2.0-flash")
+
+
+def _record_text_llm_span(
+    *,
+    span_name: str,
+    session_id: str,
+    user_message: str,
+    assistant_message: str,
+) -> "dict[str, str] | None":
+    """Create an LLMObs llm-type span and return its exported context.
+
+    The span context (span_id + trace_id) is captured inside the ``with`` block
+    while the span is still open, then returned so callers can attach external
+    evaluations via the Datadog eval-metric HTTP API.
+
+    Returns None if the message is empty (nothing to record).
+    """
+    assistant_message = assistant_message.strip()
+    if not assistant_message:
+        return None
+    with LLMObs.llm(
+        model_name=_genai_model,
+        model_provider="google",
+        name=span_name,
+    ) as llm_span:
+        LLMObs.annotate(
+            span=llm_span,
+            tags={"session_id": session_id},
+            input_data=[{"content": user_message, "role": "user"}],
+            output_data=[{"content": assistant_message, "role": "assistant"}],
+        )
+        return LLMObs.export_span(span=llm_span)  # must be inside the with block
+
+
 async def stream_legionnaire_response(message: str, session_id: str) -> AsyncGenerator[str, None]:
     """
     Stream legionnaire agent responses (basic concierge without subagents)
     """
     # Ensure text requests always use the global endpoint (voice may have switched to us-central1)
     os.environ['GOOGLE_CLOUD_LOCATION'] = 'global'
+
+    response_parts: list[str] = []
+    tool_context: list[str] = []       # ground truth from tool calls
+
     async def run_legionnaire_agent(message: str, session_id: str) -> AsyncGenerator[str, None]:
         """
         Run the legionnaire agent and stream events
@@ -127,11 +310,23 @@ async def stream_legionnaire_response(message: str, session_id: str) -> AsyncGen
                 for part in event_content.parts:
                     if hasattr(part, 'text') and part.text:
                         text_parts.append(part.text)
+                    # Capture tool results as ground truth for hallucination detection
+                    elif hasattr(part, 'function_response') and part.function_response:
+                        try:
+                            fr = part.function_response
+                            resp_data = fr.response if hasattr(fr, 'response') else str(fr)
+                            if isinstance(resp_data, dict):
+                                tool_context.append(json.dumps(resp_data, default=str))
+                            else:
+                                tool_context.append(str(resp_data))
+                        except Exception:
+                            pass
 
                 if text_parts:
                     content_text = ''.join(text_parts)
 
             if content_text:
+                response_parts.append(content_text)
                 content_msg = ChatMessage(
                     type="content",
                     data={"text": content_text}
@@ -162,14 +357,143 @@ async def stream_legionnaire_response(message: str, session_id: str) -> AsyncGen
                 session_id=session_id
             )
 
-        # Run the agent and stream responses
-        async for event in run_legionnaire_agent(message, session_id):
-            yield event
+        with LLMObs.workflow(name="legionnaire_concierge") as workflow_span:
+            LLMObs.annotate(span=workflow_span, tags={"session_id": session_id})
+
+            # Run the agent and stream responses
+            async for event in run_legionnaire_agent(message, session_id):
+                yield event
+
+            # Record an LLM-type span for the full turn input/output and capture
+            # its context so the hallucination eval can be joined to it via the
+            # Datadog external evaluations HTTP API.
+            full_response = "".join(response_parts)
+            turn_span_context = _record_text_llm_span(
+                span_name="text_turn.legionnaire",
+                session_id=session_id,
+                user_message=message,
+                assistant_message=full_response,
+            )
+
+            # Run hallucination detection asynchronously (non-blocking).
+            if hallucination_judge is not None:
+                asyncio.create_task(
+                    hallucination_judge(
+                        user_message=message,
+                        agent_response=full_response,
+                        tool_context=tool_context,
+                        span_context=turn_span_context,
+                        agent_name="legionnaire",
+                    )
+                )
 
     except Exception as e:
         import traceback
         error_detail = traceback.format_exc()
-        print(f"Error in stream_legionnaire_response: {error_detail}")
+        logger.exception("Error in stream_legionnaire_response")
+
+        error_msg = ChatMessage(
+            type="error",
+            data={"message": str(e), "detail": error_detail}
+        )
+        yield f"data: {error_msg.model_dump_json()}\n\n"
+
+
+async def stream_insecure_response(message: str, session_id: str) -> AsyncGenerator[str, None]:
+    """
+    Stream insecure debug agent responses (unrestricted user data access)
+    """
+    # Ensure text requests always use the global endpoint (voice may have switched to us-central1)
+    os.environ['GOOGLE_CLOUD_LOCATION'] = 'global'
+
+    response_parts: list[str] = []
+
+    async def run_insecure_agent(message: str, session_id: str) -> AsyncGenerator[str, None]:
+        """
+        Run the insecure agent and stream events
+        """
+        # Run the agent with async streaming
+        async for event in insecure_runner.run_async(
+            user_id=session_id,
+            session_id=session_id,
+            new_message=types.Content(
+                role="user",
+                parts=[types.Part(text=message)]
+            )
+        ):
+            # Get the content from the event
+            event_content = None
+            if hasattr(event, 'content'):
+                event_content = event.content
+
+            # Skip echoed user input events to avoid duplicate messages
+            if event_content and hasattr(event_content, 'role') and event_content.role == 'user':
+                continue
+
+            # Stream content based on event type
+            content_text = None
+
+            # Handle Google ADK Event objects with content.parts
+            if event_content and hasattr(event_content, 'parts') and event_content.parts:
+                text_parts = []
+                for part in event_content.parts:
+                    if hasattr(part, 'text') and part.text:
+                        text_parts.append(part.text)
+
+                if text_parts:
+                    content_text = ''.join(text_parts)
+
+            if content_text:
+                response_parts.append(content_text)
+                content_msg = ChatMessage(
+                    type="content",
+                    data={"text": content_text}
+                )
+                yield f"data: {content_msg.model_dump_json()}\n\n"
+                await asyncio.sleep(0.01)
+
+        # Send completion message
+        done_msg = ChatMessage(
+            type="done",
+            data={"message": "Response complete"}
+        )
+        yield f"data: {done_msg.model_dump_json()}\n\n"
+
+    try:
+        # Ensure session exists before running the agent
+        existing_session = await insecure_runner.session_service.get_session(
+            app_name="insecure-concierge",
+            user_id=session_id,
+            session_id=session_id
+        )
+
+        if existing_session is None:
+            # Create new session with the frontend-provided session_id
+            await insecure_runner.session_service.create_session(
+                app_name="insecure-concierge",
+                user_id=session_id,
+                session_id=session_id
+            )
+
+        with LLMObs.workflow(name="insecure_concierge") as workflow_span:
+            LLMObs.annotate(span=workflow_span, tags={"session_id": session_id})
+
+            # Run the agent and stream responses
+            async for event in run_insecure_agent(message, session_id):
+                yield event
+
+            # Record an LLM-type span for the full turn input/output.
+            _record_text_llm_span(
+                span_name="text_turn.insecure",
+                session_id=session_id,
+                user_message=message,
+                assistant_message="".join(response_parts),
+            )
+
+    except Exception as e:
+        import traceback
+        error_detail = traceback.format_exc()
+        logger.exception("Error in stream_insecure_response")
 
         error_msg = ChatMessage(
             type="error",
@@ -184,10 +508,79 @@ async def stream_agent_response(message: str, session_id: str) -> AsyncGenerator
     """
     # Ensure text requests always use the global endpoint (voice may have switched to us-central1)
     os.environ['GOOGLE_CLOUD_LOCATION'] = 'global'
-    async def run_agent(message: str, session_id: str, current_agent: str, sub_agents: set) -> AsyncGenerator[str, None]:
+
+    # Per-agent response accumulators for LLMObs spans
+    agent_response_parts: list[str] = []
+    all_response_parts: list[str] = []    # full turn accumulator for hallucination judge
+    tool_context: list[str] = []          # ground truth from tool calls
+    current_agent = "Sam"
+
+    # Sub-agent workflow span tracking for LLMObs nesting.
+    # Each sub-agent's LLM spans nest under their named workflow (plan_flights,
+    # plan_accommodations, …) which itself nests under tribune_concierge (Sam).
+    _subagent_wf_ctx: object | None = None
+    _subagent_wf_span: object | None = None
+
+    def _flush_text_turn_span(agent_name: str) -> None:
+        """Create a per-agent LLM span for the text accumulated by that agent.
+
+        These spans provide per-agent tracing granularity.  A separate
+        turn-level span is created at the end of the full turn and used as
+        the anchor for the hallucination evaluation.
+        """
+        nonlocal agent_response_parts
+        agent_text = "".join(agent_response_parts)
+        agent_response_parts = []
+        if not agent_text.strip():
+            return
+        # Activate the right parent workflow so the LLM span nests correctly:
+        # sub-agent workflow for Jenny/Marcus/Luca/Sofia/Ralph, or the
+        # tribune_concierge span (already active in its with-block) for Sam.
+        if _subagent_wf_span is not None:
+            tracer.context_provider.activate(_subagent_wf_span)
+        _record_text_llm_span(
+            span_name=f"text_agent.{agent_name}",
+            session_id=session_id,
+            user_message=message,
+            assistant_message=agent_text,
+        )
+
+    def _open_subagent_workflow(agent_name: str) -> None:
+        """Open a named workflow span for a sub-agent, nested under tribune_concierge.
+
+        LLMObs.workflow() creates *and* activates the span on the current context
+        immediately (confirmed by ddtrace source inspection).  The returned span is
+        stored so it can be explicitly re-activated inside async tasks/closures.
+        """
+        nonlocal _subagent_wf_ctx, _subagent_wf_span
+        wf_name = SUBAGENT_WORKFLOW_NAMES.get(agent_name)
+        if not wf_name:
+            return
+        # LLMObs.workflow() creates the span and makes it active; __enter__ is a no-op
+        # that returns self.  We call it anyway so __exit__ can be used for cleanup.
+        span = LLMObs.workflow(name=wf_name).__enter__()
+        LLMObs.annotate(span=span, tags={"session_id": session_id, "agent.name": agent_name})
+        _subagent_wf_ctx = span   # ctx == span (same object in ddtrace)
+        _subagent_wf_span = span
+
+    def _close_subagent_workflow() -> None:
+        """Close the active sub-agent workflow span, if any."""
+        nonlocal _subagent_wf_ctx, _subagent_wf_span
+        span, _subagent_wf_ctx = _subagent_wf_ctx, None
+        _subagent_wf_span = None
+        if span is not None:
+            try:
+                span.__exit__(None, None, None)  # finishes the span
+            except Exception:
+                pass
+
+    async def run_agent(message: str, session_id: str, sub_agents: set) -> AsyncGenerator[str, None]:
         """
         Run the agent and stream events with agent transfer notifications
         """
+        nonlocal current_agent, agent_response_parts
+        _ralph_blocked = False  # True when ralph_agent flag is disabled and transfer to Ralph was attempted
+
         # Run the agent with async streaming
         async for event in runner.run_async(
             user_id=session_id,  # Use session_id as user_id for anonymous users
@@ -241,8 +634,18 @@ async def stream_agent_response(message: str, session_id: str) -> AsyncGenerator
                         text_parts.append(part.text)
                     elif hasattr(part, 'function_call'):
                         has_function_call = True
-                    elif hasattr(part, 'function_response'):
+                    elif hasattr(part, 'function_response') and part.function_response:
                         has_function_response = True
+                        # Capture tool results as ground truth for hallucination detection
+                        try:
+                            fr = part.function_response
+                            resp_data = fr.response if hasattr(fr, 'response') else str(fr)
+                            if isinstance(resp_data, dict):
+                                tool_context.append(json.dumps(resp_data, default=str))
+                            else:
+                                tool_context.append(str(resp_data))
+                        except Exception:
+                            pass
 
                 if text_parts:
                     content_text = ''.join(text_parts)
@@ -255,24 +658,51 @@ async def stream_agent_response(message: str, session_id: str) -> AsyncGenerator
 
             # Send transfer message if agent changed
             if event_agent and event_agent != current_agent:
-                current_agent = event_agent
-                transfer_msg = ChatMessage(
-                    type="agent_transfer",
-                    data={
-                        "agent": event_agent,
-                        "message": get_agent_friendly_message(event_agent)
-                    }
-                )
-                yield f"data: {transfer_msg.model_dump_json()}\n\n"
-                await asyncio.sleep(0.1)
+                # Flush LLMObs span for the outgoing agent before switching
+                _flush_text_turn_span(current_agent)
+                # Close the outgoing sub-agent workflow (no-op for Sam)
+                _close_subagent_workflow()
+
+                # Feature flag gate for Ralph
+                if event_agent == "Ralph" and not evaluate_flag(RALPH_AGENT, default=FLAGS[RALPH_AGENT]):
+                    _ralph_blocked = True
+                    blocked_msg = ChatMessage(
+                        type="content",
+                        data={"text": "Ralph is currently unavailable. Sam will continue to assist you."}
+                    )
+                    yield f"data: {blocked_msg.model_dump_json()}\n\n"
+                else:
+                    _ralph_blocked = False
+                    current_agent = event_agent
+                    # Open a workflow span for the incoming sub-agent (no-op for Sam)
+                    _open_subagent_workflow(current_agent)
+                    transfer_msg = ChatMessage(
+                        type="agent_transfer",
+                        data={
+                            "agent": event_agent,
+                            "message": get_agent_friendly_message(event_agent)
+                        }
+                    )
+                    yield f"data: {transfer_msg.model_dump_json()}\n\n"
+                    await asyncio.sleep(0.1)
+
+            # Suppress content events while Ralph is blocked by the feature flag
+            if _ralph_blocked:
+                continue
 
             if content_text:
+                agent_response_parts.append(content_text)
+                all_response_parts.append(content_text)
                 content_msg = ChatMessage(
                     type="content",
                     data={"text": content_text}
                 )
                 yield f"data: {content_msg.model_dump_json()}\n\n"
                 await asyncio.sleep(0.01)  # Small delay to avoid overwhelming client
+
+        # Flush the final agent's LLM span and close its workflow span
+        _flush_text_turn_span(current_agent)
+        _close_subagent_workflow()
 
         # Send completion message
         done_msg = ChatMessage(
@@ -283,7 +713,7 @@ async def stream_agent_response(message: str, session_id: str) -> AsyncGenerator
 
     try:
         current_agent = "Sam"  # Start with root agent
-        sub_agents = {"Jenny", "Marcus", "Sofia", "Luca"}  # Known sub-agents
+        sub_agents = {"Jenny", "Marcus", "Sofia", "Luca", "Ralph"}  # Known sub-agents
 
         # Ensure session exists before running the agent
         existing_session = await runner.session_service.get_session(
@@ -300,14 +730,39 @@ async def stream_agent_response(message: str, session_id: str) -> AsyncGenerator
                 session_id=session_id
             )
 
-        # Run the agent and stream responses
-        async for event in run_agent(message, session_id, current_agent, sub_agents):
-            yield event
+        with LLMObs.workflow(name="tribune_concierge") as workflow_span:
+            LLMObs.annotate(span=workflow_span, tags={"session_id": session_id})
+
+            # Run the agent and stream responses
+            async for event in run_agent(message, session_id, sub_agents):
+                yield event
+
+            # Create a turn-level LLM span for the full concatenated response
+            # (which may span multiple agents).  Use this span — not the last
+            # per-agent span — as the anchor for the hallucination evaluation so
+            # the judged text and the associated span always match.
+            if hallucination_judge is not None:
+                full_response = "".join(all_response_parts)
+                turn_span_context = _record_text_llm_span(
+                    span_name="text_turn.tribune",
+                    session_id=session_id,
+                    user_message=message,
+                    assistant_message=full_response,
+                )
+                asyncio.create_task(
+                    hallucination_judge(
+                        user_message=message,
+                        agent_response=full_response,
+                        tool_context=tool_context,
+                        span_context=turn_span_context,
+                        agent_name=f"tribune.{current_agent}",
+                    )
+                )
 
     except Exception as e:
         import traceback
         error_detail = traceback.format_exc()
-        print(f"Error in stream_agent_response: {error_detail}")
+        logger.exception("Error in stream_agent_response")
 
         error_msg = ChatMessage(
             type="error",
@@ -317,12 +772,41 @@ async def stream_agent_response(message: str, session_id: str) -> AsyncGenerator
 
 
 @app.post("/api/chat/legionnaire/stream")
-async def legionnaire_chat_stream(request: ChatRequest):
+async def legionnaire_chat_stream(http_request: Request, request: ChatRequest):
     """
     Stream chat responses for Legionnaire cardholders (basic concierge without subagents)
     """
     return StreamingResponse(
-        stream_legionnaire_response(request.message, request.session_id),
+        traced_sse_stream(
+            stream_legionnaire_response(request.message, request.session_id),
+            resource="POST /api/chat/legionnaire/stream",
+            session_id=request.session_id,
+            http_request=http_request,
+        ),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no"
+        }
+    )
+
+
+@app.post("/api/chat/insecure/stream")
+async def insecure_chat_stream(http_request: Request, request: ChatRequest):
+    """
+    Stream chat responses for the insecure debug agent (gated by feature flag)
+    """
+    flag_enabled = evaluate_flag(INSECURE_PROFILE_AGENT, default=FLAGS[INSECURE_PROFILE_AGENT])
+    if not flag_enabled:
+        raise HTTPException(status_code=403, detail="Feature not available")
+    return StreamingResponse(
+        traced_sse_stream(
+            stream_insecure_response(request.message, request.session_id),
+            resource="POST /api/chat/insecure/stream",
+            session_id=request.session_id,
+            http_request=http_request,
+        ),
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",
@@ -333,12 +817,17 @@ async def legionnaire_chat_stream(request: ChatRequest):
 
 
 @app.post("/api/chat/stream")
-async def chat_stream(request: ChatRequest):
+async def chat_stream(http_request: Request, request: ChatRequest):
     """
     Stream chat responses with Server-Sent Events (Tribune Premium - with subagents)
     """
     return StreamingResponse(
-        stream_agent_response(request.message, request.session_id),
+        traced_sse_stream(
+            stream_agent_response(request.message, request.session_id),
+            resource="POST /api/chat/stream",
+            session_id=request.session_id,
+            http_request=http_request,
+        ),
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",
@@ -387,36 +876,40 @@ async def voice_websocket(websocket: WebSocket, session_id: str = "default"):
 
     await websocket.accept()
 
-    # Ensure session exists
-    existing_session = await live_runner.session_service.get_session(
-        app_name="tribune-concierge-live",
-        user_id=session_id,
-        session_id=session_id,
-    )
-    if existing_session is None:
-        existing_session = await live_runner.session_service.create_session(
-            app_name="tribune-concierge-live",
-            user_id=session_id,
-            session_id=session_id,
-        )
-
-    logger = logging.getLogger("voice_ws")
+    voice_logger = logging.getLogger("voice_ws")
+    voice_runner = InMemoryRunner(agent=live_root_agent, app_name="tribune-concierge-live")
 
     last_author = None
     current_agent_name: str = "Sam"
+    current_live_session_id: str = f"{session_id}:0:{current_agent_name}"
+    transfer_count = 0
 
     # Transcription accumulators for LLMObs spans
     user_transcript_parts: list[str] = []
     agent_transcript_parts: list[str] = []
+    conversation_history: list[dict[str, str]] = []
+    # Deferred-flush flag: set on turnComplete, cleared at the top of the next
+    # event iteration after absorbing any trailing transcription frames that
+    # arrive after the turnComplete signal (inputTranscription.finished often
+    # lags behind the agent's turnComplete in the Live API event stream).
+    pending_turn_complete: bool = False
 
     live_model_name = os.getenv("GOOGLE_GENAI_LIVE_MODEL", "gemini-live-2.5-flash-native-audio")
 
     # Shared flag for the message receiver task
     client_disconnected = False
 
+    # Captured by the workflow context manager and reactivated inside
+    # asyncio tasks so that child spans nest under the workflow trace.
+    _workflow_span_ref = None
+    # Per-agent sub-workflow span (plan_flights, plan_accommodations, etc.)
+    # opened at the start of each agent stint and closed when the agent exits.
+    _subagent_wf_ctx: object | None = None
+    _subagent_wf_span_ref: object | None = None
+
     def _flush_voice_turn_span(*, interrupted: bool = False) -> None:
         """Create an LLMObs span for the completed voice turn and reset accumulators."""
-        nonlocal user_transcript_parts, agent_transcript_parts
+        nonlocal user_transcript_parts, agent_transcript_parts, conversation_history
         user_text = "".join(user_transcript_parts).strip()
         agent_text = "".join(agent_transcript_parts).strip()
         if not user_text and not agent_text:
@@ -424,6 +917,14 @@ async def voice_websocket(websocket: WebSocket, session_id: str = "default"):
         span_name = f"voice_llm.{current_agent_name}"
         if interrupted:
             span_name += ".interrupted"
+
+        # Activate the most specific open workflow span so this LLM span nests
+        # correctly: sub-agent workflow (plan_flights, etc.) takes priority over
+        # the top-level tribune_concierge span (used for Sam's own turns).
+        _voice_parent = _subagent_wf_span_ref if _subagent_wf_span_ref is not None else _workflow_span_ref
+        if _voice_parent is not None:
+            tracer.context_provider.activate(_voice_parent)
+
         with LLMObs.llm(
             model_name=live_model_name,
             model_provider="google",
@@ -431,9 +932,22 @@ async def voice_websocket(websocket: WebSocket, session_id: str = "default"):
         ) as span:
             LLMObs.annotate(
                 span=span,
+                tags={"session_id": session_id},
                 input_data=[{"content": user_text or "(audio-only)", "role": "user"}],
                 output_data=[{"content": agent_text or "(audio-only)", "role": "assistant"}],
             )
+        if user_text:
+            conversation_history.append({
+                "role": "user",
+                "agent_name": current_agent_name,
+                "text": user_text,
+            })
+        if agent_text:
+            conversation_history.append({
+                "role": "agent",
+                "agent_name": current_agent_name,
+                "text": agent_text,
+            })
         user_transcript_parts = []
         agent_transcript_parts = []
 
@@ -443,17 +957,26 @@ async def voice_websocket(websocket: WebSocket, session_id: str = "default"):
         Returns the name of the agent to transfer to, or None if the
         conversation ended normally / client disconnected.
         """
-        nonlocal last_author, user_transcript_parts, agent_transcript_parts, current_agent_name, transfer_audio_muted
+        nonlocal last_author, user_transcript_parts, agent_transcript_parts, pending_turn_complete, current_agent_name, transfer_audio_muted, transfer_audio_muted_since, current_live_session_id
+
+        # Reactivate the most specific open workflow span in this async task so all
+        # child spans (created by _flush_voice_turn_span) nest correctly under it.
+        _fwd_parent = _subagent_wf_span_ref if _subagent_wf_span_ref is not None else _workflow_span_ref
+        if _fwd_parent is not None:
+            tracer.context_provider.activate(_fwd_parent)
+
         pending_transfer_target: str | None = None
         conversation_ended = False
         # If audio was muted (transfer in progress), re-enable after
         # the first turnComplete so the user can speak to the new agent.
         reenable_audio_on_turn = transfer_audio_muted
+        # Deduplicate tool result messages within this run (tool may emit twice)
+        seen_tool_messages: set[tuple[str, str]] = set()
 
         try:
-            async for event in live_runner.run_live(
+            async for event in voice_runner.run_live(
                 user_id=session_id,
-                session_id=session_id,
+                session_id=current_live_session_id,
                 live_request_queue=live_request_queue,
                 run_config=run_config,
             ):
@@ -462,22 +985,41 @@ async def voice_websocket(websocket: WebSocket, session_id: str = "default"):
                 # Log agent author changes
                 author = event_dict.get("author")
                 if author and author != last_author:
-                    logger.info("Agent author: %s → %s (session %s)", last_author, author, session_id)
+                    voice_logger.info("Agent author: %s → %s (session %s)", last_author, author, session_id)
                     last_author = author
                     current_agent_name = author
 
-                # Detect transfer_to / end_conversation function calls
+                # Detect transfer_to / end_conversation function calls;
+                # also forward tool result messages to the chat as voiceToolResult.
                 content_parts = event_dict.get("content", {}).get("parts", [])
                 for part in content_parts:
                     fc = part.get("functionCall")
                     if fc:
                         if fc.get("name") == "transfer_to":
                             pending_transfer_target = fc.get("args", {}).get("agent_name")
-                            logger.info("Transfer requested: %s → %s (session %s)",
-                                        current_agent_name, pending_transfer_target, session_id)
+                            voice_logger.info("Transfer requested: %s → %s (session %s)",
+                                              current_agent_name, pending_transfer_target, session_id)
                         elif fc.get("name") == "end_conversation":
                             conversation_ended = True
-                            logger.info("Conversation ended by agent (session %s)", session_id)
+                            voice_logger.info("Conversation ended by agent (session %s)", session_id)
+
+                    fr = part.get("functionResponse")
+                    if fr:
+                        resp = fr.get("response") if isinstance(fr, dict) else None
+                        if isinstance(resp, dict):
+                            msg = resp.get("message")
+                            tool_name = fr.get("name", "")
+                            if isinstance(msg, str) and msg.strip():
+                                key = (tool_name, msg)
+                                if key not in seen_tool_messages:
+                                    seen_tool_messages.add(key)
+                                    await websocket.send_text(json.dumps({
+                                        "voiceToolResult": {
+                                            "agent": current_agent_name,
+                                            "toolName": tool_name,
+                                            "message": msg,
+                                        }
+                                    }))
 
                 # Accumulate output transcription (agent speaking)
                 out_t = event_dict.get("outputTranscription")
@@ -495,6 +1037,15 @@ async def voice_websocket(websocket: WebSocket, session_id: str = "default"):
                     else:
                         user_transcript_parts.append(in_t["text"])
 
+                # Flush the span deferred from the previous turnComplete now
+                # that this event's transcription frames have been absorbed above.
+                # This ensures inputTranscription/outputTranscription events that
+                # trail the turnComplete signal in the Live API stream are captured
+                # before the LLMObs span is written.
+                if pending_turn_complete:
+                    _flush_voice_turn_span(interrupted=False)
+                    pending_turn_complete = False
+
                 # Flush span on turn boundaries
                 if event_dict.get("interrupted"):
                     _flush_voice_turn_span(interrupted=True)
@@ -502,20 +1053,29 @@ async def voice_websocket(websocket: WebSocket, session_id: str = "default"):
                     # fire later when the user was mid-sentence
                     pending_transfer_target = None
                 elif event_dict.get("turnComplete"):
-                    _flush_voice_turn_span(interrupted=False)
+                    # Defer the span flush by one event frame so any trailing
+                    # transcription events (e.g. inputTranscription.finished) are
+                    # captured before the span is written (see pending_turn_complete
+                    # check above, which fires at the top of the next iteration).
+                    pending_turn_complete = True
 
                     # Re-enable incoming audio after the new agent's priming
                     # response completes (first turnComplete post-transfer).
                     if reenable_audio_on_turn:
-                        transfer_audio_muted = False
+                        _clear_transfer_audio_mute("turn_complete")
                         reenable_audio_on_turn = False
-                        logger.info("Audio re-enabled after new agent greeting turn (session %s)", session_id)
+                        voice_logger.info("Audio re-enabled after new agent greeting turn (session %s)", session_id)
 
-                    # After turn completes, act on pending transfer or end
+                    # After turn completes, act on pending transfer or end.
+                    # Flush inline here since we're about to return and won't
+                    # process any further events for this turn.
                     if pending_transfer_target:
+                        pending_turn_complete = False
+                        _flush_voice_turn_span(interrupted=False)
                         # Mute incoming audio until the new agent's first
                         # turnComplete — event-based, not time-based.
                         transfer_audio_muted = True
+                        transfer_audio_muted_since = time.monotonic()
                         await websocket.send_text(
                             event.model_dump_json(exclude_none=True, by_alias=True)
                         )
@@ -529,6 +1089,8 @@ async def voice_websocket(websocket: WebSocket, session_id: str = "default"):
                         return pending_transfer_target
 
                     if conversation_ended:
+                        pending_turn_complete = False
+                        _flush_voice_turn_span(interrupted=False)
                         await websocket.send_text(
                             event.model_dump_json(exclude_none=True, by_alias=True)
                         )
@@ -541,8 +1103,13 @@ async def voice_websocket(websocket: WebSocket, session_id: str = "default"):
                 )
 
         except Exception:
-            logger.exception("forward_events error for session %s", session_id)
+            voice_logger.exception("forward_events error for session %s", session_id)
             raise
+
+        # Flush any turn that completed right as run_live ended.
+        if pending_turn_complete:
+            _flush_voice_turn_span(interrupted=False)
+            pending_turn_complete = False
 
         return None  # run_live ended (queue closed / client disconnected)
 
@@ -558,8 +1125,17 @@ async def voice_websocket(websocket: WebSocket, session_id: str = "default"):
 
     # When True, incoming audio frames are silently dropped (used during transfers
     # to discard in-flight mic data and prevent echo of the new agent's greeting).
-    # Cleared on the new agent's first turnComplete — NOT on a timer.
+    # Normally cleared on the new agent's first turnComplete, with a timeout
+    # fallback so a stalled transfer cannot block user speech indefinitely.
     transfer_audio_muted = False
+    transfer_audio_muted_since: float | None = None
+
+    def _clear_transfer_audio_mute(reason: str) -> None:
+        nonlocal transfer_audio_muted, transfer_audio_muted_since
+        if transfer_audio_muted:
+            voice_logger.info("Clearing transfer audio mute (%s) for session %s", reason, session_id)
+        transfer_audio_muted = False
+        transfer_audio_muted_since = None
 
     async def process_messages(live_request_queue: LiveRequestQueue):
         """Receive JSON LiveRequest frames from browser and feed to queue."""
@@ -570,15 +1146,17 @@ async def voice_websocket(websocket: WebSocket, session_id: str = "default"):
                 try:
                     # During transfers, drop audio-only frames to prevent residual
                     # mic data from triggering a second greeting on the new agent.
-                    if transfer_audio_muted:
-                        parsed = json.loads(data)
-                        if "blob" in parsed:
+                    parsed = json.loads(data)
+                    if transfer_audio_muted and "blob" in parsed:
+                        if transfer_audio_muted_since is not None and time.monotonic() - transfer_audio_muted_since > 15:
+                            _clear_transfer_audio_mute("timeout")
+                        else:
                             continue
                     live_request_queue.send(LiveRequest.model_validate_json(data))
                 except Exception as e:
-                    logger.warning("Invalid LiveRequest frame (session %s): %s", session_id, e)
+                    voice_logger.warning("Invalid LiveRequest frame (session %s): %s", session_id, e)
         except WebSocketDisconnect:
-            logger.info("Client disconnected, closing queue for session %s", session_id)
+            voice_logger.info("Client disconnected, closing queue for session %s", session_id)
             client_disconnected = True
             live_request_queue.close()
 
@@ -586,13 +1164,47 @@ async def voice_websocket(websocket: WebSocket, session_id: str = "default"):
     keepalive_task = asyncio.create_task(keepalive())
 
     try:
-        with LLMObs.workflow(name="voice_session") as _workflow_span:
+        with LLMObs.workflow(name="tribune_concierge") as _workflow_span:
+            _workflow_span_ref = _workflow_span
+            LLMObs.annotate(span=_workflow_span, tags={"session_id": session_id})
             priming_message: str | None = None
 
             while not client_disconnected:
-                # Swap the agent on the shared runner
-                live_runner.agent = LIVE_AGENT_MAP[current_agent_name]
+                # Use a fresh ADK live session for each agent stint so transfer
+                # tool calls cannot leak into the next agent's history.
+                voice_runner.agent = LIVE_AGENT_MAP[current_agent_name]
+                existing_session = await voice_runner.session_service.get_session(
+                    app_name="tribune-concierge-live",
+                    user_id=session_id,
+                    session_id=current_live_session_id,
+                )
+                if existing_session is None:
+                    await voice_runner.session_service.create_session(
+                        app_name="tribune-concierge-live",
+                        user_id=session_id,
+                        session_id=current_live_session_id,
+                    )
                 run_config = _make_voice_run_config(current_agent_name)
+
+                # Open a named workflow span for this agent's stint so all LLM
+                # spans from this agent nest under it inside tribune_concierge.
+                # Sam has no entry in SUBAGENT_WORKFLOW_NAMES so he uses the
+                # root workflow directly.
+                _subagent_wf_ctx = None
+                _subagent_wf_span_ref = None
+                _voice_wf_name = SUBAGENT_WORKFLOW_NAMES.get(current_agent_name)
+                if _voice_wf_name and _workflow_span_ref is not None:
+                    # Ensure tribune_concierge is the active parent before opening
+                    # the sub-agent workflow (LLMObs.workflow parents to current active span).
+                    tracer.context_provider.activate(_workflow_span_ref)
+                    # __enter__ is a no-op in ddtrace; returns the span itself.
+                    _subagent_wf_span_ref = LLMObs.workflow(name=_voice_wf_name).__enter__()
+                    _subagent_wf_ctx = _subagent_wf_span_ref  # same object
+                    LLMObs.annotate(
+                        span=_subagent_wf_span_ref,
+                        tags={"session_id": session_id, "agent.name": current_agent_name},
+                    )
+
                 live_request_queue = LiveRequestQueue()
 
                 # Send priming message for transferred agents
@@ -619,7 +1231,7 @@ async def voice_websocket(websocket: WebSocket, session_id: str = "default"):
                     except WebSocketDisconnect:
                         client_disconnected = True
                     except Exception as e:
-                        logger.exception("Voice task error for session %s", session_id)
+                        voice_logger.exception("Voice task error for session %s", session_id)
                         client_disconnected = True
 
                 # Clean up pending tasks from this iteration
@@ -628,28 +1240,55 @@ async def voice_websocket(websocket: WebSocket, session_id: str = "default"):
                     task.cancel()
                 await asyncio.gather(*pending, return_exceptions=True)
 
+                # Close the sub-agent workflow span for this stint — all child
+                # LLM spans have been created by now.
+                if _subagent_wf_ctx is not None:
+                    try:
+                        _subagent_wf_ctx.__exit__(None, None, None)
+                    except Exception:
+                        pass
+                    finally:
+                        _subagent_wf_ctx = None
+                        _subagent_wf_span_ref = None
+
                 if transfer_target and not client_disconnected:
                     old_agent = current_agent_name
                     current_agent_name = transfer_target
+                    transfer_count += 1
+                    current_live_session_id = f"{session_id}:{transfer_count}:{current_agent_name}"
+                    history_lines = []
+                    for entry in conversation_history:
+                        speaker = entry["agent_name"] if entry["role"] == "agent" else "Customer"
+                        compact_text = " ".join(entry["text"].split())
+                        history_lines.append(f'  {speaker}: {json.dumps(compact_text)}')
+                    history_block = "\n".join(history_lines) if history_lines else '  Customer: "(no prior conversation captured)"'
                     priming_message = (
-                        f"The customer was just transferred to you from {old_agent}. "
-                        f"Greet them briefly, then STOP and wait silently for the user to speak. "
-                        f"Do NOT continue talking or ask follow-up questions until the user responds."
+                        f"The customer was just transferred to you from {old_agent}.\n"
+                        f"Here is a summary of the conversation so far:\n"
+                        f"{history_block}\n"
+                        f"Reply with exactly one brief greeting sentence acknowledging the context, then wait silently for the user."
                     )
-                    logger.info("Agent switch: %s → %s (session %s)", old_agent, current_agent_name, session_id)
+                    voice_logger.info("Agent switch: %s → %s (session %s)", old_agent, current_agent_name, session_id)
                     continue
                 else:
                     break  # conversation ended or client disconnected
 
     except WebSocketDisconnect:
-        logger.info("Voice WebSocket client disconnected: %s", session_id)
+        voice_logger.info("Voice WebSocket client disconnected: %s", session_id)
     except Exception as e:
-        logger.exception("Voice WebSocket error for session %s", session_id)
+        voice_logger.exception("Voice WebSocket error for session %s", session_id)
         try:
             await websocket.close(code=1011, reason=str(e)[:123])
         except Exception:
             pass
     finally:
+        # Ensure any open sub-agent workflow span is closed on all exit paths
+        # (disconnect, cancellation, unhandled exception).
+        if _subagent_wf_ctx is not None:
+            try:
+                _subagent_wf_ctx.__exit__(None, None, None)
+            except Exception:
+                pass
         keepalive_task.cancel()
         await asyncio.gather(keepalive_task, return_exceptions=True)
 
@@ -672,5 +1311,6 @@ if __name__ == "__main__":
         host="0.0.0.0",
         port=8000,
         reload=True,
-        reload_dirs=["/app/backend", "/app/tribune_concierge", "/app/legionnaire_concierge"],
+        reload_dirs=["/app/backend", "/app/tribune_concierge", "/app/legionnaire_concierge", "/app/insecure_concierge"],
+        log_config=None,  # preserve our JSON formatter with DD trace correlation
     )

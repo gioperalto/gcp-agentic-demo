@@ -48,16 +48,18 @@ export function Restaurants() {
     loadRestaurants();
   }, []);
 
-  // Auto-select restaurant from query param
+  // Auto-select restaurant from query param — depends on user so it re-fires
+  // after auth hydration completes in a new tab (getCachedUser() returns null
+  // on fresh page load; fetchCurrentUser() populates it asynchronously).
   useEffect(() => {
     const id = searchParams.get('id');
-    if (id && restaurants.length > 0) {
+    if (id && user && restaurants.length > 0) {
       const restaurant = restaurants.find(r => r.id === id);
       if (restaurant) {
         openReservationModal(restaurant);
       }
     }
-  }, [restaurants, searchParams]);
+  }, [restaurants, searchParams, user]);
 
   // Apply filters
   useEffect(() => {
@@ -180,20 +182,21 @@ export function Restaurants() {
 
   if (!user) {
     return (
-      <div className="restaurants-page">
-        <div className="auth-gate">
-          <div className="gate-icon">🍽️</div>
-          <h1 className="gate-title">Restaurants</h1>
-          <p className="gate-subtitle">
-            Sign in to discover and reserve tables at exceptional dining destinations
-          </p>
-          <div className="gate-actions">
-            <button className="gate-button premium" onClick={() => navigate('/login')}>
-              Sign In to Continue
-            </button>
-            <button className="gate-button secondary" onClick={() => navigate('/cards')}>
-              Learn About Our Cards
-            </button>
+      <div className="restaurants-page restaurants-hero-bg">
+        <div className="restaurants-hero-overlay">
+          <div className="auth-gate">
+            <h1 className="gate-title">Restaurants</h1>
+            <p className="gate-subtitle">
+              Sign in to discover and reserve tables at exceptional dining destinations
+            </p>
+            <div className="gate-actions">
+              <button className="gate-button premium" onClick={() => navigate('/login')}>
+                Sign In to Continue
+              </button>
+              <button className="gate-button secondary" onClick={() => navigate('/cards')}>
+                Learn About Our Cards
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -396,11 +399,48 @@ export function Restaurants() {
                 </div>
 
                 <div className="modal-body">
-                  <div className="restaurant-summary">
-                    <p><strong>Location:</strong> {selectedRestaurant.city}, {selectedRestaurant.country}</p>
-                    <p><strong>Cuisine:</strong> {selectedRestaurant.cuisine}</p>
-                    <p><strong>Price Range:</strong> {selectedRestaurant.priceRange}</p>
+                  <div className="modal-image" style={{ backgroundImage: `url(${selectedRestaurant.imageUrl})` }} />
+
+                  <div className="modal-details">
+                    <div className="detail-row">
+                      <span className="detail-label">Rating</span>
+                      <span className="detail-value">
+                        <span className="rating-star">★</span> {selectedRestaurant.rating.toFixed(1)}
+                      </span>
+                    </div>
+                    <div className="detail-row">
+                      <span className="detail-label">Cuisine</span>
+                      <span className="detail-value">{selectedRestaurant.cuisine}</span>
+                    </div>
+                    <div className="detail-row">
+                      <span className="detail-label">Location</span>
+                      <span className="detail-value">{selectedRestaurant.city}, {selectedRestaurant.country}</span>
+                    </div>
+                    <div className="detail-row">
+                      <span className="detail-label">Price Range</span>
+                      <span className="detail-value">{selectedRestaurant.priceRange}</span>
+                    </div>
+                    <div className="detail-row">
+                      <span className="detail-label">Avg per Person</span>
+                      <span className="detail-value price-highlight">${selectedRestaurant.avgPricePerPerson}</span>
+                    </div>
                   </div>
+
+                  <div className="description">
+                    <h3>About</h3>
+                    <p>{selectedRestaurant.description}</p>
+                  </div>
+
+                  {selectedRestaurant.specialties.length > 0 && (
+                    <div className="modal-specialties">
+                      <h3>Specialties</h3>
+                      <div className="specialties-tags">
+                        {selectedRestaurant.specialties.map((specialty, idx) => (
+                          <span key={idx} className="specialty-tag">{specialty}</span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
 
                   <form onSubmit={handleReservation} className="reservation-form">
                     <div className="form-group">

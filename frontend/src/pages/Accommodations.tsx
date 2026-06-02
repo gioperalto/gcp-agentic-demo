@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { getAccommodations, bookAccommodation } from '../utils/api';
 import { getCachedUser, fetchCurrentUser } from '../utils/auth';
 import type { Accommodation, AccommodationFilters, AccommodationType, BookingRequest } from '../types/accommodation';
@@ -9,6 +9,7 @@ const POINTS_TO_DOLLAR_RATE = 100; // 100 points = $1
 
 export const Accommodations = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [accommodations, setAccommodations] = useState<Accommodation[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -46,6 +47,21 @@ export const Accommodations = () => {
   useEffect(() => {
     loadAccommodations();
   }, [selectedCountry, selectedType, minPrice, maxPrice, minRating]);
+
+  // Auto-select accommodation from query param — mirrors the same pattern used
+  // by Restaurants and Experiences.  Depends on user so it re-fires after auth
+  // hydration completes in a new tab (getCachedUser() returns null on fresh
+  // page load; fetchCurrentUser() populates it asynchronously).
+  // Calls handleCardClick to ensure all form state is properly initialized.
+  useEffect(() => {
+    const id = searchParams.get('id');
+    if (id && user && accommodations.length > 0) {
+      const accommodation = accommodations.find(a => a.id === id);
+      if (accommodation) {
+        handleCardClick(accommodation);
+      }
+    }
+  }, [accommodations, searchParams, user]);
 
   const loadAccommodations = async () => {
     try {
@@ -202,20 +218,21 @@ export const Accommodations = () => {
 
   if (!user) {
     return (
-      <div className="accommodations-page">
-        <div className="auth-gate">
-          <div className="gate-icon">🏨</div>
-          <h1 className="gate-title">Accommodations</h1>
-          <p className="gate-subtitle">
-            Sign in to browse and book accommodations with your Meridian card
-          </p>
-          <div className="gate-actions">
-            <button className="gate-button premium" onClick={() => navigate('/login')}>
-              Sign In to Continue
-            </button>
-            <button className="gate-button secondary" onClick={() => navigate('/cards')}>
-              Learn About Our Cards
-            </button>
+      <div className="accommodations-page accommodations-hero-bg">
+        <div className="accommodations-hero-overlay">
+          <div className="auth-gate">
+            <h1 className="gate-title">Accommodations</h1>
+            <p className="gate-subtitle">
+              Sign in to browse and book accommodations with your Meridian card
+            </p>
+            <div className="gate-actions">
+              <button className="gate-button premium" onClick={() => navigate('/login')}>
+                Sign In to Continue
+              </button>
+              <button className="gate-button secondary" onClick={() => navigate('/cards')}>
+                Learn About Our Cards
+              </button>
+            </div>
           </div>
         </div>
       </div>

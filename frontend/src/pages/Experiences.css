@@ -597,6 +597,94 @@
 }
 
 /* ═══ Booking Modal ═══ */
+
+.booking-modal .modal-image {
+  height: 240px;
+  background-size: cover;
+  background-position: center;
+  background-color: var(--m-surface-raised);
+  border-radius: var(--radius-md);
+}
+
+.booking-modal .modal-details {
+  margin-bottom: var(--space-lg);
+}
+
+.booking-modal .detail-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.65rem 0;
+  border-bottom: 1px solid var(--m-border);
+}
+
+.booking-modal .detail-label {
+  font-weight: 500;
+  color: var(--m-text-muted);
+  font-size: 0.9rem;
+}
+
+.booking-modal .detail-value {
+  color: var(--m-text-primary);
+  font-weight: 500;
+  font-size: 0.9rem;
+}
+
+.booking-modal .price-highlight {
+  color: var(--m-gold);
+  font-family: var(--font-display);
+  font-size: 1.2rem;
+  font-weight: 500;
+}
+
+.booking-modal .description {
+  margin-bottom: var(--space-lg);
+}
+
+.booking-modal .description h3 {
+  font-family: var(--font-display);
+  font-size: 1.3rem;
+  color: var(--m-cream);
+  margin-bottom: var(--space-sm);
+  font-weight: 500;
+}
+
+.booking-modal .description p {
+  color: var(--m-text-secondary);
+  line-height: 1.65;
+  font-size: 0.9rem;
+}
+
+.modal-included {
+  margin-bottom: var(--space-lg);
+}
+
+.modal-included h3 {
+  font-family: var(--font-display);
+  font-size: 1.3rem;
+  color: var(--m-cream);
+  margin-bottom: var(--space-sm);
+  font-weight: 500;
+}
+
+.modal-included ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+}
+
+.modal-included li {
+  background: var(--m-surface-raised);
+  border: 1px solid var(--m-border);
+  color: var(--m-text-secondary);
+  padding: 0.3rem 0.7rem;
+  border-radius: 2px;
+  font-size: 0.82rem;
+}
+
 .booking-modal-overlay {
   position: fixed;
   top: 0;
@@ -616,7 +704,7 @@
   background: var(--m-surface);
   border: 1px solid var(--m-border);
   border-radius: var(--radius-xl);
-  max-width: 600px;
+  max-width: 800px;
   width: 100%;
   max-height: 90vh;
   overflow-y: auto;

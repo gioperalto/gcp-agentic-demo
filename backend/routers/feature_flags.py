@@ -1,5 +1,6 @@
 from fastapi import APIRouter
 from services.feature_flag_service import evaluate_flag
+from feature_flags import FLAGS
 
 router = APIRouter(prefix="/api/flags", tags=["feature-flags"])
 
@@ -11,5 +12,6 @@ async def evaluate_feature_flag(flag_name: str):
     Flag state is managed in the Datadog UI — this endpoint exposes
     the current evaluation for debugging/monitoring purposes.
     """
-    enabled = evaluate_flag(flag_name, default=False)
+    default = FLAGS.get(flag_name, False)
+    enabled = evaluate_flag(flag_name, default=default)
     return {"flag": flag_name, "enabled": enabled}

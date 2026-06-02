@@ -9,8 +9,10 @@ Add new flags here — one entry per flag.
 
 INSECURE_PROFILE_AGENT = "insecure_profile_agent"
 RALPH_AGENT = "ralph_agent"
+LOAD_GEN_ENABLED = "load-gen-enabled"
 
 FLAGS: dict[str, bool] = {
     INSECURE_PROFILE_AGENT: False,
     RALPH_AGENT: False,
+    LOAD_GEN_ENABLED: True,  # fail-open: load gen runs when flag is absent/unreachable
 }

@@ -1,6 +1,15 @@
 **/__pycache__
 **/.env
+**/.env.*
+!**/.env.example
 .venv/
 .git/
 .DS_Store
 frontend/node_modules/
+frontend/dist/
+terraform/
+scripts/
+experiments/
+*.md
+LICENSE
+.claude/

@@ -9,8 +9,11 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Default to global endpoint at startup. Text agents reset to 'global' before
-# each request since the voice handler temporarily switches to 'us-central1'.
+# each request since the voice handler temporarily switches to the voice regional endpoint.
 os.environ['GOOGLE_CLOUD_LOCATION'] = 'global'
+
+# Region used by the Gemini Live API voice model (requires a regional endpoint).
+VOICE_REGION = os.environ.get('GOOGLE_CLOUD_VOICE_REGION', 'us-central1')
 
 from ddtrace.llmobs import LLMObs
 from ddtrace.trace import tracer
@@ -139,7 +142,7 @@ app = FastAPI(title="Travel Planner API")
 # Configure CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # In production, specify exact origins
+    allow_origins=os.environ.get("ALLOWED_ORIGINS", "*").split(","),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -273,7 +276,7 @@ async def stream_legionnaire_response(message: str, session_id: str) -> AsyncGen
     """
     Stream legionnaire agent responses (basic concierge without subagents)
     """
-    # Ensure text requests always use the global endpoint (voice may have switched to us-central1)
+    # Ensure text requests always use the global endpoint (voice may have switched to regional endpoint)
     os.environ['GOOGLE_CLOUD_LOCATION'] = 'global'
 
     response_parts: list[str] = []
@@ -403,7 +406,7 @@ async def stream_insecure_response(message: str, session_id: str) -> AsyncGenera
     """
     Stream insecure debug agent responses (unrestricted user data access)
     """
-    # Ensure text requests always use the global endpoint (voice may have switched to us-central1)
+    # Ensure text requests always use the global endpoint (voice may have switched to regional endpoint)
     os.environ['GOOGLE_CLOUD_LOCATION'] = 'global'
 
     response_parts: list[str] = []
@@ -506,7 +509,7 @@ async def stream_agent_response(message: str, session_id: str) -> AsyncGenerator
     """
     Stream agent responses with agent transfer notifications
     """
-    # Ensure text requests always use the global endpoint (voice may have switched to us-central1)
+    # Ensure text requests always use the global endpoint (voice may have switched to regional endpoint)
     os.environ['GOOGLE_CLOUD_LOCATION'] = 'global'
 
     # Per-agent response accumulators for LLMObs spans
@@ -871,8 +874,8 @@ async def voice_websocket(websocket: WebSocket, session_id: str = "default"):
     the current run_live() connection is closed and a new one is opened with
     the target agent's voice configuration.
     """
-    # Voice model requires the us-central1 regional endpoint.
-    os.environ['GOOGLE_CLOUD_LOCATION'] = 'us-central1'
+    # Voice model requires a regional endpoint (configured via GOOGLE_CLOUD_VOICE_REGION).
+    os.environ['GOOGLE_CLOUD_LOCATION'] = VOICE_REGION
 
     await websocket.accept()
 
@@ -1306,11 +1309,15 @@ async def root():
 
 if __name__ == "__main__":
     import uvicorn
+
+    port = int(os.environ.get("PORT", 8000))
+    is_dev = os.environ.get("DD_ENV", "dev") == "dev"
+
     uvicorn.run(
         "main:app",
         host="0.0.0.0",
-        port=8000,
-        reload=True,
-        reload_dirs=["/app/backend", "/app/tribune_concierge", "/app/legionnaire_concierge", "/app/insecure_concierge"],
+        port=port,
+        reload=is_dev,
+        reload_dirs=["/app/backend", "/app/tribune_concierge", "/app/legionnaire_concierge", "/app/insecure_concierge"] if is_dev else None,
         log_config=None,  # preserve our JSON formatter with DD trace correlation
     )

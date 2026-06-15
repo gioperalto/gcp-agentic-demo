@@ -1,0 +1,34 @@
+steps:
+  # Step 1: Sync images from the repo to the private media GCS bucket.
+  # gsutil rsync -d deletes objects in the bucket that no longer exist in the repo.
+  # Images are stored at gs://${_MEDIA_BUCKET}/img/...
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk:slim'
+    id: 'sync-images'
+    entrypoint: gsutil
+    args:
+      - '-m'
+      - 'rsync'
+      - '-r'
+      - '-d'
+      - 'frontend/public/img'
+      - 'gs://${_MEDIA_BUCKET}/img'
+
+  # Step 2: Execute the Firestore seeder Cloud Run Job.
+  # The job upserts catalog collections (accommodations, restaurants, flights,
+  # experiences) from the JSON files in backend/data/.
+  # Users and applications are never touched by the seeder.
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk:slim'
+    id: 'seed-firestore'
+    entrypoint: gcloud
+    args:
+      - 'run'
+      - 'jobs'
+      - 'execute'
+      - '${_SEEDER_JOB_NAME}'
+      - '--region=${_RUN_REGION}'
+      - '--wait'
+    waitFor:
+      - 'sync-images'
+
+options:
+  logging: CLOUD_LOGGING_ONLY

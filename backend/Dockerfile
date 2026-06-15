@@ -8,5 +8,6 @@ COPY tribune_concierge/ /app/tribune_concierge/
 COPY legionnaire_concierge/ /app/legionnaire_concierge/
 COPY insecure_concierge/ /app/insecure_concierge/
 WORKDIR /app/backend
-EXPOSE 8000
+ENV PORT=8080
+EXPOSE 8080
 CMD ["ddtrace-run", "python", "main.py"]

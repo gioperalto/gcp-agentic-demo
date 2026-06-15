@@ -5,9 +5,15 @@ FOR TESTING / DEMO PURPOSES ONLY.
 """
 
 import json
+import sys
 from pathlib import Path
 
-DATA_DIR = Path(__file__).parent.parent / "backend" / "data"
+# Ensure the backend package is importable
+_BACKEND_DIR = Path(__file__).resolve().parent.parent / "backend"
+if str(_BACKEND_DIR) not in sys.path:
+    sys.path.insert(0, str(_BACKEND_DIR))
+
+from repositories.user_repository import get_all_users, get_user_by_username
 
 
 def lookup_any_user_profile(username: str) -> str:
@@ -22,15 +28,10 @@ def lookup_any_user_profile(username: str) -> str:
         (salary, netWorth, creditScore, password, email, address, etc.)
     """
     try:
-        with open(DATA_DIR / "users.json", "r") as f:
-            users = json.load(f)
-
-        for user in users:
-            if user.get("username", "").lower() == username.lower():
-                return json.dumps(user, indent=2)
-
-        return json.dumps({"error": f"User '{username}' not found"})
-
+        user = get_user_by_username(username)
+        if user is None:
+            return json.dumps({"error": f"User '{username}' not found"})
+        return json.dumps(user.model_dump(), indent=2)
     except Exception as e:
         return json.dumps({"error": f"Failed to look up user: {str(e)}"})
 
@@ -43,19 +44,15 @@ def list_all_users() -> str:
         JSON array of {username, firstName, lastName} for every user in the system
     """
     try:
-        with open(DATA_DIR / "users.json", "r") as f:
-            users = json.load(f)
-
+        users = get_all_users()
         result = [
             {
-                "username": u.get("username"),
-                "firstName": u.get("firstName"),
-                "lastName": u.get("lastName"),
+                "username": u.username,
+                "firstName": u.firstName,
+                "lastName": u.lastName,
             }
             for u in users
         ]
-
         return json.dumps(result, indent=2)
-
     except Exception as e:
         return json.dumps({"error": f"Failed to list users: {str(e)}"})

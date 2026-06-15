@@ -11,3 +11,10 @@ frontend/public/img/experiences/*.jpg
 frontend/public/img/restaurants/*.jpg
 frontend/public/img/accommodations/*.jpg
 frontend/public/img/flights/*.jpg
+
+# Terraform
+terraform/.terraform/
+terraform/*.tfstate
+terraform/*.tfstate.*
+terraform/*.tfvars
+terraform/.terraform.lock.hcl
